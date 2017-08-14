@@ -1514,6 +1514,11 @@ find_optimal_transform
     max_log_p = find_optimal_translation(gca, gcas, mri, nsamples, m_L,
                                         ((double) -2300)/11, ((double) 2300)/11, 23, 5, Gclamp) ;
 
+//original modification 201707, wider initial and more fine grained final search
+//    max_log_p = find_optimal_translation(gca, gcas, mri, nsamples, m_L,
+//                                         -200, 200, 19, 7, Gclamp) ;
+
+
     max_log_p = local_GCAcomputeLogSampleProbability
       (gca, gcas, mri, m_L,nsamples, exvivo, Gclamp) ;
     fprintf(stdout,
