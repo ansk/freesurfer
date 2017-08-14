@@ -316,6 +316,10 @@ main(int argc, char *argv[])
   printf("logging results to %s.log\n", parms.base_name) ;
   parms.rigid = rigid ;
 
+  //Gdiag |= DIAG_SHOW;
+  //Gdiag |= DIAG_INFO;
+ // Gdiag = DIAG_VERBOSE_ON;
+
   if (skull)
   {
     int l ;
@@ -1498,12 +1502,22 @@ find_optimal_transform
       HISTOfree(&h_mri) ;
       HISTOfree(&h_smooth) ;
     }
+//experimental - to avoid fractions, but still getting not the same results (numerical precision)
+//    max_log_p = find_optimal_translation(gca, gcas, mri, nsamples, m_L,
+//                                        -300, 300, 33, 5, Gclamp) ;
+
+//original 201702
+//    max_log_p = find_optimal_translation(gca, gcas, mri, nsamples, m_L,
+//                                         -100, 100, 11, 5, Gclamp) ;
+
+//modif - extending search range, but grid search position the same as in 201702
     max_log_p = find_optimal_translation(gca, gcas, mri, nsamples, m_L,
-                                         -200, 200, 19, 7, Gclamp) ;
+                                        ((double) -2300)/11, ((double) 2300)/11, 23, 5, Gclamp) ;
+
     max_log_p = local_GCAcomputeLogSampleProbability
       (gca, gcas, mri, m_L,nsamples, exvivo, Gclamp) ;
     fprintf(stdout,
-            "Found translation: (%2.1f, %2.1f, %2.1f): log p = %4.3f\n",
+            "Found translation: (%2.6f, %2.6f, %2.6f): log p = %4.6f\n",
             *MATRIX_RELT(m_L, 1, 4),
             *MATRIX_RELT(m_L, 2, 4),
             *MATRIX_RELT(m_L, 3, 4),

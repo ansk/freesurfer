@@ -114,6 +114,7 @@ double find_optimal_translation( GCA *gca,
   double   x_trans, y_trans, z_trans, x_max, y_max, z_max, delta,
            log_p, max_log_p, mean_trans ;
   int      i ;
+  Gdiag |= DIAG_SHOW;
 
   log_p = 0;
   x_trans = 0;
@@ -156,7 +157,7 @@ double find_optimal_translation( GCA *gca,
     if (Gdiag & DIAG_SHOW)
     {
       printf(
-        "scanning translations %2.2f->%2.2f (step %2.1f) ",
+        "scanning translations %2.6f->%2.6f (step %2.6f) ",
         min_trans,max_trans, delta) ;
       fflush(stdout) ;
     }
@@ -241,9 +242,9 @@ double find_optimal_translation( GCA *gca,
             x_max = x_trans ;
             y_max = y_trans ;
             z_max = z_trans ;
-#if 0
-            printf("new max p %2.1f found at "
-                   "(%2.1f, %2.1f, %2.1f)\n",
+#if 1
+            printf("new max p %2.6f found at "
+                   "(%2.6f, %2.6f, %2.6f)\n",
                    max_log_p, x_trans, y_trans, z_trans) ;
 #endif
           }
@@ -255,7 +256,7 @@ double find_optimal_translation( GCA *gca,
     if( Gdiag & DIAG_SHOW )
     {
       printf(
-        "max log p = %12.6f @ (%4.3f, %4.3f, %4.3f)\n",
+        "max log p = %12.6f @ (%4.6f, %4.6f, %4.6f)\n",
         max_log_p, x_max, y_max, z_max) ;
     }
 
@@ -277,7 +278,7 @@ double find_optimal_translation( GCA *gca,
 #if 1
     // Repeat for debugging
     printf(
-      "max log p = %12.6f @ (%4.3f, %4.3f, %4.3f)\n",
+      "max log p = %12.6f @ (%4.3f, %4.6f, %4.6f)\n",
       max_log_p, x_max, y_max, z_max) ;
 #endif
 

@@ -978,7 +978,10 @@ find_control_points
              used_in_region, prior_wsize=5, image_wsize=3, histo_peak, n,
                              nbins ;
   GCA_SAMPLE *gcas, *gcas_region, *gcas_norm ;
-  double     means[MAX_GCA_INPUTS], vars[MAX_GCA_INPUTS], val, outlying_nsigma = 3, nsigma ;
+//  double     means[MAX_GCA_INPUTS], vars[MAX_GCA_INPUTS], val, outlying_nsigma = 3, nsigma ;
+//  ansk - revert to outlying_nsigma 2;
+  double     means[MAX_GCA_INPUTS], vars[MAX_GCA_INPUTS], val, outlying_nsigma = 2, nsigma ;
+
   HISTOGRAM  *histo, *hsmooth ;
   GC1D       *gc ;
   float      fmin, fmax ;
