@@ -1,5 +1,5 @@
-#ifndef kvlGaussianLikelihoodImageFilter_h
-#define kvlGaussianLikelihoodImageFilter_h
+#ifndef kvlGMMLikelihoodImageFilter_h
+#define kvlGMMLikelihoodImageFilter_h
 
 #include "itkImageToImageFilter.h"
 #include "itkArray.h"
@@ -22,19 +22,19 @@ namespace kvl
  */
 
 template< typename TInputImage > 
-class GaussianLikelihoodImageFilter:
+class GMMLikelihoodImageFilter:
   public itk::ImageToImageFilter< TInputImage,  
                                   itk::Image< itk::Array< typename TInputImage::PixelType >,       
                                               TInputImage::ImageDimension > >
 {
 public:
 
-  typedef GaussianLikelihoodImageFilter    Self;
+  typedef GMMLikelihoodImageFilter    Self;
   typedef itk::SmartPointer< Self >        Pointer;
   typedef itk::SmartPointer< const Self >  ConstPointer;
   itkNewMacro(Self);
 
-  itkTypeMacro(GaussianLikelihoodImageFilter, itk::ImageToImageFilter);
+  itkTypeMacro(GMMLikelihoodImageFilter, itk::ImageToImageFilter);
 
   itkStaticConstMacro(Dimension, unsigned int, TInputImage::ImageDimension);
 
@@ -47,31 +47,28 @@ public:
   typedef itk::ImageToImageFilter< InputImageType, OutputImageType >  Superclass;
 
   /** */
-  void SetMeans( const std::vector< vnl_vector<float> >& means )
-    { 
-    //std::cout << "Setting means" << std::endl;
-    m_Means = means; 
-    this->Modified();
-    }
-
-  /** */
-  void SetPrecisions( const std::vector< vnl_matrix<float> >& precisions );
+  void SetParameters( const std::vector< vnl_vector< double > >& means, 
+                      const std::vector< vnl_matrix< double > >& variances,
+                      const std::vector< double >&  mixtureWeights,
+                      const std::vector< int >&  numberOfGaussiansPerClass );
 
 protected:
-  GaussianLikelihoodImageFilter();
+  GMMLikelihoodImageFilter();
 
   virtual void BeforeThreadedGenerateData();
 
   virtual void ThreadedGenerateData(const RegionType & outputRegionForThread, itk::ThreadIdType);
 
 private:
-  GaussianLikelihoodImageFilter(const Self &);
+  GMMLikelihoodImageFilter(const Self &);
   void operator=(const Self &);
 
-  std::vector< vnl_vector< float > >  m_Means;
-  std::vector< std::vector< vnl_matrix< float > > >  m_Precisions;
-  std::vector< float > m_piTermMultiv;
-  std::vector< std::vector< float > >  m_OneOverSqrtDetCov;
+  std::vector< vnl_vector< double > >  m_Means;
+  std::vector< std::vector< vnl_matrix< double > > >  m_Precisions;
+  std::vector< double > m_piTermMultiv;
+  std::vector< std::vector< double > >  m_OneOverSqrtDetCov;
+  std::vector< double >  m_MixtureWeights;
+  std::vector< int >  m_NumberOfGaussiansPerClass;
   
 };
 
@@ -79,6 +76,6 @@ private:
 }
 
 
-#include "kvlGaussianLikelihoodImageFilter.hxx"
+#include "kvlGMMLikelihoodImageFilter.hxx"
 
 #endif
