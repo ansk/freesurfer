@@ -3,17 +3,12 @@ function u = fmri_norm(v,order)
 % 
 % normalizes the columns of v. order=2 by default.
 %
-% '$Id: fmri_norm.m,v 1.4 2011/03/02 00:04:06 nicks Exp $'
 
 
 %
 % fmri_norm.m
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:06 $
-%    $Revision: 1.4 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

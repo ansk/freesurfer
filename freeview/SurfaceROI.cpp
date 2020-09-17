@@ -1,14 +1,9 @@
 /**
- * @file  SurfaceROI.cpp
  * @brief Surface region from a surface selection in 3D view.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2011/05/20 17:35:30 $
- *    $Revision: 1.2 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -54,7 +49,11 @@ SurfaceROI::SurfaceROI( LayerSurface* owner ) :
 {
   m_actorOutline = vtkSmartPointer<vtkActor>::New();
   m_actorOutline->GetProperty()->SetColor( 0, 1, 0 );
-  m_actorOutline->GetProperty()->SetLineWidth( 4 );
+  double ratio = 1;
+#if VTK_MAJOR_VERSION > 7
+  ratio = MainWindow::GetMainWindow()->devicePixelRatio();
+#endif
+  m_actorOutline->GetProperty()->SetLineWidth(4*ratio);
 
   m_points = vtkSmartPointer<vtkPoints>::New();
   m_mris = owner;
@@ -90,7 +89,11 @@ void SurfaceROI::RebuildOutline( bool bClose )
   polydata->SetPoints( m_points );
   polydata->SetLines( lines );
   vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+#if VTK_MAJOR_VERSION > 5
+  mapper->SetInputData( polydata );
+#else
   mapper->SetInput( polydata );
+#endif
   m_actorOutline->SetMapper( mapper );
 }
 

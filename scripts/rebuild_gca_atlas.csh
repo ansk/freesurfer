@@ -26,10 +26,6 @@
 # "nu_noneck.mgz" is needed for every subject to build the gca with skull.
 #
 # Original author: Xiao Han
-# CVS Revision Info:
-#    $Author: nicks $
-#    $Date: 2015/06/25 15:31:31 $
-#    $Revision: 1.23 $
 #
 # Copyright © 2011-2015 The General Hospital Corporation (Boston, MA) "MGH"
 #
@@ -44,7 +40,7 @@
 #
 
 
-set VERSION='$Id: rebuild_gca_atlas.csh,v 1.23 2015/06/25 15:31:31 nicks Exp $';
+set VERSION='rebuild_gca_atlas.csh @FS_VERSION@'
 
 #set echo=1
 

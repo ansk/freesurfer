@@ -11,7 +11,6 @@ function [sig, gmn, gmnvar, t, dof, p] = fast_ffx_osgm(means,varmeans,dofs,fdim)
 %   1. The first dim, if means is a matrix
 %   2. The last dim is means has a dim > 2
 %
-% $Id: fast_ffx_osgm.m,v 1.3 2011/03/02 00:04:04 nicks Exp $
 
 % To test FPR
 % dofs = 100;
@@ -28,10 +27,6 @@ function [sig, gmn, gmnvar, t, dof, p] = fast_ffx_osgm(means,varmeans,dofs,fdim)
 % fast_ffx_osgm.m
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:04 $
-%    $Revision: 1.3 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

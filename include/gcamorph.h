@@ -1,5 +1,4 @@
 /**
- * @file  gcamorph.h
  * @brief morph is a dense vector field uniformly distributed in the atlas
  *
  *
@@ -13,10 +12,6 @@
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: zkaufman $
- *    $Date: 2016/02/04 20:23:04 $
- *    $Revision: 1.117 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -38,10 +33,6 @@
 #include "transform.h"
 #include "label.h"
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 #define GCAM_UNLABELED                   0x0000
 #define GCAM_LABELED                     0x0001
 #define GCAM_PRESERVE_METRIC_PROPERTIES  0x0002
@@ -50,17 +41,65 @@ extern "C" {
 #define GCAM_RAS         1
 #define GCAM_VOX         2
 
+#ifdef _GCAMORPH_SRC
+  int gcamLogLikelihoodEnergy_nCalls=0;
+  double gcamLogLikelihoodEnergy_tsec=0;
+  int gcamLabelEnergy_nCalls=0;
+  double gcamLabelEnergy_tsec=0;
+  int gcamSmoothnessEnergy_nCalls=0;
+  double gcamSmoothnessEnergy_tsec=0;
+  int gcamJacobianEnergy_nCalls=0;
+  double gcamJacobianEnergy_tsec=0;
+  int gcamLogLikelihoodTerm_nCalls=0;
+  double gcamLogLikelihoodTerm_tsec=0;
+  int gcamSmoothnessTerm_nCalls=0;
+  double gcamSmoothnessTerm_tsec=0;
+  int gcamJacobianTerm_nCalls=0;
+  double gcamJacobianTerm_tsec=0;
+  int gcamLabelTerm_nCalls=0;
+  double gcamLabelTerm_tsec=0;
+  int gcamComputeGradient_nCalls=0;
+  double gcamComputeGradient_tsec=0;
+  int gcamComputeMetricProperties_nCalls=0;
+  double gcamComputeMetricProperties_tsec=0;
+#else
+  extern int gcamLogLikelihoodEnergy_nCalls;
+  extern double gcamLogLikelihoodEnergy_tsec;
+  extern int gcamLabelEnergy_nCalls;
+  extern double gcamLabelEnergy_tsec;
+  extern int gcamSmoothnessEnergy_nCalls;
+  extern double gcamSmoothnessEnergy_tsec;
+  extern int gcamJacobianEnergy_nCalls;
+  extern double gcamJacobianEnergy_tsec;
+  extern int gcamLogLikelihoodTerm_nCalls;
+  extern double gcamLogLikelihoodTerm_tsec;
+  extern int gcamSmoothnessTerm_nCalls;
+  extern double gcamSmoothnessTerm_tsec;
+  extern int gcamJacobianTerm_nCalls;
+  extern double gcamJacobianTerm_tsec;
+  extern int gcamLabelTerm_nCalls;
+  extern double gcamLabelTerm_tsec;
+  extern int gcamComputeGradient_nCalls;
+  extern double gcamComputeGradient_tsec;
+  extern int gcamComputeMetricProperties_nCalls;
+  extern double gcamComputeMetricProperties_tsec;
+#endif
+
 typedef struct
 {
-  double origx ;      //  mri original src voxel position (using lta)
-  double origy ;
-  double origz ;
-  double saved_origx ;      //  mri original src voxel position (using lta)
-  double saved_origy ;
-  double saved_origz ;
+  // gcamorph uses these fields in its hottest function so put them together to reduce cache misses
+  char   invalid;       /* if invalid = 1, then don't use this structure */
+  int    label ;
   double x ;          //  updated original src voxel position
   double y ;
   double z ;
+  double origx ;      //  mri original src voxel position (using lta)
+  double origy ;
+  double origz ;
+  //
+  double saved_origx ;      //  mri original src voxel position (using lta)
+  double saved_origy ;
+  double saved_origz ;
   double xs ;         //  not saved
   double ys ;
   double zs ;
@@ -70,7 +109,6 @@ typedef struct
   int    xn ;         /* node coordinates */
   int    yn ;         //  prior voxel position
   int    zn ;
-  int    label ;
   int    n ;          /* index in gcan structure */
   float  prior ;
   GC1D   *gc ;
@@ -85,7 +123,6 @@ typedef struct
   float  orig_area1 ;
   float  orig_area2 ;
   int    status ;       /* ignore likelihood term */
-  char   invalid;       /* if invalid = 1, then don't use this structure */
   float  label_dist ;   /* for computing label dist */
   float  last_se ;
   float  predicted_val ; /* weighted average of all class 
@@ -115,7 +152,7 @@ typedef struct
   int     status ;
   MATRIX   *m_affine ;         // affine transform to initialize with
   double   det ;               // determinant of affine transform
-  void    *vgcam_ms ;
+  void    *vgcam_ms ; // Not saved.
 }
 GCA_MORPH, GCAM ;
 
@@ -260,8 +297,10 @@ MRI_SUBCORTCONN ;
 int GCAMdilateUseLikelihood(GCA_MORPH *gcam, int ndilations) ;
   int GCAMcomputeVentricleExpansionGradient(GCA_MORPH *gcam, MRI *mri, MRI *mri_vent, int navgs) ;
 GCA_MORPH *GCAMupsample2(GCA_MORPH *gcam) ;
-int       GCAMcopy(GCA_MORPH *gcamsrc, GCA_MORPH *gcamdst) ;
-int GCAMconcatenate(GCA_MORPH *gcam1, GCA_MORPH *gcam2, GCA_MORPH *gcam_comp);
+GCA_MORPH *GCAMcopy(const GCA_MORPH *gcamsrc, GCA_MORPH *gcamdst) ;
+GCA_MORPH *GCAMconcat2(GCA_MORPH *gcam1, GCA_MORPH *gcam2, GCA_MORPH *out) ;
+GCA_MORPH *GCAMconcat3(LTA *lta1, GCAM *gcam, LTA *lta2, GCAM *out) ;
+GCA_MORPH *GCAMchangeVolGeom(GCA_MORPH *gcam, MRI *mri_src, MRI *mri_dst) ;
 GCA_MORPH *GCAMdownsample2(GCA_MORPH *gcam) ;
 GCA_MORPH *GCAMalloc( const int width, const int height, const int depth );
 
@@ -372,7 +411,7 @@ int GCAMresetLikelihoodStatus(GCA_MORPH *gcam) ;
 int GCAMsetLabelStatus(GCA_MORPH *gcam, int label, int status) ;
 int GCAMsetStatus(GCA_MORPH *gcam, int status) ;
 int GCAMapplyTransform(GCA_MORPH *gcam, TRANSFORM *transform) ;
-int GCAMapplyInverseTransform(GCA_MORPH *gcam, TRANSFORM *transform) ;
+int GCAMapplyInverseTransform(GCA_MORPH *gcam, const TRANSFORM *transform) ;
 int GCAMinitVolGeom(GCAM *gcam, MRI *mri_src, MRI *mri_atlas) ;
 MRI *GCAMmorphFieldFromAtlas(GCA_MORPH *gcam, 
                              MRI *mri, 
@@ -622,11 +661,6 @@ double MRIlabelMorphSSE(MRI *mri_source, MRI *mri_atlas, MRI *mri_morph) ;
 
   int zero_vals(float *vals, int nvals) ;
 
-  int different_neighbor_labels( const GCA_MORPH *gcam, 
-				 const int x, const int y, const int z,
-				 const int whalf);
-
-
   int gcamComputeGradient( GCA_MORPH *gcam, MRI *mri, MRI *mri_smooth,
 			   GCA_MORPH_PARMS *parms );
 
@@ -634,105 +668,5 @@ double MRIlabelMorphSSE(MRI *mri_source, MRI *mri_atlas, MRI *mri_morph) ;
   int gcamSmoothGradient( GCA_MORPH *gcam, int navgs );
 
 MRI *GCAMtoMRI(GCAM *gcam, MRI *mri);
-
-#ifdef FS_CUDA
-  //! Wrapper around the GPU version of gcamComputeMetricProperties
-  void gcamComputeMetricPropertiesGPU( GCA_MORPH* gcam,
-				       int *invalid );
-
-  void gcamApplyGradientGPU( GCA_MORPH *gcam, GCA_MORPH_PARMS *parms );
-  void gcamUndoGradientGPU( GCA_MORPH *gcam );
-
-  float gcamLogLikelihoodEnergyGPU( const GCA_MORPH *gcam,
-				    const MRI* mri );
-
-  float gcamJacobianEnergyGPU( const GCA_MORPH *gcam,
-			       const MRI* mri );
-
-  //! Wrapper around the GPU version of gcamLabelEnergy
-  float gcamLabelEnergyGPU( const GCA_MORPH *gcam );
-
-  float gcamSmoothnessEnergyGPU( const GCA_MORPH *gcam );
-
-  float gcamComputeRMSonGPU( GCA_MORPH *gcam,
-			     const MRI* mri,
-			     GCA_MORPH_PARMS *parms );
-
-  void gcamClearGradientGPU( GCA_MORPH* gcam );
-  void gcamClearMomentumGPU( GCA_MORPH* gcam );
-
-  void gcamSmoothnessTermGPU( GCA_MORPH* gcam,
-			      const float l_smoothness );
-
-  void gcamJacobianTermGPU( GCA_MORPH *gcam,
-			    const float l_jacobian,
-			    const float jac_scale );
-
-  void gcamLogLikelihoodTermGPU( GCA_MORPH *gcam, 
-				 const MRI *mri, 
-				 const MRI *mri_smooth, 
-				 double l_log_likelihood );
-
-  void gcamAddStatusGPU( GCA_MORPH *gcam, const int statusFlags );
-  void gcamRemoveStatusGPU( GCA_MORPH *gcam, const int statusFlags );
-  void gcamSmoothGradientGPU( GCA_MORPH *gcam, int navgs );
-
-  void gcamLabelTermMainLoopGPU( GCA_MORPH *gcam, const MRI *mri,
-				 MRI *mri_dist,
-				 const double l_label,
-				 const double label_dist );
-  int gcamRemoveLabelOutliersGPU( GCA_MORPH *gcam,
-				  MRI* mri_dist,
-				  const int whalf,
-				  const double thresh );
-  void gcamLabelTermCopyDeltasGPU( GCA_MORPH *gcam,
-				   const MRI* mri_dist,
-				   const double l_label );
-
-  int gcamLabelTermPostAntConsistencyGPU( GCA_MORPH *gcam,
-					  MRI* mri_dist );
-  int gcamLabelTermFinalUpdateGPU( GCA_MORPH *gcam,
-				   const MRI* mri_dist,
-				   const double l_label );
-
-  int gcamLabelTermGPU( GCA_MORPH *gcam, const MRI *mri,
-			double l_label, double label_dist );
-
-
-  void GCAMremoveSingularitiesGPU( GCA_MORPH *gcam );
-
-  //! Accessor for (probably unused) global
-  void SetInconsistentLabelNodes( const int val );
-
-  //! Accessor for global
-  void SetGinvalid( const int val );
-
-  int gcamComputeGradientGPU( GCA_MORPH *gcam,
-			      const MRI *mri,
-			      const MRI *mri_smooth,
-			      GCA_MORPH_PARMS *parms );
-
-  void GCAMcopyNodePositionsGPU( GCA_MORPH *gcam,
-				 const int from,
-				 const int to );
-  
-  void gcamRegisterLevelGPU( GCA_MORPH *gcam,
-			     const MRI *mri,
-			     const MRI *mri_smooth,
-			     GCA_MORPH_PARMS *parms );
-
-  float GCAMregisterPipelineAndComputeRMSGPU( GCA_MORPH *gcam,
-					      MRI *mri,
-					      MRI *mri_smooth,
-					      GCA_MORPH_PARMS *parms,
-					      double *last_rms,
-					      int *level_steps,
-					      int i );
-  
-#endif
-
-#if defined(__cplusplus)
-};
-#endif
 
 #endif

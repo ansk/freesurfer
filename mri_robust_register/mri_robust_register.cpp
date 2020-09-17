@@ -1,5 +1,4 @@
 /**
- * @file  mri_robust_register.cpp
  * @brief Linear registration of two volumes using robust statistics
  *
  * Based on ideas in "Robust Multiresolution Alignment of MRI Brain Volumes"
@@ -8,10 +7,6 @@
 
 /*
  * Original Author: Martin Reuter, Nov. 4th ,2008
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2016/01/20 23:36:17 $
- *    $Revision: 1.77 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -34,11 +29,14 @@
 #include <cassert>
 
 #include <vcl_iostream.h>
+
+#define export // obsolete feature 'export template' used in these headers 
 #include <vnl/vnl_inverse.h>
 #include <vnl/vnl_matrix_fixed.h>
 #include <vnl/algo/vnl_determinant.h>
 #include <vnl/algo/vnl_svd.h>
 #include <vnl/vnl_matlab_print.h>
+#undef export
 
 #include "Registration.h"
 #include "RegistrationStep.h"
@@ -49,11 +47,6 @@
 #include "MyMatrix.h"
 #include "JointHisto.h"
 
-// all other software are all in "C"
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "error.h"
 #include "macros.h"
 #include "mri.h"
@@ -64,10 +57,6 @@ extern "C"
 #include "mrimorph.h"
 #include "version.h"
 #include "transform.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 using namespace std;
 
@@ -135,6 +124,9 @@ struct Parameters
   bool entball;
   bool entcorrection;
   double powelltol;
+  bool whitebgmov;
+  bool whitebgdst;
+  bool uchartype;
 };
 static struct Parameters P =
 { "", "", "", "", "", "", "", "", "", "", "", false, false, false, false, false, false,
@@ -142,15 +134,13 @@ static struct Parameters P =
     NULL, NULL, false, false, true, false, 1, -1, false, 0.16, true, true, "",
     "", -1, -1, Registration::ROB,
 //  256,
-    SAMPLE_CUBIC_BSPLINE, false, ERADIUS, "", "", false, false, 1e-5 };
+    SAMPLE_CUBIC_BSPLINE, false, ERADIUS, "", "", false, false, 1e-5, false, false,false};
 
 static void printUsage(void);
 static bool parseCommandLine(int argc, char *argv[], Parameters & P);
 static void initRegistration(Registration & R, Parameters & P);
 
-static char vcid[] =
-    "$Id: mri_robust_register.cpp,v 1.77 2016/01/20 23:36:17 greve Exp $";
-char *Progname = NULL;
+const char *Progname = NULL;
 
 //static MORPH_PARMS  parms ;
 //static FILE *diag_fp = NULL ;
@@ -598,14 +588,14 @@ int main(int argc, char *argv[])
 {
   {
     // for valgrind, so that everything is freed
-    cout << vcid << endl << endl;
+    cout << getVersion() << endl << endl;
 //  setenv("SURFER_FRONTDOOR","",1) ;
     // set the environment variable
     // to store mri as chunk in memory:
 //  setenv("FS_USE_MRI_CHUNK","",1) ;
 
     // Default initialization
-    int nargs = handle_version_option(argc, argv, vcid, "$Name:  $");
+    int nargs = handleVersionOption(argc, argv, "mri_robust_register");
     if (nargs && argc - nargs == 1)
     {
       exit(0);
@@ -639,9 +629,9 @@ int main(int argc, char *argv[])
 // exit(1);
 
     // Timer
-    struct timeb start;
+    Timer start;
     int msec, minutes, seconds;
-    TimerStart(&start);
+    start.reset();
 
     // init registration from Parameters
     Registration * Rp = NULL;
@@ -692,7 +682,7 @@ int main(int argc, char *argv[])
 //     cout << " gnuplot " << R.getName() << "-sat.plot ; \\ " << endl;
 //     cout << " epstopdf " << R.getName() << "-sat.eps " << endl;
 //     cout << " and view the pdf " << endl << endl;
-//     msec = TimerStop(&start) ;
+//     msec = start.milliseconds() ;
 //     seconds = nint((float)msec/1000.0f) ;
 //     minutes = seconds / 60 ;
 //     seconds = seconds % 60 ;
@@ -1194,7 +1184,7 @@ int main(int argc, char *argv[])
       LTAfree(&lta);
 
     ///////////////////////////////////////////////////////////////
-    msec = TimerStop(&start);
+    msec = start.milliseconds();
     seconds = nint((float) msec / 1000.0f);
     minutes = seconds / 60;
     seconds = seconds % 60;
@@ -1227,7 +1217,7 @@ int main(int argc, char *argv[])
 //   MRI          *mri_src, *mri_dst, *mri_tmp;
 //
 //   int          nargs,ninputs,i,msec,minutes,seconds;
-//   struct timeb start ;
+//   Timer start ;
 //
 //   // defaults
 //   Progname = argv[0] ;
@@ -1259,7 +1249,7 @@ int main(int argc, char *argv[])
 //  // Gdiag |= DIAG_WRITE ;
 //  // cout << "logging results to "<< parms.base_name <<".log" << endl;
 //
-//   TimerStart(&start) ;
+//   start.reset() ;
 //   ///////////  read MRI Target //////////////////////////////////////////////////
 //   cout << endl << "reading target '"<<fname_dst<<"'..."<< endl;;
 //   fflush(stdout) ;
@@ -1404,7 +1394,7 @@ int main(int argc, char *argv[])
 //
 //
 //   ///////////////////////////////////////////////////////////////
-//   msec = TimerStop(&start) ;
+//   msec = start.milliseconds() ;
 //   seconds = nint((float)msec/1000.0f) ;
 //   minutes = seconds / 60 ;
 //   seconds = seconds % 60 ;
@@ -1575,18 +1565,18 @@ static void initRegistration(Registration & R, Parameters & P)
   if (P.entropy)
   {
     MRI * temp = mri_mov;
-    struct timeb start;
-    int msec, minutes, seconds;
-    TimerStart(&start);
+    Timer start;
+    int msec, seconds;
+    start.reset();
     cout << "Converting mov to entropy image (radius " << P.entroradius
         << " ) ... (can take 1-2 min)" << endl;
     mri_mov = MyMRI::entropyImage(temp, P.entroradius, P.entball,
         P.entcorrection,mri_mask);
     if (P.entmov != "")
       MRIwrite(mri_mov, P.entmov.c_str());
-    msec = TimerStop(&start);
+    msec = start.milliseconds();
     seconds = nint((float) msec / 1000.0f);
-    minutes = seconds / 60;
+//    minutes = seconds / 60;
     //seconds = seconds % 60 ;
     cout << " Entropy computation took " << seconds << " seconds." << endl;
     MRIfree(&temp);
@@ -1776,6 +1766,23 @@ static void initRegistration(Registration & R, Parameters & P)
 
   cout << endl;
 
+  // set to uchar if passed
+  if (P.uchartype)
+  {
+    MRI * mriuchar = MyMRI::setTypeUCHAR(mri_mov);
+    MRIfree(&mri_mov);
+    mri_mov = mriuchar;
+    mriuchar = MyMRI::setTypeUCHAR(mri_dst);
+    MRIfree(&mri_dst);
+    mri_dst = mriuchar; 
+  }
+
+  // set oustide value to white if passed
+  if (P.whitebgmov)
+    MyMRI::setMaxOutsideVal(mri_mov);
+  if (P.whitebgdst)
+    MyMRI::setMaxOutsideVal(mri_dst);
+
   // now actually set source and target (and possibly reslice):
   // important that first everything else is set!
   R.setSourceAndTarget(mri_mov, mri_dst, !P.floattype);
@@ -1832,24 +1839,24 @@ static int parseNextCommand(int argc, char *argv[], Parameters & P)
   else if (!strcmp(option, "AFFINE") || !strcmp(option, "A"))
   {
     P.affine = true;
-    cout << "--affine: Enableing affine transform!" << endl;
+    cout << "--affine: Enabling affine transform!" << endl;
   }
   else if (!strcmp(option, "ISOSCALE"))
   {
     P.isoscale = true;
-    cout << "--isoscale: Enableing isotropic scaling!" << endl;
+    cout << "--isoscale: Enabling isotropic scaling!" << endl;
   }
   else if (!strcmp(option, "INITSCALING"))
   {
     P.initscaling = true;
     cout
-        << "--initscaling: Enableing initial scale adjustment based on image dimensions!"
+        << "--initscaling: Enabling initial scale adjustment based on image dimensions!"
         << endl;
   }
   else if (!strcmp(option, "ISCALE") || !strcmp(option, "I"))
   {
     P.iscale = true;
-    cout << "--iscale: Enableing intensity scaling!" << endl;
+    cout << "--iscale: Enabling intensity scaling!" << endl;
   }
   else if (!strcmp(option, "ISCALEONLY") )
   {
@@ -2182,6 +2189,27 @@ static int parseNextCommand(int argc, char *argv[], Parameters & P)
     P.symmetry = false;
     nargs = 0;
     cout << "--nosym: Will resample source to target (no half-way space)!"
+        << endl;
+  }
+  else if (!strcmp(option, "WHITEBGMOV"))
+  {
+    P.whitebgmov = true;
+    nargs = 0;
+    cout << "--whitebgmov: Will assume white background in MOV!"
+        << endl;
+  }
+  else if (!strcmp(option, "WHITEBGDST"))
+  {
+    P.whitebgdst = true;
+    nargs = 0;
+    cout << "--whitebgdst: Will assume white background in DST!"
+        << endl;
+  }
+  else if (!strcmp(option, "UCHAR"))
+  {
+    P.uchartype = true;
+    nargs = 0;
+    cout << "--uchar: Will convert images to uchar (with re-scaling and histogram cropping)!"
         << endl;
   }
   else if (!strcmp(option, "ISCALEOUT"))

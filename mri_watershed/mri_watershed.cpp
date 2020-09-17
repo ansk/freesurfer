@@ -1,5 +1,4 @@
 /**
- * @file  mri_watershed.cpp
  * @brief skull-strip MRI image, leaving brain
  *
  * "A Hybrid Approach to the Skull-Stripping Problem in MRI",
@@ -10,10 +9,6 @@
  */
 /*
  * Original Authors: Florent Segonne & Bruce Fischl
- * CVS Revision Info:
- *    $Author: zkaufman $
- *    $Date: 2016/06/17 18:00:49 $
- *    $Revision: 1.103 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -26,8 +21,6 @@
  * Reporting: freesurfer@nmr.mgh.harvard.edu
  *
  */
-
-const char *MRI_WATERSHED_VERSION = "$Revision: 1.103 $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,10 +40,6 @@ const char *MRI_WATERSHED_VERSION = "$Revision: 1.103 $";
 
 #define FAST_GCAsourceVoxelToPrior 1
 
-#if INDIVIDUAL_TIMERS
-#include "chronometer.hpp"
-#endif
-
 #ifndef powerpc
 #include "affine.hpp"
 #endif
@@ -59,8 +48,6 @@ const char *MRI_WATERSHED_VERSION = "$Revision: 1.103 $";
 
 #include "gcautils.hpp"
 
-extern "C"
-{
 #include "mri.h"
 #include "macros.h"
 #include "error.h"
@@ -85,10 +72,10 @@ extern "C"
 #include "gcamorph.h"
 #include "cma.h"
 #include "transform.h"
-
 #include "talairachex.h"
 #include "mri_circulars.h"
-}
+#include "timer.h"
+
 
 #define WM_CONST 110 /* not used anymore */
 #define MAX_INT 100 /*100% is a good value for the watershed algo */
@@ -221,10 +208,87 @@ typedef struct STRIP_PARMS
 STRIP_PARMS ;
 
 
+// The old code was using a MRIS to hold this data but was not storing positional xyz coordinates
+// in the xyz fields.  This class replaces that use of the MRIS.
+//
+class Sphere {
+#define SPHERE_ELTS \
+    ELT(int,marked) SEP \
+    ELT(float,x) SEP ELT(float,y) SEP ELT(float,z) SEP \
+    ELT(float,tx) SEP ELT(float,ty) SEP ELT(float,tz) SEP \
+    ELT(float,dx) SEP ELT(float,dy) SEP ELT(float,dz) SEP \
+    ELT(float,odx) SEP ELT(float,ody) SEP ELT(float,odz) SEP \
+    ELT(float,tdx) SEP ELT(float,tdy) SEP ELT(float,tdz) SEP \
+    ELT(float,mean) SEP ELT(float,val) SEP ELT(float,curv) \
+    // end of macro
+
+public:
+    Sphere(MRIS* mris) 
+      : mris(mris), status(mris->status), nvertices(mris->nvertices), vertices(nullptr) {
+      vertices = new Vertex[nvertices];
+      for (int vno = 0; vno < nvertices; vno++) {
+        auto vo = &vertices[vno];
+        auto vi = &mris->vertices[vno];
+        cheapAssert(!vi->ripflag);      // not checked in SphereAverageVals
+#define SEP
+#define ELT(T,N) vo->N = vi->N ;
+SPHERE_ELTS
+#undef ELT
+#undef SEP
+      }
+    }
+    ~Sphere() {
+        MRISfree(&mris);
+    }
+    MRIS* mris;
+    MRIS_Status const status;
+    int   const nvertices;
+    float radius;
+    struct Vertex {
+#define SEP
+#define ELT(T,N) T N ;
+SPHERE_ELTS
+#undef ELT
+#undef SEP
+    } * vertices;
+};
+
+static void SphereSetNeighborhoodSizeAndDist(Sphere* sphere, int size) {
+    cheapAssert(size == 1);
+}
+
+static void SphereAverageVals(Sphere* sphere, int navgs) {
+  int const nvertices = sphere->nvertices;
+
+  for (int i = 0; i < navgs; i++) {
+    for (int vno = 0; vno < nvertices; vno++) {
+      
+      auto const * const vt = &sphere->mris->vertices_topology[vno];
+      auto       * const v  = &sphere->vertices               [vno];
+
+      float val = v->val;
+
+      for (int vnb = 0; vnb < vt->vnum; vnb++) {
+        VERTEX const * const vn = &sphere->mris->vertices[vt->v[vnb]]; /* neighboring vertex pointer */
+        val += vn->val;
+      }
+      
+      v->tdx = val / (vt->vnum + 1);
+    }
+
+    for (int vno = 0; vno < nvertices; vno++) {
+      auto * const v = &sphere->vertices[vno];
+      v->val = v->tdx;
+    }
+  }
+}
+
 typedef struct
 {
   float direction[26][3]; // 3x3x3 neighbor (exclude self) = 27-1 = 26
-  MRIS *mrisphere,*mris,*mris_curv,*mris_var_curv,*mris_dCOG,*mris_var_dCOG;
+  MRIS *mris,*mris_curv,*mris_var_curv,*mris_dCOG,*mris_var_dCOG;
+  
+  Sphere * sphere;
 
   double xCOG,yCOG,zCOG,rad_Brain; // voxel coordinates
   double xsCOG,ysCOG,zsCOG;        // RAS coordinates
@@ -401,16 +465,19 @@ static float rtanh(float x);
 #endif
 /*VALIDATION - SURFACE CORRECTION*/
 int ValidationSurfaceShape(MRI_variables *MRI_var);
-void MRIScenterCOG(MRI_SURFACE *mris);
-void MRISscale(MRI_SURFACE *mris);
-double MRISradius(MRI_SURFACE *mris);
-void MRISinitSurfaces(MRIS *mris_curv,MRIS *mris_dCOG,
-                      const MRIS *mrisphere);
+
+void   SphereCenterCOG(Sphere *sphere);
+void   SphereScale(Sphere *sphere);
+double Sphereadius(Sphere *sphere);
+
+void initSurfaces(MRIS *mris_curv,MRIS *mris_dCOG, const Sphere *sphere);
 void MRISdistanceToCOG(MRI_SURFACE *mris);
-double mrisComputeCorrelationError(MRI_SURFACE *mris,
+double mrisComputeCorrelationErrorLocal(MRI_SURFACE *mris,
                                    INTEGRATION_PARMS *parms,
                                    int use_stds);
-void MRISchangeCoordinates(MRI_SURFACE *mris, const MRI_SURFACE *mris_orig);
+
+void SphereChangeCoordinates(MRIS *mris, const Sphere *input);
+void MRISChangeCoordinates(MRIS *mris, const MRIS* input);
 
 int
 mrisRigidBodyAlignGlobal(MRIS *mris,MRIS *mris_dist, INTEGRATION_PARMS *parms,
@@ -418,7 +485,7 @@ mrisRigidBodyAlignGlobal(MRIS *mris,MRIS *mris_dist, INTEGRATION_PARMS *parms,
                          int nangles);
 
 int mrisLocalizeErrors(MRIS* mris_curv,MRIS *mris_dCOG,
-                       MRI_variables *MRI_var,MRIS *mrisphere);
+                       MRI_variables *MRI_var,Sphere *sphere);
 void MRISCorrectSurface(MRI_variables *MRI_var);
 void MRISComputeLocalValues(MRI_variables *MRI_var);
 void MRISFineSegmentation(MRI_variables *MRI_var);
@@ -443,11 +510,11 @@ void MRIScomputeCloserLabel(STRIP_PARMS *parms,MRI_variables *MRI_var);
 // declare global function pointers
 // initialized at init_parms(). reset when -useSRAS is set
 int (*myWorldToVoxel)(MRI *mri,
-                      Real xw, Real yw, Real zw,
-                      Real *xv, Real *yv, Real *zv);
+                      double xw, double yw, double zw,
+                      double *xv, double *yv, double *zv);
 int (*myVoxelToWorld)(MRI *mri,
-                      Real xv, Real yv, Real zv,
-                      Real *xw, Real *yw, Real *zw);
+                      double xv, double yv, double zv,
+                      double *xw, double *yw, double *zw);
 ///////////////////////////////////////////////////////////////////
 
 #include "mri_watershed.help.xml.h"
@@ -850,13 +917,8 @@ int main(int argc, char *argv[])
   GCA_PRIOR *gcap;
   float value_brain, value_cer, value_cergw;
   STRIP_PARMS *parms;
-  char cmdline[CMD_LINE_LEN] ;
 
-  make_cmd_version_string
-  (argc, argv,
-   "$Id: mri_watershed.cpp,v 1.103 2016/06/17 18:00:49 zkaufman Exp $",
-   "$Name:  $",
-   cmdline);
+  std::string cmdline = getAllInfo(argc, argv, "mri_watershed");
 
   Progname=argv[0];
 
@@ -864,11 +926,7 @@ int main(int argc, char *argv[])
 
   /************* Command line****************/
 
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option
-          (argc, argv,
-           "$Id: mri_watershed.cpp,v 1.103 2016/06/17 18:00:49 zkaufman Exp $",
-           "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "mri_watershed");
   if (nargs && argc - nargs == 1)
   {
     exit (0);
@@ -1328,7 +1386,7 @@ static MRI_variables* init_variables(MRI *mri_with_skull)
   v->mris_var_curv=NULL;
   v->mris_dCOG=NULL;
   v->mris_var_dCOG=NULL;
-  v->mrisphere=NULL;
+  v->sphere=NULL;
 
   v->i_global_min=0;
   v->estimated_size=0;
@@ -1389,31 +1447,18 @@ void MRI_weight_atlas(MRI *mri_with_skull,
   int xp, yp, zp;
 
 #if INDIVIDUAL_TIMERS
-  printf( "%s: Begin\n", __FUNCTION__ );
-  SciGPU::Utilities::Chronometer tTotal;
-
-  tTotal.Start();
+  std::cout << __FUNCTION__ << ": Begin" << std::endl;
+  Timer tTotal;
 #endif
 
 
 #if FAST_GCAsourceVoxelToPrior
   LTA *lta = (LTA*)transform->xform;
-#if USE_SSE_MATHFUN
   Freesurfer::AffineMatrix<float> myTrans, A, B, C;
   A.Set( parms->gca->prior_r_to_i__ );
   B.Set( parms->gca->mri_tal__->i_to_r__ );
   C.Set( lta->xforms[0].m_L );
   myTrans = A * B * C;
-#else
-  AffineMatrix myTrans, tmp, C;
-  const AffineMatrix *A, *B;
-  A = parms->gca->prior_r_to_i__;
-  B = parms->gca->mri_tal__->i_to_r__;
-  SetAffineMatrix( &C, lta->xforms[0].m_L );
-
-  AffineMM( &tmp, A, B );
-  AffineMM( &myTrans, &tmp, &C );
-#endif
 #endif
 
 
@@ -1446,17 +1491,10 @@ void MRI_weight_atlas(MRI *mri_with_skull,
                  &xpd2, &ypd2, &zpd2 );
         */
 #if FAST_GCAsourceVoxelToPrior
-#if USE_SSE_MATHFUN
         Freesurfer::AffineVector<float> rp, rv;
         rv.Set( x, y, z );
         rp = myTrans * rv;
         rp.GetFloor( xp, yp, zp );
-#else
-        AffineVector rp, rv;
-        SetAffineVector( &rv, x, y, z );
-        AffineMV( &rp, &myTrans, &rv );
-        GetFloorAffineVector( &rp, &xp, &yp, &zp );
-#endif
 #else
         GCAsourceVoxelToPrior(parms->gca,
                               mri_with_skull,
@@ -1508,12 +1546,8 @@ void MRI_weight_atlas(MRI *mri_with_skull,
     }
   }
 
-
-
 #if INDIVIDUAL_TIMERS
-  tTotal.Stop();
-
-  std::cout << __FUNCTION__ << ": Complete in " << tTotal << std::endl;
+  std::cout << __FUNCTION__ << ": Complete in " << tTotal.milliseconds() << " ms" << std::endl;
 #endif
 }
 
@@ -2879,7 +2913,7 @@ void analyseWM(double *tab,MRI_variables *MRI_var)
     a=(n*Sxy-Sy*Sx)/(n*Sxx-Sx*Sx);
     b=-(a*Sx-Sy)/n;
 
-    if (DZERO(a) || !isfinite(a))
+    if (DZERO(a) || !std::isfinite(a))
     {
       Error("\n Interpolation problem in the white matter curve analysis\n");
     }
@@ -2938,7 +2972,7 @@ void analyseWM(double *tab,MRI_variables *MRI_var)
     a=(n*Sxy-Sy*Sx)/(n*Sxx-Sx*Sx);
     b=-(a*Sx-Sy)/n;
 
-    if (DZERO(a) || !isfinite(a))
+    if (DZERO(a) || !std::isfinite(a))
     {
       Error("\n Interpolation problem in the white matter analysis");
     }
@@ -2984,10 +3018,8 @@ void AnalyzeCerebellum( STRIP_PARMS *parms,
                         float &var )
 {
 #if INDIVIDUAL_TIMERS
-  printf( "%s: Begin\n", __FUNCTION__ );
-  SciGPU::Utilities::Chronometer tTotal;
-
-  tTotal.Start();
+  std::cout << __FUNCTION__ << ": Begin" << std::endl;
+  Timer tTotal;
 #endif
 
 
@@ -2999,22 +3031,11 @@ void AnalyzeCerebellum( STRIP_PARMS *parms,
 
 #if FAST_GCAsourceVoxelToPrior
   LTA *lta = (LTA*)parms->transform->xform;
-#ifdef USE_SSE_MATHFUN
   Freesurfer::AffineMatrix<float> myTrans, A, B, C;
   A.Set( parms->gca->prior_r_to_i__ );
   B.Set( parms->gca->mri_tal__->i_to_r__ );
   C.Set( lta->xforms[0].m_L );
   myTrans = A * B * C;
-#else
-  AffineMatrix myTrans, C, tmp;
-  const AffineMatrix *A, *B;
-  A = parms->gca->prior_r_to_i__;
-  B = parms->gca->mri_tal__->i_to_r__;
-  SetAffineMatrix( &C, lta->xforms[0].m_L );
-
-  AffineMM( & tmp, A, B );
-  AffineMM( &myTrans, &tmp, &C );
-#endif
 #endif
 
   for (k=2; k<MRI_var->depth-2; k++)
@@ -3023,17 +3044,10 @@ void AnalyzeCerebellum( STRIP_PARMS *parms,
       {
         vox = MRIvox(MRI_var->mri_src,i,j,k);
 #if FAST_GCAsourceVoxelToPrior
-#ifdef USE_SSE_MATHFUN
         Freesurfer::AffineVector<float> rp, rv;
         rv.Set( i, j, k );
         rp = myTrans * rv;
         rp.GetFloor( xp, yp, zp );
-#else
-        AffineVector rp, rv;
-        SetAffineVector( &rv, i, j, k );
-        AffineMV( &rp, &myTrans, &rv );
-        GetFloorAffineVector( &rp, &xp, &yp, &zp );
-#endif
 #else
         GCAsourceVoxelToPrior(parms->gca,
                               MRI_var->mri_src,
@@ -3052,11 +3066,8 @@ void AnalyzeCerebellum( STRIP_PARMS *parms,
   mean/=count;
   var=sqrt(var/count-mean*mean);
 
-
 #if INDIVIDUAL_TIMERS
-  tTotal.Stop();
-
-  std::cout << __FUNCTION__ << ": Complete in " << tTotal << std::endl;
+  std::cout << __FUNCTION__ << ": Complete in " << tTotal.milliseconds() << " ms" << std::endl;
 #endif
 }
 
@@ -3084,10 +3095,8 @@ void FindSeedPrior(STRIP_PARMS *parms,MRI_variables *MRI_var)
   int number_seed = 20;
 
 #if INDIVIDUAL_TIMERS
-  printf( "%s: Begin\n", __FUNCTION__ );
-  SciGPU::Utilities::Chronometer tTotal;
-
-  tTotal.Start();
+  std::cout << __FUNCTION__ << ": Begin" << std::endl;
+  Timer tTotal;
 #endif
 
   AnalyzeCerebellum(parms,MRI_var,mean_cer, var_cer);
@@ -3096,23 +3105,11 @@ void FindSeedPrior(STRIP_PARMS *parms,MRI_variables *MRI_var)
 
 #if FAST_GCAsourceVoxelToPrior
   LTA *lta = (LTA*)parms->transform->xform;
-#ifdef USE_SSE_MATHFUN
   Freesurfer::AffineMatrix<float> myTrans, A, B, C;
   A.Set( parms->gca->prior_r_to_i__ );
   B.Set( parms->gca->mri_tal__->i_to_r__ );
   C.Set( lta->xforms[0].m_L );
   myTrans = A * B * C;
-#else
-  AffineMatrix myTrans, C, tmp;
-  const AffineMatrix *A, *B;
-
-  A = parms->gca->prior_r_to_i__;
-  B = parms->gca->mri_tal__->i_to_r__;
-  SetAffineMatrix( &C, lta->xforms[0].m_L );
-
-  AffineMM( &tmp, A, B );
-  AffineMM( &myTrans, &tmp, &C );
-#endif
 #endif
 
   for (k=2; k<MRI_var->depth-2; k++)
@@ -3126,17 +3123,10 @@ void FindSeedPrior(STRIP_PARMS *parms,MRI_variables *MRI_var)
         {
           vox = MRIvox(MRI_var->mri_src,i,j,k);
 #if FAST_GCAsourceVoxelToPrior
-#ifdef USE_SSE_MATHFUN
           Freesurfer::AffineVector<float> rp, rv;
           rv.Set( i, j, k );
           rp = myTrans * rv;
           rp.GetFloor( xp, yp, zp );
-#else
-          AffineVector rp, rv;
-          SetAffineVector( &rv, i, j, k );
-          AffineMV( &rp, &myTrans, &rv );
-          GetFloorAffineVector( &rp, &xp, &yp, &zp );
-#endif
 #else
           GCAsourceVoxelToPrior(parms->gca,
                                 MRI_var->mri_src,
@@ -3183,17 +3173,10 @@ void FindSeedPrior(STRIP_PARMS *parms,MRI_variables *MRI_var)
           {
 
 #if FAST_GCAsourceVoxelToPrior
-#ifdef USE_SSE_MATHFUN
             Freesurfer::AffineVector<float> rp, rv;
             rv.Set( i, j, k );
             rp = myTrans * rv;
             rp.GetFloor( xp, yp, zp );
-#else
-            AffineVector rp, rv;
-            SetAffineVector( &rv, i, j, k );
-            AffineMV( &rp, &myTrans, &rv );
-            GetFloorAffineVector( &rp, &xp, &yp, &zp );
-#endif
 #else
             GCAsourceVoxelToPrior(parms->gca,
                                   MRI_var->mri_src,
@@ -3247,12 +3230,8 @@ void FindSeedPrior(STRIP_PARMS *parms,MRI_variables *MRI_var)
     parms->nb_seed_points++;
   }
 
-
-
 #if INDIVIDUAL_TIMERS
-  tTotal.Stop();
-
-  std::cout << __FUNCTION__ << ": Complete in " << tTotal << std::endl;
+  std::cout << __FUNCTION__ << ": Complete in " << tTotal.milliseconds() << " ms" << std::endl;
 #endif
 }
 
@@ -3590,7 +3569,7 @@ int Lookat( int i, int j, int k,
 /*tests a voxel, merges it or creates a new basin*/
 int Test(Coord crd,STRIP_PARMS *parms,MRI_variables *MRI_var)
 {
-  int n,nb=0,dpt=-1,tst[6];
+  int n,nb=0,dpt=-1;
   unsigned char val;
   int mean,var,tp=0;
   int a,b,c;
@@ -3601,12 +3580,12 @@ int Test(Coord crd,STRIP_PARMS *parms,MRI_variables *MRI_var)
 
   val=MRIvox(MRI_var->mri_src,i,j,k);
 
-  tst[0]=Lookat(i,j,k-1,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
-  tst[1]=Lookat(i,j,k+1,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
-  tst[2]=Lookat(i,j-1,k,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
-  tst[3]=Lookat(i,j+1,k,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
-  tst[4]=Lookat(i-1,j,k,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
-  tst[5]=Lookat(i+1,j,k,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
+  Lookat(i,j,k-1,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
+  Lookat(i,j,k+1,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
+  Lookat(i,j-1,k,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
+  Lookat(i,j+1,k,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
+  Lookat(i-1,j,k,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
+  Lookat(i+1,j,k,val,&dpt,&admax,&nb,adtab,parms,MRI_var);
 
   if (parms->watershed_analyze)
   {
@@ -3985,31 +3964,17 @@ void BASIN_PRIOR(STRIP_PARMS *parms,MRI_variables *MRI_var)
   double nu;
 
 #if INDIVIDUAL_TIMERS
-  printf( "%s: Begin\n", __FUNCTION__ );
-  SciGPU::Utilities::Chronometer tTotal;
-
-  tTotal.Start();
+  std::cout << __FUNCTION__ << ": Begin" << std::endl;
+  Timer tTotal;
 #endif
 
 #if FAST_GCAsourceVoxelToPrior
   LTA *lta = (LTA*)parms->transform->xform;
-#ifdef USE_SSE_MATHFUN
   Freesurfer::AffineMatrix<float> myTrans, A, B, C;
   A.Set( parms->gca->prior_r_to_i__ );
   B.Set( parms->gca->mri_tal__->i_to_r__ );
   C.Set( lta->xforms[0].m_L );
   myTrans = A * B * C;
-#else
-  AffineMatrix myTrans, C, tmp;
-  const AffineMatrix *A, *B;
-
-  A =parms->gca->prior_r_to_i__;
-  B = parms->gca->mri_tal__->i_to_r__;
-  SetAffineMatrix( &C, lta->xforms[0].m_L );
-
-  AffineMM( &tmp, A, B );
-  AffineMM( &myTrans, &tmp, &C );
-#endif
 #endif
 
   for (k=2; k<MRI_var->depth-2; k++)
@@ -4054,17 +4019,10 @@ void BASIN_PRIOR(STRIP_PARMS *parms,MRI_variables *MRI_var)
         if (cell->type)
         {
 #if FAST_GCAsourceVoxelToPrior
-#ifdef USE_SSE_MATHFUN
           Freesurfer::AffineVector<float> rp, rv;
           rv.Set( i, j, k );
           rp = myTrans * rv;
           rp.GetFloor( xp, yp, zp );
-#else
-          AffineVector rp, rv;
-          SetAffineVector( &rv, i, j, k );
-          AffineMV( &rp, &myTrans, &rv );
-          GetFloorAffineVector( &rp, &xp, &yp, &zp );
-#endif
 #else
           GCAsourceVoxelToPrior(parms->gca,
                                 MRI_var->mri_src,
@@ -4112,15 +4070,9 @@ void BASIN_PRIOR(STRIP_PARMS *parms,MRI_variables *MRI_var)
       }
   fprintf(stdout," %i basins merged thanks to atlas ", nb_merging);
 
-
-
 #if INDIVIDUAL_TIMERS
-  tTotal.Stop();
-
-  std::cout << __FUNCTION__ << ": Complete in " << tTotal << std::endl;
+  std::cout << __FUNCTION__ << ": Complete in " << tTotal.milliseconds() << " ms" << std::endl;
 #endif
-
-
 }
 
 
@@ -4752,7 +4704,7 @@ void brain_params(MRI_variables *MRI_var)
   int i,j,k,xmin,xmax,ymin,zmin,zmax;
   unsigned long n;
   // BUFTYPE *pb;
-  double x,y,z,rad_buff;
+  double x,y,z;
 
   x=y=z=0;
   n=0;
@@ -4779,7 +4731,6 @@ void brain_params(MRI_variables *MRI_var)
   MRI_var->yCOG=y/n;
   MRI_var->zCOG=z/n;
 
-  rad_buff=0;
   n=0;
   xmin = MRI_var->width;
   xmax = 0;
@@ -4848,26 +4799,18 @@ void brain_params(MRI_variables *MRI_var)
 void
 init_surf_to_image(float rx, float ry, float rz,MRI_variables *MRI_var)
 {
-  MRIS *mris;
-  int k,nvertices;
+  MRIS * const mris = MRI_var->mris;
+
   double x,y,z;
-  double Rx,Ry,Rz;
-
-  mris=MRI_var->mris;
-  nvertices=mris->nvertices;
-
   myVoxelToWorld(MRI_var->mri_src,MRI_var->xCOG,MRI_var->yCOG,MRI_var->zCOG
                  ,&x,&y,&z);
-  Rx=rx;
-  Ry=rz;
-  Rz=ry;
 
-  for (k=0; k<nvertices; k++)
-  {
-    mris->vertices[k].x = Rx*mris->vertices[k].x + x;
-    mris->vertices[k].y = Ry*mris->vertices[k].y + y;
-    mris->vertices[k].z = Rz*mris->vertices[k].z + z;
-  }
+  double Rx=rx;
+  double Ry=rz;    // note the swapping of y and z!
+  double Rz=ry;
+
+  MRISscaleThenTranslate (mris, Rx, Ry, Rz, x, y, z);
+  
   MRIScomputeNormals(mris);
 }
 
@@ -5114,7 +5057,6 @@ void local_params(STRIP_PARMS *parms,MRI_variables *MRI_var)
   int kv,h,i,j,k,rp;
   int val,val_buff,ninside=30;
   float tmp;
-  int stop;
   float n1[3],n2[3];
   float var;
   int a,b,c=0;
@@ -5128,7 +5070,7 @@ void local_params(STRIP_PARMS *parms,MRI_variables *MRI_var)
   /////////////////////////////////////////////////////////////////////////
   /*Determination of CSF_intensity*/
   /////////////////////////////////////////////////////////////////////////
-  stop=MRI_var->CSF_intensity*3;
+//  stop=MRI_var->CSF_intensity*3;
 
   // initialize working tmp
   for (j=0; j<6; j++)
@@ -5500,7 +5442,7 @@ void local_params(STRIP_PARMS *parms,MRI_variables *MRI_var)
     // assuming the height of GM_intensity and CSF_intensity are the same
     int denom = (MRI_var->CSF_MAX[j] + MRI_var->GM_intensity[j] -
                  MRI_var->GM_MIN[j] - MRI_var->CSF_intens[j]);
-    if (DZERO(denom) || !isfinite((float)denom))
+    if (DZERO(denom) || !std::isfinite((float)denom))
     {
       fprintf(stdout, "\n Problem with MRI_var->TRANSITION_intensity\n");
       MRI_var->TRANSITION_intensity[j]= 0;
@@ -5824,7 +5766,7 @@ void analyseCSF(unsigned long CSF_percent[6][256],
   a=(n*Sxy-Sy*Sx)/(n*Sxx-Sx*Sx);
   b=-(a*Sx-Sy)/n;
 
-  if (DZERO(a) || !isfinite(a))
+  if (DZERO(a) || !std::isfinite(a))
   {
     fprintf(stdout, "\n Problem with the least square "
             "interpolation for CSF_MAX");
@@ -5890,7 +5832,7 @@ void analyseCSF(unsigned long CSF_percent[6][256],
   a=(n*Sxy-Sy*Sx)/(n*Sxx-Sx*Sx);
   b=-(a*Sx-Sy)/n;
 
-  if (DZERO(a) || !isfinite(a))
+  if (DZERO(a) || !std::isfinite(a))
     fprintf(stdout, "\n Problem with the least square "
             "interpolation for CSF_MIN");
   else
@@ -6030,7 +5972,7 @@ void analyseGM(unsigned long CSF_percent[6][256],
   a=(n*Sxy-Sy*Sx)/(n*Sxx-Sx*Sx);
   b=-(a*Sx-Sy)/n;
 
-  if (DZERO(a) || !isfinite(a))
+  if (DZERO(a) || !std::isfinite(a))
     fprintf(stdout,
             "\n Problem with the least square interpolation "
             "in GM_MIN calculation.");
@@ -6107,7 +6049,7 @@ void analyseGM(unsigned long CSF_percent[6][256],
 
   a=(n*Sxy-Sy*Sx)/(n*Sxx-Sx*Sx);
   b=-(a*Sx-Sy)/n;
-  if (DZERO(a) || !isfinite(a))
+  if (DZERO(a) || !std::isfinite(a))
     fprintf(stdout, "\n (2) Problem with the least square "
             "interpolation in GM_MIN calculation.");
   else
@@ -6205,27 +6147,17 @@ unsigned long MRISpeelBrain( float h,
   double tx,ty,tz;
   unsigned long brainsize;
 
-  int width, height,depth;
-  MRI *mri_buff;
+  int const width  = mri_dst->width;
+  int const height = mri_dst->height;
+  int const depth  = mri_dst->depth;
+  MRI *mri_buff = MRIalloc(width, height, depth, MRI_UCHAR) ;
 
-  width=mri_dst->width;
-  height=mri_dst->height;
-  depth=mri_dst->depth;
+  // save xyz
+  float *savedx, *savedy, *savedz;
+  MRISexportXYZ(mris, &savedx,&savedy,&savedz);
 
-  mri_buff= MRIalloc(width, height, depth, MRI_UCHAR) ;
-
-  for (k=0; k<mris->nvertices; k++)
-  {
-    // cache the values
-    mris->vertices[k].tx=mris->vertices[k].x;
-    mris->vertices[k].ty=mris->vertices[k].y;
-    mris->vertices[k].tz=mris->vertices[k].z;
-
-    // expand by h using normal
-    mris->vertices[k].x +=h*mris->vertices[k].nx;
-    mris->vertices[k].y +=h*mris->vertices[k].ny;
-    mris->vertices[k].z +=h*mris->vertices[k].nz;
-  }
+  // expand by h using normal
+  MRISblendXYZandNXYZ(mris, float(h));
 
   for (k=0; k<mris->nfaces; k++)
   {
@@ -6358,13 +6290,13 @@ unsigned long MRISpeelBrain( float h,
           }
         }
   }
+
   // restore the surface
-  for (k=0; k<mris->nvertices; k++)
-  {
-    mris->vertices[k].x=mris->vertices[k].tx;
-    mris->vertices[k].y=mris->vertices[k].ty;
-    mris->vertices[k].z=mris->vertices[k].tz;
-  }
+  MRISimportXYZ(mris, savedx,savedy,savedz);
+  freeAndNULL(savedx);
+  freeAndNULL(savedy);
+  freeAndNULL(savedz);
+
   // calculate the normals
   MRIScomputeNormals(mris);
 
@@ -6443,14 +6375,11 @@ void shrinkstep(MRI_variables *MRI_var)
   read_geometry(1,MRI_var,NULL);
   // set it
   mris=MRI_var->mris;
+
   // put the icosahedron at the center of gravity
   // icosahedron has radius of 1 and thus multiply by (rx, ry, rz)
-  for (k=0; k<mris->nvertices; k++)
-  {
-    mris->vertices[k].x = rx*mris->vertices[k].x + MRI_var->xsCOG;
-    mris->vertices[k].y = ry*mris->vertices[k].y + MRI_var->ysCOG;
-    mris->vertices[k].z = rz*mris->vertices[k].z + MRI_var->zsCOG;
-  }
+  MRISscaleThenTranslate(mris, rx, ry, rz, MRI_var->xsCOG, MRI_var->ysCOG, MRI_var->zsCOG);
+
   // get the voxel values
   myWorldToVoxel(MRI_var->mri_src,MRI_var->xsCOG,MRI_var->ysCOG
                  ,MRI_var->zsCOG,&tx,&ty,&tz);
@@ -6479,14 +6408,13 @@ void MRIShighlyTesselatedSmoothedSurface(MRI_variables *MRI_var)
 
   double tx,ty,tz;
 
-  double ml;
   double lm,d10m[3],d10,f1m,f2m,dm,dbuff;
   float ***dist;
   float cout,pcout=0,coutbuff,varbuff,mean_sd[10],mean_dist[10];
 
   mris=MRI_var->mris;
 
-  MRISsetNeighborhoodSize(mris, 1) ;
+  MRISsetNeighborhoodSizeAndDist(mris, 1) ;
   MRIScomputeNormals(mris);
 
   /////////////////////////////////////////////////////////////////////
@@ -6529,7 +6457,6 @@ void MRIShighlyTesselatedSmoothedSurface(MRI_variables *MRI_var)
 
   // iteration starts here
   /////////////////////////////////////////////////////////////////////////////
-  ml=2;
   for (iter=0; niter; iter++)
   {
     cout = lm = d10 = f1m = f2m = dm = 0;
@@ -6543,7 +6470,8 @@ void MRIShighlyTesselatedSmoothedSurface(MRI_variables *MRI_var)
 
     for (k=0; k<mris->nvertices; k++)
     {
-      v = &mris->vertices[k];
+      VERTEX_TOPOLOGY const * const vt = &mris->vertices_topology[k];
+      VERTEX                * const v  = &mris->vertices         [k];
       x = v->tx;
       y = v->ty;
       z = v->tz;
@@ -6553,11 +6481,11 @@ void MRIShighlyTesselatedSmoothedSurface(MRI_variables *MRI_var)
       sx=sy=sz=sd=0;
       n=0;
       // calculate a vector points to average neighbor
-      for (m=0; m<v->vnum; m++)
+      for (m=0; m<vt->vnum; m++)
       {
-        sx += dx =mris->vertices[v->v[m]].tx - x;
-        sy += dy =mris->vertices[v->v[m]].ty - y;
-        sz += dz =mris->vertices[v->v[m]].tz - z;
+        sx += dx =mris->vertices[vt->v[m]].tx - x;
+        sy += dy =mris->vertices[vt->v[m]].ty - y;
+        sz += dz =mris->vertices[vt->v[m]].tz - z;
         sd += sqrt(dx*dx+dy*dy+dz*dz);
         n++;
       }
@@ -6618,8 +6546,6 @@ void MRIShighlyTesselatedSmoothedSurface(MRI_variables *MRI_var)
 
       f2m+=force;
 
-      force1=force1;
-
       // Delta = 0.8 x St + force1 x Sn + force x Vn
       /////////////////////////////////////////////////////
       dx = sxt*0.8 + force1*sxn + v->nx*force;
@@ -6668,9 +6594,10 @@ void MRIShighlyTesselatedSmoothedSurface(MRI_variables *MRI_var)
 
       d10+=dbuff/4;
 
-      v->x += dx;
-      v->y += dy;
-      v->z += dz;
+      MRISsetXYZ(mris,k,
+        v->x + dx,
+        v->y + dy,
+        v->z + dz);
     }
 
     lm /=mris->nvertices;
@@ -6680,7 +6607,6 @@ void MRIShighlyTesselatedSmoothedSurface(MRI_variables *MRI_var)
     d10 /=mris->nvertices;
 
 
-    ml=lm;
 
     mean_sd[iter%10]=lm;
     mean_dist[iter%10]=d10;
@@ -6803,14 +6729,15 @@ void MRISsmooth_surface(MRI_SURFACE *mris,int niter)
 
     for (k=0; k<mris->nvertices; k++)
     {
-      v = &mris->vertices[k];
+      VERTEX_TOPOLOGY const * const vt = &mris->vertices_topology[k];
+      VERTEX                * const v  = &mris->vertices         [k];
       n=0;
       x = y = z = 0;
-      for (m=0; m<v->vnum; m++)
+      for (m=0; m<vt->vnum; m++)
       {
-        x += mris->vertices[v->v[m]].tx;
-        y += mris->vertices[v->v[m]].ty;
-        z += mris->vertices[v->v[m]].tz;
+        x += mris->vertices[vt->v[m]].tx;
+        y += mris->vertices[vt->v[m]].ty;
+        z += mris->vertices[vt->v[m]].tz;
         n++;
       }
       // get neighboring points average
@@ -6818,9 +6745,10 @@ void MRISsmooth_surface(MRI_SURFACE *mris,int niter)
       y/=n;
       z/=n;
       // modify the vertex with itself and neighboring average
-      v->x=(v->x + x)/2;
-      v->y=(v->y + y)/2;
-      v->z=(v->z + z)/2;
+      MRISsetXYZ(mris, k,
+        (v->x + x)/2,
+        (v->y + y)/2,
+        (v->z + z)/2);
     }
 
 #if WRITE_SURFACES
@@ -6835,15 +6763,10 @@ void MRISsmooth_surface(MRI_SURFACE *mris,int niter)
 // we go into h in the surface normal direction
 void MRISshrink_surface(MRIS *mris,int h)
 {
-  int k;
-
   MRISsaveVertexPositions(mris,TMP_VERTICES);
-  for (k=0; k<mris->nvertices; k++)
-  {
-    mris->vertices[k].x-=h*mris->vertices[k].nx;
-    mris->vertices[k].y-=h*mris->vertices[k].ny;
-    mris->vertices[k].z-=h*mris->vertices[k].nz;
-  }
+  
+  MRISblendXYZandNXYZ(mris, -float(h));
+
   MRIScomputeNormals(mris);
 }
 
@@ -6854,10 +6777,9 @@ void MRIVfree(MRI_variables *MRI_var)
   {
     MRISfree(&MRI_var->mris);
   }
-  if (MRI_var->mrisphere)
-  {
-    MRISfree(&MRI_var->mrisphere);
-  }
+  
+  delete MRI_var->sphere; MRI_var->sphere = nullptr;
+  
   if (MRI_var->mris_curv)
   {
     MRISfree(&MRI_var->mris_curv);
@@ -6966,7 +6888,8 @@ void MRISshrink_Outer_Skin(MRI_variables *MRI_var,MRI* mri_src)
 
     for (k=0; k<mris->nvertices; k++)
     {
-      v = &mris->vertices[k];
+      VERTEX_TOPOLOGY const * const vt = &mris->vertices_topology[k];
+      VERTEX                * const v  = &mris->vertices         [k];
       x = v->tx;
       y = v->ty;
       z = v->tz;
@@ -6975,11 +6898,11 @@ void MRISshrink_Outer_Skin(MRI_variables *MRI_var,MRI* mri_src)
       nz = v->nz;
       sx=sy=sz=sd=0;
       n=0;
-      for (m=0; m<v->vnum; m++)
+      for (m=0; m<vt->vnum; m++)
       {
-        sx += dx =mris->vertices[v->v[m]].tx - x;
-        sy += dy =mris->vertices[v->v[m]].ty - y;
-        sz += dz =mris->vertices[v->v[m]].tz - z;
+        sx += dx =mris->vertices[vt->v[m]].tx - x;
+        sy += dy =mris->vertices[vt->v[m]].ty - y;
+        sz += dz =mris->vertices[vt->v[m]].tz - z;
         sd += sqrt(dx*dx+dy*dy+dz*dz);
         n++;
       }
@@ -7203,9 +7126,11 @@ void MRISshrink_Outer_Skin(MRI_variables *MRI_var,MRI* mri_src)
       d10+=dbuff/4;
 
       // move the position
-      v->x += dx;
-      v->y += dy;
-      v->z += dz;
+      MRISsetXYZ(
+        mris,k,
+        v->x + dx,
+        v->y + dy,
+        v->z + dz);
     }
 
     lm /=mris->nvertices;
@@ -7489,18 +7414,18 @@ int ValidationSurfaceShape(MRI_variables *MRI_var)
   double init_sse,var_init_sse,rot_sse,var_rot_sse;
   char surf_fname[500],*mri_dir;
   MRI_SP *mrisp_template;
-  MRIS *mrisphere,*mris_curv,*mris_dCOG;
+  MRIS *mris_curv,*mris_dCOG;
   INTEGRATION_PARMS parms ;
   int mode=DEFAULT_MODE;
   int validation;
 
   validation=0;
   /*free the surfaces if non NULL*/
-  // remove mrisphere, mris_curv, mris_var_curv, mris_dCOG, mris_var_dCOG
-  if (MRI_var->mrisphere)
+  // remove sphere, mris_curv, mris_var_curv, mris_dCOG, mris_var_dCOG
+  if (MRI_var->sphere)
   {
-    MRISfree(&MRI_var->mrisphere);
-    MRI_var->mrisphere=NULL;
+    delete MRI_var->sphere;
+    MRI_var->sphere=NULL;
   }
   if (MRI_var->mris_curv)
   {
@@ -7525,18 +7450,24 @@ int ValidationSurfaceShape(MRI_variables *MRI_var)
   // read in icosahedron data (highly tessellated one)
   mri_dir = getenv("FREESURFER_HOME");
   sprintf(surf_fname,"%s/lib/bem/ic5.tri",mri_dir);
-  mrisphere = MRISread(surf_fname) ;
-  if (!mrisphere)
-    ErrorExit(ERROR_NOFILE, "%s: could not open surface file %s",
+  
+  Sphere* sphere = nullptr;
+  {
+    auto mrisSphere = MRISread(surf_fname) ;
+    if (!mrisSphere)
+      ErrorExit(ERROR_NOFILE, "%s: could not open surface file %s",
               Progname, surf_fname) ;
-
+    sphere = new Sphere(mrisSphere);
+  }
+  
   //calculating sphere radius and scaling it to 100mm
-  MRIScenterCOG(mrisphere);
-  mrisphere->radius=MRISradius(mrisphere);
-  MRISscale(mrisphere); // make radius 100.
+  SphereCenterCOG(sphere);
+  sphere->radius=Sphereadius(sphere);
+  
+  SphereScale(sphere); // make radius 100.
 
-  // now mrisphere is the highly tessellated icosahedron
-  MRI_var->mrisphere=mrisphere;
+  // now sphere is the highly tessellated icosahedron
+  MRI_var->sphere=sphere;
 
   // copy the current surface
   mris_curv=MRISclone(MRI_var->mris);
@@ -7544,8 +7475,8 @@ int ValidationSurfaceShape(MRI_variables *MRI_var)
 
   // calculate curvatures etc.  (defined in this file)
   // mris_curv has curvature info, mris_dCOG has dCOG info in curv member
-  // note that vertex positions are from mrisphere
-  MRISinitSurfaces(mris_curv,mris_dCOG,MRI_var->mrisphere);
+  // note that vertex positions are from sphere
+  initSurfaces(mris_curv,mris_dCOG,MRI_var->sphere);
 
   // smoothing the surfaces for 10 times
   MRISsmooth_surface(MRI_var->mris,ITER_SMOOTH);
@@ -7570,10 +7501,10 @@ int ValidationSurfaceShape(MRI_variables *MRI_var)
   //calcul of the initial sse
   init_sse=0;
   parms.frame_no = 0 ;
-  init_sse=mrisComputeCorrelationError(mris_curv,&parms,1);
+  init_sse=mrisComputeCorrelationErrorLocal(mris_curv,&parms,1);
   var_init_sse=parms.momentum;
   parms.frame_no = 3 ;
-  init_sse+=mrisComputeCorrelationError(mris_dCOG,&parms,1);
+  init_sse+=mrisComputeCorrelationErrorLocal(mris_dCOG,&parms,1);
   var_init_sse+=parms.momentum;
   parms.frame_no = 0 ;
   init_sse/=2.;
@@ -7610,19 +7541,19 @@ int ValidationSurfaceShape(MRI_variables *MRI_var)
     MRISfromParameterization(mrisp_template, MRI_var->mris_var_dCOG, 4);
 
   //Inverse the Rotation for the template surfaces
-  // using mrisphere vertices to modify vertex positions
-  MRISchangeCoordinates(MRI_var->mris_curv,     mrisphere);
-  MRISchangeCoordinates(MRI_var->mris_var_curv, mrisphere);
-  MRISchangeCoordinates(MRI_var->mris_dCOG,     mrisphere);
-  MRISchangeCoordinates(MRI_var->mris_var_dCOG, mrisphere);
+  // using sphere vertices to modify vertex positions
+  SphereChangeCoordinates(MRI_var->mris_curv,     sphere);
+  SphereChangeCoordinates(MRI_var->mris_var_curv, sphere);
+  SphereChangeCoordinates(MRI_var->mris_dCOG,     sphere);
+  SphereChangeCoordinates(MRI_var->mris_var_dCOG, sphere);
 
   //calcul of the rotated sse
   rot_sse=0;
   parms.frame_no = 0 ;
-  rot_sse=mrisComputeCorrelationError(mris_curv,&parms,1);
+  rot_sse=mrisComputeCorrelationErrorLocal(mris_curv,&parms,1);
   var_rot_sse=parms.momentum;
   parms.frame_no = 3 ;
-  rot_sse+=mrisComputeCorrelationError(mris_dCOG,&parms,1);
+  rot_sse+=mrisComputeCorrelationErrorLocal(mris_dCOG,&parms,1);
   var_rot_sse+=parms.momentum;
   parms.frame_no = 0 ;
   rot_sse/=2.;
@@ -7633,7 +7564,7 @@ int ValidationSurfaceShape(MRI_variables *MRI_var)
           , init_sse,sqrt(var_init_sse),rot_sse,sqrt(var_rot_sse));
 
   //Validation !!!!
-  validation=mrisLocalizeErrors(mris_curv,mris_dCOG,MRI_var,mrisphere) ;
+  validation=mrisLocalizeErrors(mris_curv,mris_dCOG,MRI_var,sphere) ;
 
   if (validation==0)
   {
@@ -7660,63 +7591,63 @@ int ValidationSurfaceShape(MRI_variables *MRI_var)
 }
 
 
-void MRIScenterCOG(MRI_SURFACE *mris)
+void SphereCenterCOG(Sphere *sphere)
 {
   int k;
   double x,y,z;
   x=0;
   y=0;
   z=0;
-  for (k=0; k<mris->nvertices; k++)
+  for (k=0; k<sphere->nvertices; k++)
   {
-    x+=mris->vertices[k].x;
-    y+=mris->vertices[k].y;
-    z+=mris->vertices[k].z;
+    x+=sphere->vertices[k].x;
+    y+=sphere->vertices[k].y;
+    z+=sphere->vertices[k].z;
   }
-  x/=mris->nvertices;
-  y/=mris->nvertices;
-  z/=mris->nvertices;
-  for (k=0; k<mris->nvertices; k++)
+  x/=sphere->nvertices;
+  y/=sphere->nvertices;
+  z/=sphere->nvertices;
+  for (k=0; k<sphere->nvertices; k++)
   {
-    mris->vertices[k].x-=x;
-    mris->vertices[k].y-=y;
-    mris->vertices[k].z-=z;
+    sphere->vertices[k].x-=x;
+    sphere->vertices[k].y-=y;
+    sphere->vertices[k].z-=z;
   }
   /*       fprintf(stdout,"\nCOG Centered at x=%f y=%f z=%f",
            (float)x,(float)y,(float)z);*/
 }
 
-void MRISscale(MRI_SURFACE *mris)
+void SphereScale(Sphere *sphere)
 {
   int k;
   double r;
-  r=100./mris->radius;
-  for (k=0; k<mris->nvertices; k++)
+  r=100./sphere->radius;
+  for (k=0; k<sphere->nvertices; k++)
   {
-    mris->vertices[k].x=mris->vertices[k].x*r;
-    mris->vertices[k].y=mris->vertices[k].y*r;
-    mris->vertices[k].z=mris->vertices[k].z*r;
+    sphere->vertices[k].x=sphere->vertices[k].x*r;
+    sphere->vertices[k].y=sphere->vertices[k].y*r;
+    sphere->vertices[k].z=sphere->vertices[k].z*r;
   }
-  mris->radius=100;
+  sphere->radius=100;
 }
 
-double MRISradius(MRI_SURFACE *mris)
+double Sphereadius(Sphere *sphere)
 {
   int k;
   double r;
   r=0;
-  for (k=0; k<mris->nvertices; k++)
+  for (k=0; k<sphere->nvertices; k++)
   {
-    r+=mris->vertices[k].x*mris->vertices[k].x;
-    r+=mris->vertices[k].y*mris->vertices[k].y;
-    r+=mris->vertices[k].z*mris->vertices[k].z;
+    r+=sphere->vertices[k].x*sphere->vertices[k].x;
+    r+=sphere->vertices[k].y*sphere->vertices[k].y;
+    r+=sphere->vertices[k].z*sphere->vertices[k].z;
   }
-  return(sqrt(r/(double)mris->nvertices));
+  return(sqrt(r/(double)sphere->nvertices));
 }
 
-void MRISinitSurfaces(MRIS *mris_curv,
+void initSurfaces(MRIS *mris_curv,
                       MRIS *mris_dCOG,
-                      const MRIS *mrisphere)
+                      const Sphere *sphere)
 {
   int iter_smooth;
   int navgs,nbrs;
@@ -7729,7 +7660,7 @@ void MRISinitSurfaces(MRIS *mris_curv,
   MRISsmooth_surface(mris_curv,iter_smooth);
   //
   MRISsaveVertexPositions(mris_curv, ORIGINAL_VERTICES) ;
-  MRISsetNeighborhoodSize(mris_curv, nbrs) ;
+  MRISsetNeighborhoodSizeAndDist(mris_curv, nbrs) ;
   MRIScomputeMetricProperties(mris_curv) ;
   //
   MRIScomputeSecondFundamentalForm(mris_curv) ;
@@ -7737,11 +7668,11 @@ void MRISinitSurfaces(MRIS *mris_curv,
   MRISaverageCurvatures(mris_curv, navgs) ;
   MRISnormalizeCurvature(mris_curv, NORM_MEAN) ;
   //Initialize distance to COG surface
-  MRISchangeCoordinates(mris_dCOG, mris_curv);
+  MRISChangeCoordinates(mris_dCOG, mris_curv);
   // use the mris_curv vertex positions (smoothed values)
   //
   MRISsaveVertexPositions(mris_dCOG, ORIGINAL_VERTICES) ;
-  MRISsetNeighborhoodSize(mris_dCOG, nbrs) ;
+  MRISsetNeighborhoodSizeAndDist(mris_dCOG, nbrs) ;
   MRIScomputeMetricProperties(mris_dCOG) ;
   //
   MRISdistanceToCOG(mris_dCOG);
@@ -7754,8 +7685,8 @@ void MRISinitSurfaces(MRIS *mris_curv,
   // even though the curvatures, the dCOG are from
   // smoothed surface, the vertex positions
   // are those of the sphere
-  MRISchangeCoordinates(mris_curv,mrisphere);
-  MRISchangeCoordinates(mris_dCOG,mrisphere);
+  SphereChangeCoordinates(mris_curv,sphere);
+  SphereChangeCoordinates(mris_dCOG,sphere);
 }
 
 void MRISdistanceToCOG(MRI_SURFACE *mris)
@@ -7792,7 +7723,7 @@ void MRISdistanceToCOG(MRI_SURFACE *mris)
 #define CORR_THRESHOLD 5.3f
 
 double
-mrisComputeCorrelationError(MRI_SURFACE *mris, INTEGRATION_PARMS *parms,
+mrisComputeCorrelationErrorLocal(MRI_SURFACE *mris, INTEGRATION_PARMS *parms,
                             int use_stds)
 {
   double   src, target, sse, var_sse,delta, std ;
@@ -7821,10 +7752,10 @@ mrisComputeCorrelationError(MRI_SURFACE *mris, INTEGRATION_PARMS *parms,
     src = v->curv ;
 
     target =
-      MRISPfunctionVal(parms->mrisp_template, mris, x, y, z,
+      MRISPfunctionVal(parms->mrisp_template, mris->radius, x, y, z,
                        parms->frame_no) ;
 
-    std = MRISPfunctionVal(parms->mrisp_template,mris,x,y,z,
+    std = MRISPfunctionVal(parms->mrisp_template,mris->radius,x,y,z,
                            parms->frame_no+1);
     std = sqrt(std) ;
 
@@ -7840,7 +7771,7 @@ mrisComputeCorrelationError(MRI_SURFACE *mris, INTEGRATION_PARMS *parms,
     }
 
     delta = (src - target) / std ;
-    if (!isfinite(delta))
+    if (!std::isfinite(delta))
     {
       continue;
     }
@@ -7870,17 +7801,33 @@ mrisComputeCorrelationError(MRI_SURFACE *mris, INTEGRATION_PARMS *parms,
 }
 
 // use orig to change the vertices position and radius
-void MRISchangeCoordinates(MRI_SURFACE *mris, const MRI_SURFACE *mris_orig)
+void SphereChangeCoordinates(MRIS *mris, const Sphere* input)
 {
+  cheapAssert(mris->nvertices == input->nvertices);
   int p;
   for (p=0; p<mris->nvertices; p++)
   {
-    mris->vertices[p].x=mris_orig->vertices[p].x;
-    mris->vertices[p].y=mris_orig->vertices[p].y;
-    mris->vertices[p].z=mris_orig->vertices[p].z;
+    MRISsetXYZ(mris,p,
+      input->vertices[p].x,
+      input->vertices[p].y,
+      input->vertices[p].z);
   }
-  mris->radius=mris_orig->radius;
-  mris->status=mris_orig->status;
+  mris->radius=input->radius;
+  mris->status=input->status;
+}
+void MRISChangeCoordinates(MRIS *mris, const MRIS* input)
+{
+  cheapAssert(mris->nvertices == input->nvertices);
+  int p;
+  for (p=0; p<mris->nvertices; p++)
+  {
+    MRISsetXYZ(mris,p,
+      input->vertices[p].x,
+      input->vertices[p].y,
+      input->vertices[p].z);
+  }
+  mris->radius=input->radius;
+  mris->status=input->status;
 }
 
 
@@ -7895,8 +7842,8 @@ mrisRigidBodyAlignGlobal(MRIS *mris_curv,
 {
   double   alpha, beta, gamma, degrees, delta, mina, minb, ming,
            sse, min_sse ;
-  int      curv_old_status = mris_curv->status
-                             ,dist_old_status=mris_dist->status ;
+  auto const curv_old_status = mris_curv->status;
+  auto const dist_old_status = mris_dist->status;
 
   //to stop the compilator warnings !
   min_sse=0;
@@ -7914,17 +7861,17 @@ mrisRigidBodyAlignGlobal(MRIS *mris_curv,
     {
     case DIST_MODE:
       parms->frame_no = 3 ;
-      min_sse = mrisComputeCorrelationError(mris_dist, parms, 1) ;
+      min_sse = mrisComputeCorrelationErrorLocal(mris_dist, parms, 1) ;
       break;
     case CURV_MODE:
       parms->frame_no = 0 ;
-      min_sse = mrisComputeCorrelationError(mris_curv, parms, 1) ;
+      min_sse = mrisComputeCorrelationErrorLocal(mris_curv, parms, 1) ;
       break;
     case DEFAULT_MODE:
       parms->frame_no = 0 ;
-      min_sse = mrisComputeCorrelationError(mris_curv, parms, 1) ;
+      min_sse = mrisComputeCorrelationErrorLocal(mris_curv, parms, 1) ;
       parms->frame_no = 3 ;
-      min_sse += mrisComputeCorrelationError(mris_dist, parms, 1) ;
+      min_sse += mrisComputeCorrelationErrorLocal(mris_dist, parms, 1) ;
       min_sse/=2.;
       break;
     }
@@ -7952,21 +7899,21 @@ mrisRigidBodyAlignGlobal(MRIS *mris_curv,
             MRISsaveVertexPositions(mris_dist, TMP_VERTICES) ;
             MRISrotate(mris_dist, mris_dist, alpha, beta, gamma) ;
             parms->frame_no = 3 ;
-            sse = mrisComputeCorrelationError(mris_dist, parms, 1) ;
+            sse = mrisComputeCorrelationErrorLocal(mris_dist, parms, 1) ;
             MRISrestoreVertexPositions(mris_dist, TMP_VERTICES) ;
             break;
           case CURV_MODE:
             MRISsaveVertexPositions(mris_curv, TMP_VERTICES) ;
             MRISrotate(mris_curv, mris_curv, alpha, beta, gamma) ;
             parms->frame_no = 0 ;
-            sse = mrisComputeCorrelationError(mris_curv, parms, 1) ;
+            sse = mrisComputeCorrelationErrorLocal(mris_curv, parms, 1) ;
             MRISrestoreVertexPositions(mris_curv, TMP_VERTICES) ;
             break;
           case DEFAULT_MODE:
             MRISsaveVertexPositions(mris_curv, TMP_VERTICES) ;
             MRISrotate(mris_curv, mris_curv, alpha, beta, gamma) ;
             parms->frame_no = 0 ;
-            sse = mrisComputeCorrelationError(mris_curv, parms, 1) ;
+            sse = mrisComputeCorrelationErrorLocal(mris_curv, parms, 1) ;
 
             MRISrestoreVertexPositions(mris_curv, TMP_VERTICES) ;
 
@@ -7974,7 +7921,7 @@ mrisRigidBodyAlignGlobal(MRIS *mris_curv,
             MRISrotate(mris_dist, mris_dist, alpha, beta, gamma) ;
             parms->frame_no = 3 ;
             sse +=
-              mrisComputeCorrelationError(mris_dist, parms, 1) ;
+              mrisComputeCorrelationErrorLocal(mris_dist, parms, 1) ;
 
             MRISrestoreVertexPositions(mris_dist, TMP_VERTICES) ;
             sse/=2.;
@@ -8021,9 +7968,9 @@ mrisRigidBodyAlignGlobal(MRIS *mris_curv,
       MRISrotate(mris_curv, mris_curv, mina, minb, ming) ;
       MRISrotate(mris_dist, mris_dist, mina, minb, ming) ;
       parms->frame_no = 0 ;
-      sse = mrisComputeCorrelationError(mris_curv, parms, 1) ;
+      sse = mrisComputeCorrelationErrorLocal(mris_curv, parms, 1) ;
       parms->frame_no = 3 ;
-      sse += mrisComputeCorrelationError(mris_dist, parms, 1) ;
+      sse += mrisComputeCorrelationErrorLocal(mris_dist, parms, 1) ;
       sse/=2;
     }
   }
@@ -8037,7 +7984,7 @@ mrisRigidBodyAlignGlobal(MRIS *mris_curv,
 #define ERROR_THRESHOLD 25.0f
 
 int mrisLocalizeErrors(MRIS* mris_curv,MRIS *mris_dCOG,
-                       MRI_variables *MRI_var,MRIS *mrisphere)
+                       MRI_variables *MRI_var,Sphere *sphere)
 {
   double sse,mean_sse,var_sse;
   int k;
@@ -8072,59 +8019,59 @@ int mrisLocalizeErrors(MRIS* mris_curv,MRIS *mris_dCOG,
     // mark sphere where the sse > threshold
     if (sse<ERROR_THRESHOLD)
     {
-      mrisphere->vertices[k].val=0.;
+      sphere->vertices[k].val=0.;
     }
     else
     {
       nbWrongVertices1++;
-      mrisphere->vertices[k].val=1.;
+      sphere->vertices[k].val=1.;
     }
-    mrisphere->vertices[k].curv=sse;//tanh(sse/ERROR_THRESHOLD);
+    sphere->vertices[k].curv=sse;//tanh(sse/ERROR_THRESHOLD);
   }
 
 #if WRITE_SURFACES
   sprintf(fname,"./rh.error");
-  MRISwriteCurvature(mrisphere,fname);
+  MRISwriteCurvature(sphere,fname);
 #endif
 
   mean_sse/=nvertices;
   var_sse=var_sse/nvertices-SQR(mean_sse);
 
-  MRISsetNeighborhoodSize(mrisphere, 1) ;
+  SphereSetNeighborhoodSizeAndDist(sphere, 1) ;
   //Erosion step
-  MRISaverageVals(mrisphere,3);
-  // change mrisphere with neighboring averaged grey scale (iterated 3 times)
+  SphereAverageVals(sphere,3);
+  // change sphere with neighboring averaged grey scale (iterated 3 times)
   // less than 1, then 0. (erosion step introduce interpolation)
   for (k=0; k<nvertices; k++)
-    if (mrisphere->vertices[k].val<1.)
+    if (sphere->vertices[k].val<1.)
     {
-      mrisphere->vertices[k].val=0.;
+      sphere->vertices[k].val=0.;
     }
 
   //Dilatation Step
   nbWrongVertices2=0;
-  MRISaverageVals(mrisphere,5);
+  SphereAverageVals(sphere,5);
   // change with neighboring averaged grey scale (iterated 5 times)
   for (k=0; k<nvertices; k++)
-    if (mrisphere->vertices[k].val>0.0
-        && mrisphere->vertices[k].curv>ERROR_THRESHOLD)
+    if (sphere->vertices[k].val>0.0
+        && sphere->vertices[k].curv>ERROR_THRESHOLD)
     {
-      mrisphere->vertices[k].val=1.;
+      sphere->vertices[k].val=1.;
     }
     else
     {
-      mrisphere->vertices[k].val=0.;
+      sphere->vertices[k].val=0.;
     }
 
-  MRISaverageVals(mrisphere,3);   // another average iterated 3 times
+  SphereAverageVals(sphere,3);   // another average iterated 3 times
 
   wgpospercentage=wgnegpercentage=0;
   for (k=0; k<nvertices; k++)
   {
-    if (mrisphere->vertices[k].val>0.0)
+    if (sphere->vertices[k].val>0.0)
     {
       nbWrongVertices2++;
-      mrisphere->vertices[k].val=1.;
+      sphere->vertices[k].val=1.;
       // using dCOG: curv contains the distance from the COG
       if ((mris_dCOG->vertices[k].curv -
            MRI_var->mris_dCOG->vertices[k].curv)>0)
@@ -8138,13 +8085,13 @@ int mrisLocalizeErrors(MRIS* mris_curv,MRIS *mris_dCOG,
     }
   }
 
-  validation_percentage=100.*(float)nbWrongVertices2/mrisphere->nvertices;
+  validation_percentage=100.*(float)nbWrongVertices2/sphere->nvertices;
 
   fprintf(stdout,"\n      the sse mean is %5.2f, its var is %5.2f   "
           "\n      before Erosion-Dilatation %5.2f%% of inacurate vertices"
           "\n      after  Erosion-Dilatation %5.2f%% of inacurate vertices"
           ,mean_sse,sqrt(var_sse),
-          100.*(float)nbWrongVertices1/mrisphere->nvertices,
+          100.*(float)nbWrongVertices1/sphere->nvertices,
           validation_percentage);
 
   if (validation_percentage>20.) //>1.)
@@ -8202,7 +8149,7 @@ void MRISscaleFields(MRIS *mris_src,MRIS *mris_fdst,
       fprintf(stdout,"\n      scaling Curvature Field      ");
     }
     MRISrestoreVertexPositions(mris_src, ORIGINAL_VERTICES) ;
-    MRISsetNeighborhoodSize(mris_src, nbrs) ;
+    MRISsetNeighborhoodSizeAndDist(mris_src, nbrs) ;
     MRIScomputeMetricProperties(mris_src) ;
     MRIScomputeSecondFundamentalForm(mris_src) ;
     MRISuseMeanCurvature(mris_src) ;
@@ -8216,7 +8163,7 @@ void MRISscaleFields(MRIS *mris_src,MRIS *mris_fdst,
     }
     //Initialize distance to COG surface
     MRISrestoreVertexPositions(mris_src, ORIGINAL_VERTICES) ;
-    MRISsetNeighborhoodSize(mris_src, nbrs) ;
+    MRISsetNeighborhoodSizeAndDist(mris_src, nbrs) ;
     MRIScomputeMetricProperties(mris_src) ;
     MRISdistanceToCOG(mris_src);
     MRISaverageCurvatures(mris_src, navgs) ;
@@ -8401,25 +8348,25 @@ int mrisLimitGradientDistance(MRI_SURFACE *mris, MHT *mht, int vno)
 
 int mrisAverageGradients(MRIS *mris,int niter)
 {
-  int vno, vnum,*pnb,vnb;
+  int vno, vnum,vnb;
   float dx,dy,dz,dot,num;
-  VERTEX *v,*vn;
 
   while (niter--)
   {
     for (vno = 0 ; vno < mris->nvertices ; vno++)
     {
-      v = &mris->vertices[vno] ;
+      VERTEX_TOPOLOGY const * const vt = &mris->vertices_topology[vno];
+      VERTEX                * const v  = &mris->vertices         [vno];
 
       dx = v->odx ;
       dy = v->ody ;
       dz = v->odz ;
-      pnb = v->v ;
+      int const * pnb = vt->v ;
 
-      vnum = v->vnum ;
+      vnum = vt->vnum ;
       for (num = 0.0f , vnb = 0 ; vnb < vnum ; vnb++)
       {
-        vn = &mris->vertices[*pnb++] ;    /* neighboring vertex pointer */
+        VERTEX const * const vn = &mris->vertices[*pnb++] ;    /* neighboring vertex pointer */
 
         dot = vn->odx * v->odx + vn->ody * v->ody + vn->odz*v->odz ;
         if (dot < 0)
@@ -8439,7 +8386,7 @@ int mrisAverageGradients(MRIS *mris,int niter)
     }
     for (vno = 0 ; vno < mris->nvertices ; vno++)
     {
-      v = &mris->vertices[vno] ;
+      VERTEX * const v = &mris->vertices[vno] ;
       v->odx=v->tdx;
       v->ody=v->tdy;
       v->odz=v->tdz;
@@ -8453,11 +8400,10 @@ int mrisAverageGradients(MRIS *mris,int niter)
 void MRISCorrectSurface(MRI_variables *MRI_var)
 {
   float x,y,z,sx,sy,sz,sd,sxn,syn,szn,sxt,syt,szt,nc;
-  float force,force1,force3;
+  float force1,force3;
   float ct;
 
   float d,dx,dy,dz,nx,ny,nz;
-  VERTEX *v;
   int iter,k,m,n;
   int it,jt,niter;
   float decay=0.8,update=0.9;
@@ -8466,7 +8412,6 @@ void MRISCorrectSurface(MRI_variables *MRI_var)
 
   MRIS *mris;
 
-  double ml;
   double lm,d10m[3],d10,f1m,f2m,f3m,dm,dbuff;
   float ***dist;
   float cout,pcout=0,coutbuff,varbuff,mean_sd[10],mean_dist[10];
@@ -8488,7 +8433,7 @@ void MRISCorrectSurface(MRI_variables *MRI_var)
 
   mris=MRI_var->mris;
 
-  MRISsetNeighborhoodSize(mris, 1) ;
+  MRISsetNeighborhoodSizeAndDist(mris, 1) ;
   MRIScomputeNormals(mris);
 
   dist = (float ***) malloc( mris->nvertices*sizeof(float**) );
@@ -8520,18 +8465,16 @@ void MRISCorrectSurface(MRI_variables *MRI_var)
   }
 
   niter =int_smooth;
-  force = 0.0f ;
   pcout=0;
 
   for (k=0; k<mris->nvertices; k++)
   {
-    v = &mris->vertices[k];
+    VERTEX * const v = &mris->vertices[k];
     v->odx = 0;
     v->ody = 0;
     v->odz = 0;
   }
 
-  ml=2;
   ////////////////////////////////////////////////////////////////////////
   // iteration starts here
   for (iter=0; niter; iter++)
@@ -8550,7 +8493,7 @@ void MRISCorrectSurface(MRI_variables *MRI_var)
     xCOG = yCOG = zCOG = 0;
     for (k=0; k<mris->nvertices; k++)
     {
-      v = &mris->vertices[k];
+      VERTEX * const v = &mris->vertices[k];
       v->tx = v->x;
       v->ty = v->y;
       v->tz = v->z;
@@ -8572,8 +8515,8 @@ void MRISCorrectSurface(MRI_variables *MRI_var)
       mris_tmp->vertices[k].curv=0;
 #endif
 
-      //      if((iter<4) && (!MRI_var->mrisphere->vertices[k].val))
-      if (!MRI_var->mrisphere->vertices[k].val)
+      //      if((iter<4) && (!MRI_var->sphere->vertices[k].val))
+      if (!MRI_var->sphere->vertices[k].val)
       {
         continue;
       }
@@ -8608,7 +8551,8 @@ void MRISCorrectSurface(MRI_variables *MRI_var)
 
     for (k=0; k<mris->nvertices; k++)
     {
-      v = &mris->vertices[k];
+      VERTEX_TOPOLOGY const * const vt = &mris->vertices_topology[k];
+      VERTEX                * const v  = &mris->vertices         [k];
       x = v->tx;
       y = v->ty;
       z = v->tz;
@@ -8617,11 +8561,11 @@ void MRISCorrectSurface(MRI_variables *MRI_var)
       nz = v->nz;
       sx=sy=sz=sd=0;
       n=0;
-      for (m=0; m<v->vnum; m++)
+      for (m=0; m<vt->vnum; m++)
       {
-        sx += dx =mris->vertices[v->v[m]].tx - x;
-        sy += dy =mris->vertices[v->v[m]].ty - y;
-        sz += dz =mris->vertices[v->v[m]].tz - z;
+        sx += dx =mris->vertices[vt->v[m]].tx - x;
+        sy += dy =mris->vertices[vt->v[m]].ty - y;
+        sz += dz =mris->vertices[vt->v[m]].tz - z;
         sd += sqrt(dx*dx+dy*dy+dz*dz);
         n++;
       }
@@ -8693,7 +8637,7 @@ void MRISCorrectSurface(MRI_variables *MRI_var)
 
     for (k=0; k<mris->nvertices; k++)
     {
-      v = &mris->vertices[k];
+      VERTEX * const v = &mris->vertices[k];
       x = v->tx;
       y = v->ty;
       z = v->tz;
@@ -8730,9 +8674,10 @@ void MRISCorrectSurface(MRI_variables *MRI_var)
       d10+=dbuff/4;
 
       // move the vertex position
-      v->x += dx;
-      v->y += dy;
-      v->z += dz;
+      MRISsetXYZ(mris,k,
+        v->x + dx,
+        v->y + dy,
+        v->z + dz);
     }
 
     lm /=mris->nvertices;
@@ -8742,7 +8687,6 @@ void MRISCorrectSurface(MRI_variables *MRI_var)
     dm /=mris->nvertices;
     d10 /=mris->nvertices;
 
-    ml=lm;
 
     mean_sd[iter%10]=lm;
     mean_dist[iter%10]=d10;
@@ -8819,13 +8763,10 @@ void MRISCorrectSurface(MRI_variables *MRI_var)
   fflush(stdout);
 }
 
-/*compute local values and store them into mrisphere*/
+/*compute local values and store them into sphere*/
 void MRISComputeLocalValues(MRI_variables *MRI_var)
 {
-  MRIS *mris,*mrisphere;
-  MRI* mri;
   int k,m,n,total_vertices,nmissing;
-  VERTEX *v,*vsphere;
   float dist,distance;
   double gm_val,csf_val,val,x,y,z, xw, yw, zw;
   double xw1,yw1,zw1,xw2,yw2,zw2,nx, ny, nz, mag, max_mag ;
@@ -8851,9 +8792,9 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
   ninside=-10;
   noutside=10;
 
-  mri=MRI_var->mri_orig;
-  mrisphere=MRI_var->mrisphere;
-  mris=MRI_var->mris;
+  MRI*    mri    = MRI_var->mri_orig;
+  Sphere* sphere = MRI_var->sphere;
+  MRIS*   mris   = MRI_var->mris;
 
   nvertices=mris->nvertices;
 
@@ -8869,14 +8810,14 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
   if (MRI_var->atlas)
   {
     posvertices=negvertices=0;
-    MRISsetNeighborhoodSize(mris,1) ;
+    MRISsetNeighborhoodSizeAndDist(mris,1) ;
     MRIScomputeMetricProperties(mris) ;
     MRISdistanceToCOG(mris);
     MRISaverageCurvatures(mris, 20) ;
     /*use the template information to localize the border of the brain*/
     for (k=0; k<nvertices; k++)
     {
-      vsphere = &mrisphere->vertices[k] ;
+      auto const vsphere = &sphere->vertices[k] ;
       vsphere->tx=
         (MRI_var->mris_dCOG->vertices[k].curv-mris->vertices[k].curv);
       vsphere->ty=sqrt(MRI_var->mris_var_dCOG->vertices[k].curv);
@@ -8903,8 +8844,7 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
 
   for (ref=0,k=0; k<nvertices; k++)
   {
-    v = &mris->vertices[k] ;
-    vsphere = &mrisphere->vertices[k];
+    VERTEX * const v  = &mris->vertices  [k];
     v->marked=0 ;
 
     /*determine the normal direction in Voxel coordinates*/
@@ -9023,19 +8963,20 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
   }
   for (nmissing=0,k=0; k<nvertices; k++)
   {
-    v = &mris->vertices[k] ;
-    vsphere=&mrisphere->vertices[k];
+    VERTEX_TOPOLOGY const * const vt = &mris->vertices_topology[k];
+    VERTEX          const * const v  = &mris->vertices         [k];       
+    auto const vsphere = &sphere->vertices[k];
     vsphere->marked=0;
 
     if (v->marked)
     {
       distance=0;
       n=0;
-      for (m=0; m<v->vnum; m++)
+      for (m=0; m<vt->vnum; m++)
       {
-        if (mris->vertices[v->v[m]].marked==1)
+        if (mris->vertices[vt->v[m]].marked==1)
         {
-          distance+=mris->vertices[v->v[m]].mean;
+          distance+=mris->vertices[vt->v[m]].mean;
           n++;
         }
       }
@@ -9107,7 +9048,7 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
   {
     for (k=0; k<nvertices; k++)
     {
-      vsphere = &mrisphere->vertices[k] ;
+      auto const vsphere = &sphere->vertices[k] ;
       vsphere->tx=vsphere->x;
       vsphere->ty=vsphere->mean;
       vsphere->tz=vsphere->z;
@@ -9115,8 +9056,8 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
 
     for (k=0; k<nvertices; k++)
     {
-      v=&mris->vertices[k];
-      vsphere = &mrisphere->vertices[k] ;
+      VERTEX_TOPOLOGY const * const v=&mris->vertices_topology[k];
+      auto const vsphere = &sphere->vertices[k] ;
 
       w1=vsphere->ty;
       csf=vsphere->tx*w1;
@@ -9125,11 +9066,11 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
       for (m=0; m<v->vnum; m++)
       {
         csf+=
-          mrisphere->vertices[v->v[m]].tx*
-          mrisphere->vertices[v->v[m]].ty;
-        w1+=mrisphere->vertices[v->v[m]].ty;
-        gm+=mrisphere->vertices[v->v[m]].tz*
-            mrisphere->vertices[v->v[m]].ty;
+          sphere->vertices[v->v[m]].tx*
+          sphere->vertices[v->v[m]].ty;
+        w1+=sphere->vertices[v->v[m]].ty;
+        gm+=sphere->vertices[v->v[m]].tz*
+            sphere->vertices[v->v[m]].ty;
         n++;
       }
       vsphere->x=csf/w1;
@@ -9138,17 +9079,17 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
     }
     niter--;
   }
-  MRISsetNeighborhoodSize(mris, 2) ;
+  MRISsetNeighborhoodSizeAndDist(mris, 2) ;
   for (k=0; k<nvertices; k++)
   {
-    vsphere = &mrisphere->vertices[k] ;
+    auto const vsphere = &sphere->vertices[k] ;
     vsphere->tx=vsphere->x;
     vsphere->tz=vsphere->z;
   }
   for (k=0; k<nvertices; k++)
   {
-    v=&mris->vertices[k];
-    vsphere = &mrisphere->vertices[k] ;
+    VERTEX_TOPOLOGY const * const v=&mris->vertices_topology[k];
+    auto const vsphere = &sphere->vertices[k] ;
     /*after two iterations compute the local statistics*/
 
     csf=vsphere->tx;
@@ -9160,8 +9101,8 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
     n=1;
     for (m=0; m<v->vnum; m++)
     {
-      csf=mrisphere->vertices[v->v[m]].tx;
-      gm=mrisphere->vertices[v->v[m]].tz;
+      csf=sphere->vertices[v->v[m]].tx;
+      gm=sphere->vertices[v->v[m]].tz;
       mean_csf+=csf;
       mean_gray+=gm;
       var_csf+=SQR(csf);
@@ -9176,14 +9117,14 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
     vsphere->odz=MAX(5.,MIN(20.,sqrt(vsphere->odz)));
   }
 
-  MRISsetNeighborhoodSize(mris, 1) ;
+  MRISsetNeighborhoodSizeAndDist(mris, 1) ;
   /*reaverage the local values*/
   niter=5;
   while (niter)
   {
     for (k=0; k<nvertices; k++)
     {
-      vsphere = &mrisphere->vertices[k] ;
+      auto const vsphere = &sphere->vertices[k] ;
       vsphere->tx=vsphere->x;
       vsphere->ty=vsphere->mean;
       vsphere->tz=vsphere->z;
@@ -9193,8 +9134,8 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
 
     for (k=0; k<nvertices; k++)
     {
-      v=&mris->vertices[k];
-      vsphere = &mrisphere->vertices[k] ;
+      VERTEX_TOPOLOGY const * const v=&mris->vertices_topology[k];
+      auto const vsphere = &sphere->vertices[k] ;
 
       w1=vsphere->ty;
       csf=vsphere->tx*w1;
@@ -9205,17 +9146,17 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
       for (m=0; m<v->vnum; m++)
       {
         csf+=
-          mrisphere->vertices[v->v[m]].tx*mrisphere->vertices\
+          sphere->vertices[v->v[m]].tx*sphere->vertices\
           [v->v[m]].ty;
-        w1+=mrisphere->vertices[v->v[m]].ty;
+        w1+=sphere->vertices[v->v[m]].ty;
         gm+=
-          mrisphere->vertices[v->v[m]].tz*mrisphere->vertices\
+          sphere->vertices[v->v[m]].tz*sphere->vertices\
           [v->v[m]].ty;
         var_csf+=
-          mrisphere->vertices[v->v[m]].tdx*mrisphere->vertices\
+          sphere->vertices[v->v[m]].tdx*sphere->vertices\
           [v->v[m]].ty;
         var_gray+=
-          mrisphere->vertices[v->v[m]].tdz*mrisphere->vertices\
+          sphere->vertices[v->v[m]].tdz*sphere->vertices\
           [v->v[m]].ty;
 
         n++;
@@ -9237,7 +9178,7 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
   var_trans=0;
   for (k=0; k<nvertices; k++)
   {
-    vsphere=&mrisphere->vertices[k];
+    auto const vsphere=&sphere->vertices[k];
     csf=vsphere->x;
     mean_csf+=csf;
     var_csf+=SQR(csf);
@@ -9267,7 +9208,7 @@ void MRISComputeLocalValues(MRI_variables *MRI_var)
 
   if (MRI_var->atlas)
   {
-    MRISsetNeighborhoodSize(mris, 2) ;
+    MRISsetNeighborhoodSizeAndDist(mris, 2) ;
     MRIScomputeMetricProperties(mris) ;
     MRIScomputeSecondFundamentalForm(mris) ;
     MRISuseMeanCurvature(mris) ;
@@ -9447,7 +9388,6 @@ static int computeCOG(MRI_variables *MRI_var,
 static MRI* generateFinalMRI(MRI_variables *MRI_var)
 {
   MRI *mri,*mri_src,*mri_orig;
-  MRIS *mris,*mrisphere;
   int k,u,v,numu,numv,i,j,imnr;
   float x0,y0,z0,x1,y1,z1,x2,y2,z2,d0,d1,d2,dmax,dCOG,val,
         px0,py0,pz0,px1,py1,pz1,px,py,pz;
@@ -9459,8 +9399,8 @@ static MRI* generateFinalMRI(MRI_variables *MRI_var)
   mri_src=MRI_var->mri_src;
   mri=MRIclone(MRI_var->mri_orig,NULL);
 
-  mris=MRI_var->mris;
-  mrisphere=MRI_var->mrisphere;
+  MRIS* mris=MRI_var->mris;
+  Sphere* sphere=MRI_var->sphere;
 
   // extract the volume
   MRISpeelBrain(0.0,mri,MRI_var->mris,1);
@@ -9473,9 +9413,9 @@ static MRI* generateFinalMRI(MRI_variables *MRI_var)
   for ( k = 0 ; k < mris->nfaces ; k++)
   {
     face=&mris->faces[k];
-    if ((mrisphere->vertices[face->v[0]].val==0) &&
-        (mrisphere->vertices[face->v[1]].val==0) &&
-        (mrisphere->vertices[face->v[2]].val==0))
+    if ((sphere->vertices[face->v[0]].val==0) &&
+        (sphere->vertices[face->v[1]].val==0) &&
+        (sphere->vertices[face->v[2]].val==0))
     {
       continue;
     }
@@ -9620,7 +9560,6 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
   float force,force1,force3,force4;
 
   float d,dx,dy,dz,nx,ny,nz;
-  VERTEX *v;
   int iter,k,m,n;
   float samp_mean[4];
   float test_samp[4][9];
@@ -9628,7 +9567,6 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
   int it,jt,kt,h,niter;
   float r,F,E,rmin=3.33,rmax=10.;
   float decay=0.8,update=0.9;
-  float fzero;
   float fmax; /*"dangerous" if artifact(s)*/
 
   float val,prev_val;
@@ -9636,14 +9574,14 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
   int MRIGRADIENT;
 
 
-  MRIS *mris,*mrisphere;
+  MRIS *mris;
+  Sphere *sphere;
   //  char surf_fname[500];
 
   double tx,ty,tz;
   double xw,yw,zw,xw1,yw1,zw1;
   double IntVal,GradVal;
 
-  double ml;
   double lm,d10m[3],d10,f1m,f2m,f3m,f4m,dm,dbuff;
   float ***dist;
   int nb_GM,nb_TR,nb_GTM;
@@ -9672,13 +9610,13 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
   xCOG=yCOG=zCOG=0; /* to stop compilator warnings !*/
 
   mris=MRI_var->mris;
-  mrisphere=MRI_var->mrisphere;
+  sphere=MRI_var->sphere;
 
 #if WRITE_SURFACES
   mris_tmp=MRISclone(mris);
 #endif
 
-  MRISsetNeighborhoodSize(mris, 2) ;
+  MRISsetNeighborhoodSizeAndDist(mris, 2) ;
   MRIScomputeNormals(mris);
 
   fmax=MRI_var->WM_MAX + 25.0f ; /* being careful */
@@ -9730,8 +9668,6 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
   E=(1/rmin+1/rmax)/2;
   F=6/(1/rmin-1/rmax);
 
-  fzero=MRI_var->CSF_intensity;
-
   for (k=0; k<mris->nvertices; k++)
     for (m=0; m<4; m++)
       for (n=0; n<3; n++)
@@ -9751,13 +9687,12 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
 
   for (k=0; k<mris->nvertices; k++)
   {
-    v = &mris->vertices[k];
+    VERTEX * const v = &mris->vertices[k];
     v->odx = 0;
     v->ody = 0;
     v->odz = 0;
   }
 
-  ml=2;
   // iterations
   for (iter=0; niter; iter++)
   {
@@ -9771,7 +9706,7 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
 
     for (k=0; k<mris->nvertices; k++)
     {
-      v = &mris->vertices[k];
+      VERTEX * const v = &mris->vertices[k];
       v->tx = v->x;
       v->ty = v->y;
       v->tz = v->z;
@@ -9833,11 +9768,12 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
 
     for (k=0; k<mris->nvertices; k++)
     {
-      csf=int(mrisphere->vertices[k].x);
-      trn=int(mrisphere->vertices[k].y);
-      grm=int(mrisphere->vertices[k].z);
+      csf=int(sphere->vertices[k].x);
+      trn=int(sphere->vertices[k].y);
+      grm=int(sphere->vertices[k].z);
 
-      v = &mris->vertices[k];
+      VERTEX_TOPOLOGY const * const vt = &mris->vertices_topology[k];
+      VERTEX                * const v  = &mris->vertices         [k];
       // get the vertex coords and normal
       x = v->tx;
       y = v->ty;
@@ -9847,11 +9783,11 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
       nz = v->nz;
       sx=sy=sz=sd=0;
       n=0;
-      for (m=0; m<v->vnum; m++)
+      for (m=0; m<vt->vnum; m++)
       {
-        sx += dx =mris->vertices[v->v[m]].tx - x;
-        sy += dy =mris->vertices[v->v[m]].ty - y;
-        sz += dz =mris->vertices[v->v[m]].tz - z;
+        sx += dx =mris->vertices[vt->v[m]].tx - x;
+        sy += dy =mris->vertices[vt->v[m]].ty - y;
+        sz += dz =mris->vertices[vt->v[m]].tz - z;
         sd += sqrt(dx*dx+dy*dy+dz*dz);
         n++;
       }
@@ -10105,7 +10041,6 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
       /*brainatlas force*/
       force3=v->val;
       force4=v->val2;
-      force1=force1;
 
       v->curv=force; //test
 
@@ -10156,9 +10091,10 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
 
       d10+=dbuff/4;
 
-      v->x += dx;
-      v->y += dy;
-      v->z += dz;
+      MRISsetXYZ(mris,k,
+        v->x + dx,
+        v->y + dy,
+        v->z + dz);
     }
 
     lm /=mris->nvertices;
@@ -10169,7 +10105,6 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
     dm /=mris->nvertices;
     d10 /=mris->nvertices;
 
-    ml=lm;
 
     mean_sd[iter%10]=lm;
     mean_dist[iter%10]=d10;
@@ -10225,8 +10160,8 @@ void MRISFineSegmentation(MRI_variables *MRI_var)
                 "surface with the template");
         fflush(stdout);
         MRI_var->validation=ValidationSurfaceShape(MRI_var);
-        /*the sphere surface was freed and realocated*/
-        mrisphere=MRI_var->mrisphere;
+        /*the sphere surface was freed and reallocated*/
+        sphere = MRI_var->sphere;
       }
       if (VERBOSE_MODE)
         fprintf(stdout,
@@ -10300,7 +10235,6 @@ void MRISgoToClosestDarkestPoint(MRI_variables *MRI_var)
   float force,force1;
 
   float d,dx,dy,dz,nx,ny,nz;
-  VERTEX *v;
   int iter,k,m,n;
 
   int h;
@@ -10315,7 +10249,7 @@ void MRISgoToClosestDarkestPoint(MRI_variables *MRI_var)
 
   mris=MRI_var->mris;
 
-  MRISsetNeighborhoodSize(mris, 1) ; // 1-connected neighbors only
+  MRISsetNeighborhoodSizeAndDist(mris, 1) ; // 1-connected neighbors only
 
   MRIScomputeNormals(mris);
 
@@ -10323,7 +10257,7 @@ void MRISgoToClosestDarkestPoint(MRI_variables *MRI_var)
 
   for (k=0; k<mris->nvertices; k++)
   {
-    v = &mris->vertices[k];
+    VERTEX * const v = &mris->vertices[k];
     v->odx = 0;
     v->ody = 0;
     v->odz = 0;
@@ -10340,7 +10274,7 @@ void MRISgoToClosestDarkestPoint(MRI_variables *MRI_var)
     MRIScomputeNormals(mris);
     for (k=0; k<mris->nvertices; k++)
     {
-      v = &mris->vertices[k];
+      VERTEX * const v = &mris->vertices[k];
       v->tx = v->x;
       v->ty = v->y;
       v->tz = v->z;
@@ -10400,7 +10334,8 @@ void MRISgoToClosestDarkestPoint(MRI_variables *MRI_var)
     //////////////////////////////////////////////////////////////////////
     for (k=0; k<mris->nvertices; k++)
     {
-      v = &mris->vertices[k];
+      VERTEX_TOPOLOGY const * const vt = &mris->vertices_topology[k];
+      VERTEX                * const v  = &mris->vertices         [k];
       x = v->tx;
       y = v->ty;
       z = v->tz;
@@ -10409,11 +10344,11 @@ void MRISgoToClosestDarkestPoint(MRI_variables *MRI_var)
       nz = v->nz;
       sx=sy=sz=sd=0;
       n=0;
-      for (m=0; m<v->vnum; m++)
+      for (m=0; m<vt->vnum; m++)
       {
-        sx += dx =mris->vertices[v->v[m]].tx - x;
-        sy += dy =mris->vertices[v->v[m]].ty - y;
-        sz += dz =mris->vertices[v->v[m]].tz - z;
+        sx += dx =mris->vertices[vt->v[m]].tx - x;
+        sy += dy =mris->vertices[vt->v[m]].ty - y;
+        sz += dz =mris->vertices[vt->v[m]].tz - z;
         sd += sqrt(dx*dx+dy*dy+dz*dz);
         n++;
       }
@@ -10447,7 +10382,6 @@ void MRISgoToClosestDarkestPoint(MRI_variables *MRI_var)
         force=MIN(0.5,force);  // this means 0. or .5
       }
 
-      force1=force1;
       dx = sxt*0.8 + sxn * force1 + v->nx*force;
       dy = syt*0.8 + syn * force1 + v->ny*force;
       dz = szt*0.8 + szn * force1 + v->nz*force;
@@ -10469,9 +10403,10 @@ void MRISgoToClosestDarkestPoint(MRI_variables *MRI_var)
 
       d=sqrt(dx*dx+dy*dy+dz*dz);
 
-      v->x += dx;
-      v->y += dy;
-      v->z += dz;
+      MRISsetXYZ(mris,k,
+        v->x + dx,
+        v->y + dy,
+        v->z + dz);
     }
     niter--;
   }
@@ -10697,7 +10632,7 @@ void calcForce2(double &force0, double &force1, double &force,
                 const double &nx, const double &ny, const double &nz,
                 MRI_variables *MRI_var,  STRIP_PARMS *parms, int kv)
 {
-  int it, jt, kt, i=-1, j=-1, k=-1, label;
+  int it, jt, kt, label;
   double tx, ty, tz;
   double r,F,E,rmin=3.33,rmax=10.;
   int h, a, b;
@@ -10743,13 +10678,6 @@ void calcForce2(double &force0, double &force1, double &force,
         kt=(int)(tz+0.5);
         jt=(int)(ty+0.5);
         it=(int)(tx+0.5);
-
-        if (h==0 && a==0 && b==0)
-        {
-          i=it;
-          j=jt;
-          k=kt;
-        }
 
         // outside the bounding box
         if ((kt<0||kt>=MRI_var->depth||
@@ -10906,7 +10834,6 @@ void FitShape(MRI_variables *MRI_var,  STRIP_PARMS *parms,
   float x,y,z,sx,sy,sz,sd,sxn,syn,szn,sxt,syt,szt,nc;
   double fN,fST,fSN;
   float d,dx,dy,dz,nx,ny,nz;
-  VERTEX *v;
   int iter,k,m,n;
 
   int it,jt, niter;
@@ -10965,7 +10892,7 @@ void FitShape(MRI_variables *MRI_var,  STRIP_PARMS *parms,
   /* momentum -> 0*/
   for (k=0; k<mris->nvertices; k++)
   {
-    v = &mris->vertices[k];
+    VERTEX * const v = &mris->vertices[k];
     v->odx = 0;
     v->ody = 0;
     v->odz = 0;
@@ -10978,7 +10905,7 @@ void FitShape(MRI_variables *MRI_var,  STRIP_PARMS *parms,
     lm = d10 = f1m = f2m = dm = 0;
     for (k=0; k<mris->nvertices; k++)
     {
-      v = &mris->vertices[k];
+      VERTEX * const v = &mris->vertices[k];
       v->tx = v->x;  // initialize t(mp)
       v->ty = v->y;
       v->tz = v->z;
@@ -10991,7 +10918,8 @@ void FitShape(MRI_variables *MRI_var,  STRIP_PARMS *parms,
 
     for (k=0; k<mris->nvertices; k++)
     {
-      v = &mris->vertices[k];
+      VERTEX_TOPOLOGY const * const vt = &mris->vertices_topology[k];
+      VERTEX                * const v  = &mris->vertices         [k];
       // vertex position
       x = v->tx;
       y = v->ty;
@@ -11004,11 +10932,11 @@ void FitShape(MRI_variables *MRI_var,  STRIP_PARMS *parms,
       n=0;
       // get the mean position of neighboring vertices
       // try to minimize
-      for (m=0; m<v->vnum; m++)
+      for (m=0; m<vt->vnum; m++)
       {
-        sx += dx =mris->vertices[v->v[m]].tx - x;
-        sy += dy =mris->vertices[v->v[m]].ty - y;
-        sz += dz =mris->vertices[v->v[m]].tz - z;
+        sx += dx =mris->vertices[vt->v[m]].tx - x;
+        sy += dy =mris->vertices[vt->v[m]].ty - y;
+        sz += dz =mris->vertices[vt->v[m]].tz - z;
         sd += sqrt(dx*dx+dy*dy+dz*dz);
         n++;
       }
@@ -11113,9 +11041,10 @@ void FitShape(MRI_variables *MRI_var,  STRIP_PARMS *parms,
 
       ////////////////////////////////////////////////////////////
       // now move vertex by (dx, dy, dz)
-      v->x += dx;
-      v->y += dy;
-      v->z += dz;
+      MRISsetXYZ(mris,k,
+        v->x + dx,
+        v->y + dy,
+        v->z + dz);
     }
 
     lm /=mris->nvertices;

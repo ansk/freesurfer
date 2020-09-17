@@ -1,4 +1,4 @@
-#include <cmath>
+#include <math.h>
 
 #include <vtkPolyData.h>
 #include <vtkPoints.h>
@@ -92,8 +92,6 @@ LineProf::ComputeProfiles(double offset,  double dspacing)
     return std::vector < std::vector < std::vector < double > > > (0);
   }
 
-  typedef Tracer::LineType LineType;
-  typedef std::vector<LineType> LineContainerType;
   std::vector < std::vector < std::vector < double > > > lc;
 
 //  // compute isoline at 0.5 level (in the middle)
@@ -303,7 +301,7 @@ double LineProf::pointDistance(const std::vector < double >& pt1,
 
 int LineProf::InitializePetsc(bool DoNotExitOnError)
 {
-  PetscInitialize(0, 0,(char*)0,NULL);
+  PetscInitializeNoArguments();
   PetscMPIInt mpiSize;
   MPI_Comm_size(PETSC_COMM_WORLD, &mpiSize);
   Tracer::DoNotExitOnError = DoNotExitOnError;

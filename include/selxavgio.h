@@ -1,15 +1,4 @@
-/**
- * @file  selxavgio.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:10 $
- *    $Revision: 1.6 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -26,7 +15,6 @@
 
 /***************************************************************
   Name:    selxavgio.h
-  $Id: selxavgio.h,v 1.6 2011/03/02 00:04:10 nicks Exp $
   Author:  Douglas Greve
   Purpose: Routines for handling header files for data created by
   selxavg or selavg (selectively averaged).

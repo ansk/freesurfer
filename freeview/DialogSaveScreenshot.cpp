@@ -1,14 +1,5 @@
-/**
- * @file  DialogSaveScreenshot.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2015/09/16 20:36:43 $
- *    $Revision: 1.10 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,6 +22,8 @@
 #include <QFileInfo>
 #include <QSettings>
 #include <QDebug>
+#include <QTimer>
+#include "Layer.h"
 
 DialogSaveScreenshot::DialogSaveScreenshot(QWidget *parent) :
   QDialog(parent),
@@ -40,7 +33,6 @@ DialogSaveScreenshot::DialogSaveScreenshot(QWidget *parent) :
   //  QSettings settings;
   //  ui->lineEditFileName->setText(settings.value("ScreenShot/LastSavedFile").toString());
   m_strLastDir = QDir::currentPath();
-  qDebug() << m_strLastDir;
 }
 
 DialogSaveScreenshot::~DialogSaveScreenshot()
@@ -49,7 +41,6 @@ DialogSaveScreenshot::~DialogSaveScreenshot()
   //  settings.setValue("ScreenShot/LastSavedFile", GetFileName());
   delete ui;
 }
-
 
 QString DialogSaveScreenshot::GetFileName()
 {
@@ -66,6 +57,8 @@ void DialogSaveScreenshot::SetSettings( SettingsScreenshot s )
   ui->checkBoxHideCursor->setChecked( s.HideCursor );
   ui->checkBoxHideAnnotation->setChecked( s.HideCoords );
   ui->spinBoxMagnification->setValue( s.Magnification );
+  ui->checkBoxAutoTrim->setChecked( s.AutoTrim );
+  ui->checkBoxHideScaleBar->setChecked( s.HideScaleBar );
 }
 
 SettingsScreenshot DialogSaveScreenshot::GetSettings()
@@ -75,6 +68,8 @@ SettingsScreenshot DialogSaveScreenshot::GetSettings()
   s.HideCursor    = ui->checkBoxHideCursor->isChecked();
   s.HideCoords    = ui->checkBoxHideAnnotation->isChecked();
   s.Magnification = ui->spinBoxMagnification->value();
+  s.AutoTrim  = ui->checkBoxAutoTrim->isChecked();
+  s.HideScaleBar  = ui->checkBoxHideScaleBar->isChecked();
 
   return s;
 }
@@ -96,6 +91,7 @@ void DialogSaveScreenshot::OnOpen()
 
 void DialogSaveScreenshot::OnSave()
 {
+  ui->labelProgress->clear();
   if ( GetFileName().isEmpty() )
   {
     QMessageBox::warning(this, "Error", "Please enter file name to be saved.");
@@ -104,8 +100,32 @@ void DialogSaveScreenshot::OnSave()
 
   MainWindow* mainwnd = MainWindow::GetMainWindow();
   mainwnd->SetScreenShotSettings(GetSettings());
+  if (ui->checkBoxCycle->isChecked())
+  {
+    QString type = mainwnd->GetCurrentLayerType();
+    if (type != "Surface" && type != "MRI")
+    {
+      QMessageBox::warning(this, "Error", "Select a volume or surface as current layer");
+      return;
+    }
+    m_listLayers = mainwnd->GetLayers(type);
+    if (m_listLayers.isEmpty())
+      return;
+
+    m_listFilenames.clear();
+    for (int i = 0; i < m_listLayers.size(); i++)
+    {
+      m_listFilenames << GetFileName().replace("%name", m_listLayers[i]->GetName());
+    }
+
+    m_nLayerIndex = 0;
+    OnSaveLayer();
+    return;
+  }
+
   if (!mainwnd->GetMainView()->
-      SaveScreenShot(GetFileName(), ui->checkBoxAntiAliasing, ui->spinBoxMagnification->value()))
+      SaveScreenShot(GetFileName(), ui->checkBoxAntiAliasing,
+                     ui->spinBoxMagnification->value(), ui->checkBoxAutoTrim->isChecked()))
   {
     QMessageBox::warning(this, "Error", "Failed to save screenshot. Please make sure the directory exists and writable.");
     return;
@@ -116,4 +136,25 @@ void DialogSaveScreenshot::OnSave()
   {
     hide();
   }
+}
+
+void DialogSaveScreenshot::OnSaveLayer()
+{
+   if (m_nLayerIndex < m_listLayers.size())
+   {
+     for (int i = 0; i < m_listLayers.size(); i++)
+     {
+        m_listLayers[i]->SetVisible(i == m_nLayerIndex);
+     }
+     MainWindow::GetMainWindow()->GetMainView()->
+         SaveScreenShot(m_listFilenames[m_nLayerIndex],
+                        ui->checkBoxAntiAliasing,
+                        ui->spinBoxMagnification->value());
+     m_nLayerIndex++;
+     if (m_nLayerIndex < m_listLayers.size())
+       QTimer::singleShot(250, this, SLOT(OnSaveLayer()));
+     else if (ui->checkBoxAutoTrim->isChecked())
+       MainWindow::GetMainWindow()->GetMainView()->TrimImageFiles(m_listFilenames);
+   }
+   ui->labelProgress->setText(QString("%1 / %2").arg(m_nLayerIndex).arg(m_listLayers.size()));
 }

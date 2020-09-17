@@ -1,13 +1,9 @@
 /**
- * @file swi_process.cpp
  * @brief Processing for Susceptibility Weighted Imaging Pipeline
  *
  */
 /*
  * Original Author: Krish Subramaniam
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2013/02/21 19:17:23 $
  *
  * Copyright © 2013 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -21,20 +17,16 @@
  *
  */
 
-//FreeSurfer C includes
-extern "C"
-{
 #include "fsenv.h"
 #include "mri.h"
 #include "diag.h"
 #include "DICOMRead.h"
-};
 #include <stdexcept>
 #include <vector>
 #include <iterator>
 #include <algorithm>
 #include "cmd_line_interface.h"
-char *Progname;
+const char *Progname;
 
 // static function declarations
 // forward declaration

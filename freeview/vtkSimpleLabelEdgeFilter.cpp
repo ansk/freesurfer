@@ -1,14 +1,9 @@
 /**
- * @file  vtkSimpleLabelEdgeFilter.h
  * @brief A simple label edge filter ONLY for 2D label image (2D vtkImageData).
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/14 23:44:48 $
- *    $Revision: 1.6 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -35,7 +30,6 @@
 #include "vtkImageData.h"
 #include "vtkObjectFactory.h"
 
-vtkCxxRevisionMacro(vtkSimpleLabelEdgeFilter, "$Revision: 1.6 $");
 vtkStandardNewMacro(vtkSimpleLabelEdgeFilter);
 
 // The switch statement in Execute will call this method with
@@ -71,7 +65,11 @@ void vtkSimpleLabelEdgeFilterExecute(vtkImageData* input,
            inPtr[(j+1)*dim[0]+i] == pixelvalue &&
            inPtr[(j-1)*dim[0]+i] == pixelvalue &&
            inPtr[j*dim[0]+i+1] == pixelvalue &&
-           inPtr[j*dim[0]+i-1] == pixelvalue )
+           inPtr[j*dim[0]+i-1] == pixelvalue &&
+           inPtr[(j+1)*dim[0]+i+1] == pixelvalue &&
+           inPtr[(j-1)*dim[0]+i-1] == pixelvalue &&
+           inPtr[(j+1)*dim[0]+i-1] == pixelvalue &&
+           inPtr[(j-1)*dim[0]+i+1] == pixelvalue )
       {
         outPtr[j*dim[0]+i] = 0;
       }
@@ -82,7 +80,6 @@ void vtkSimpleLabelEdgeFilterExecute(vtkImageData* input,
 void vtkSimpleLabelEdgeFilter::SimpleExecute(vtkImageData* input,
                                              vtkImageData* output)
 {
-
   void* inPtr = input->GetScalarPointer();
   void* outPtr = output->GetScalarPointer();
 

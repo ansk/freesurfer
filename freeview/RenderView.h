@@ -1,14 +1,9 @@
 /**
- * @file  RenderView.h
  * @brief View class for rendering 2D and 3D actors
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/02 16:40:06 $
- *    $Revision: 1.39 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -46,7 +41,7 @@ public:
   RenderView( QWidget* parent = NULL );
 
   enum InteractionMode { IM_Navigate = 0, IM_Measure, IM_VoxelEdit, IM_ReconEdit,
-                         IM_ROIEdit, IM_PointSetEdit, IM_VolumeCrop };
+                         IM_ROIEdit, IM_PointSetEdit, IM_VolumeCrop, IM_SurfaceCut, IM_SurfacePath };
 
   void SetWorldCoordinateInfo( const double* origin, const double* size, bool bResetView = true );
   virtual void UpdateViewByWorldCoordinate() {}
@@ -76,16 +71,21 @@ public:
   virtual void leaveEvent       ( QEvent* event );
   virtual void keyPressEvent    ( QKeyEvent* event );
   virtual void keyReleaseEvent  ( QKeyEvent* event );
+  virtual void mouseDoubleClickEvent( QMouseEvent* e);
 
   bool GetShowScalarBar();
-  virtual void UpdateScalarBar();
 
-  bool SaveScreenShot(const QString& filename, bool bAntiAliasing, int nMag = 1);
+  bool SaveScreenShot(const QString& filename, bool bAntiAliasing, int nMag = 1, bool bAutoTrim = false);
+
+  void TrimImageFiles(const QStringList& files);
 
   virtual void TriggerContextMenu( QMouseEvent* event ) { Q_UNUSED(event); }
 
 signals:
   void ViewChanged();
+  void MouseIn();
+  void MouseOut();
+  void DoubleClicked();
 
 public slots:
   void RequestRedraw( bool bForce = false );
@@ -102,6 +102,7 @@ public slots:
   void SetScalarBarLayer( QAction* act );
   void CenterAtWorldPosition( double* pos );
   void AlignViewToNormal(double* v);
+  virtual void UpdateScalarBar();
 
 protected:
   virtual void paintEvent(QPaintEvent *event);

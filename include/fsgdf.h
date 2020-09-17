@@ -1,15 +1,4 @@
-/**
- * @file  fsgdf.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2015/03/16 17:19:04 $
- *    $Revision: 1.30 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -133,24 +122,24 @@ GROUPDESCRIPTOR, FSGD;
 
 FSGD   *gdfAlloc(int version);
 int     gdfFree(FSGD **ppgd);
-FSGD   *gdfRead(char *gdfname, int LoadData);
-int     gdfWrite(char *gdfname, FSGD *gd);
-MRI    *gdfReadDataInfo(char *gdfname);
+FSGD   *gdfRead(const char *gdfname, int LoadData);
+int     gdfWrite(const char *gdfname, FSGD *gd);
+MRI    *gdfReadDataInfo(const char *gdfname);
 int     gdfPrintHeader(FILE *fp, FSGD *gd);
-int     gdfCheckMatrixMethod(char *gd2mtx_method);
+int     gdfCheckMatrixMethod(const char *gd2mtx_method);
+int     gdfCheckNPerClass(FSGD *gd);
 int     gdfPrint(FILE *fp, FSGD *gd);
 int     gdfPrintStdout(FSGD *gd);
-int     gdfCheckMatrixMethod(char *gd2mtx_method);
 MATRIX *gdfMatrixDOSS(FSGD *gd, MATRIX *X);
 MATRIX *gdfMatrixDODS(FSGD *gd, MATRIX *X);
 MATRIX *gdfContrastDODS(FSGD *fsgd, float *wClass, float *wCovar);
 MATRIX *gdfContrastDOSS(FSGD *fsgd, float *wClass, float *wCovar);
-MATRIX *gdfMatrix(FSGD *gd, char *gd2mtx_method, MATRIX *X);
+MATRIX *gdfMatrix(FSGD *gd, const char *gd2mtx_method, MATRIX *X);
 int     gdfOffsetSlope(FSGD *gd, int classno, int varno,
                        int c, int r, int s, float *offset, float *slope);
 int gdfCountItemsOnLine(FILE *fp);
-int gdfCountItemsInString(char *str);
-char *gdfGetNthItemFromString(char *str, int nth);
+int gdfCountItemsInString(const char *str);
+char *gdfGetNthItemFromString(const char *str, const int nth);
 int gdfClassNo(FSGD *gd, char *class_number);
 int gdfGetVarLabelNo(FSGD *gd, char *LabelName);
 int gdfStringIndex(char *str, char **list, int nlist);

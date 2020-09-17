@@ -1,14 +1,5 @@
-/**
- * @file  InfoTreeWidget.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/08 21:01:00 $
- *    $Revision: 1.30 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -44,6 +35,7 @@
 #include <QDebug>
 #include <QMenu>
 #include "RenderView3D.h"
+#include "SurfacePath.h"
 
 
 InfoTreeWidget::InfoTreeWidget(QWidget* parent) :
@@ -79,8 +71,21 @@ void InfoTreeWidget::OnMousePositionChanged()
 void InfoTreeWidget::showEvent(QShowEvent * e)
 {
   // hack to fix a qdesigner bug
-  headerItem()->setText(1,"");
+  headerItem()->setText(1, "");
   QTreeWidget::showEvent(e);
+}
+
+void InfoTreeWidget::ShowHeaderText()
+{
+  headerItem()->setText(1, "Hold Shift to update");
+  QFont fnt = headerItem()->font(1);
+  fnt.setPointSize(8);
+  headerItem()->setFont(1, fnt);
+}
+
+void InfoTreeWidget::ClearHeaderText()
+{
+  headerItem()->setText(1, "");
 }
 
 void InfoTreeWidget::UpdateAll()
@@ -90,6 +95,8 @@ void InfoTreeWidget::UpdateAll()
   LayerCollection* lc_mri = MainWindow::GetMainWindow()->GetLayerCollection( "MRI" );
   LayerCollection* lc_surf = MainWindow::GetMainWindow()->GetLayerCollection( "Surface" );
 
+  int nPrecision = MainWindow::GetMainWindow()->GetSetting("Precision").toInt();
+  bool bComma = MainWindow::GetMainWindow()->GetSetting("UseComma").toBool();
   if ( lc_mri->IsEmpty() && lc_surf->IsEmpty())
   {
     return;
@@ -131,11 +138,11 @@ void InfoTreeWidget::UpdateAll()
       item->setData(1, Qt::UserRole, map);
     }
     FSVolume*vol = mri->GetSourceVolume();
-    item = new QTreeWidgetItem(this);
-    item->setText(0, QString("Talairach (%1)").arg(mri->GetName()));
     double tpos[3];
-    if (vol->RASToTalairachVoxel(ras, tpos))
+    if (vol->RASToTalairach(ras, tpos))
     {
+      item = new QTreeWidgetItem(this);
+      item->setText(0, QString("MNI305 (%1)").arg(mri->GetName()));
       map.clear();
       item->setText(1, QString("%1, %2, %3")
                     .arg(tpos[0], 0, 'f', 2)
@@ -145,8 +152,6 @@ void InfoTreeWidget::UpdateAll()
       map["EditableText"] = item->text(1);
       item->setData(1, Qt::UserRole, map);
     }
-    else
-      item->setText(1, "N/A");
   }
 
   bool bDecimalIndex = MainWindow::GetMainWindow()->GetSetting("DecimalVoxelCoord").toBool();
@@ -164,18 +169,28 @@ void InfoTreeWidget::UpdateAll()
       dvalue = layer->GetVoxelValue( m_dRAS );
       //      else
       //        dvalue = layer->GetVoxelValueByOriginalIndex(nIndex[0]+0.5, nIndex[1]+0.5, nIndex[2]+0.5);
-      QString valueStrg = QString("%1").arg(dvalue, 0, 'f', 6);
-      while (valueStrg[valueStrg.size()-1] != '.' && valueStrg[valueStrg.size()-1] == '0')
-        valueStrg.resize(valueStrg.size()-1);
-      if (valueStrg[valueStrg.size()-1] == '.')
-        valueStrg.resize(valueStrg.size()-1);
-      if (layer->GetNumberOfFrames() > 1 && layer->GetNumberOfFrames() <= 4)
+      QString valueStrg = MyUtils::RealToNumber(dvalue, nPrecision);
+//      while (valueStrg[valueStrg.size()-1] != '.' && valueStrg[valueStrg.size()-1] == '0')
+//        valueStrg.resize(valueStrg.size()-1);
+//      if (valueStrg[valueStrg.size()-1] == '.')
+//        valueStrg.resize(valueStrg.size()-1);
+      if (layer->GetNumberOfFrames() > 1 && layer->GetNumberOfFrames() <= 6)
       {
-        QList<double> values = layer->GetVoxelValueByOriginalIndexAllFrames(fIndex[0], fIndex[1], fIndex[2]);
+        QList<double> values = layer->GetVoxelValueByOriginalIndexAllFrames((int)(fIndex[0]+0.5), (int)(fIndex[1]+0.5), (int)(fIndex[2]+0.5));
+        if (layer->GetDataType() == MRI_RGB)
+        {
+          int nval = (int)values[0];
+          values.clear();
+          values << (nval & 0x00ff) << ((nval >> 8) & 0x00ff) << ((nval >> 16) & 0x00ff);
+        }
         QStringList strgs;
         foreach (double value, values)
-          strgs << QString("%1").arg(value);
-        valueStrg = strgs.join(", ");
+          strgs << MyUtils::RealToNumber(value, nPrecision);
+        valueStrg = strgs.join(bComma?", ":" ");
+        if (values.size() == 6)
+        {
+          valueStrg = "("+strgs.mid(0, 3).join(bComma?", ":" ") + ") (" + strgs.mid(3,3).join(bComma?", ":" ")+")";
+        }
       }
       for (int j = 0; j < 3; j++)
         fIndex[j] = ((int)(fIndex[j]*100+0.5))/100.0;
@@ -203,6 +218,7 @@ void InfoTreeWidget::UpdateAll()
         strg += "  " + labelStrg;
       }
       item->setText(1, strg);
+      item->setToolTip(1, strg);
       map.clear();
       map["Type"] = "MRI";
       map["EditableText"] = editable;
@@ -219,7 +235,7 @@ void InfoTreeWidget::UpdateAll()
       QTreeWidgetItem* item = new QTreeWidgetItem(this);
       item->setText(0, surf->GetName());
       int nVertex = -1;
-      bool bMappingVertex = (surf->GetFileName().contains("inflated", Qt::CaseInsensitive) && surf->GetSourceSurface()->IsSurfaceLoaded(FSSurface::SurfaceWhite));
+      bool bMappingVertex = (surf->IsInflated() && surf->GetSourceSurface()->IsSurfaceLoaded(FSSurface::SurfaceWhite));
       if (bMappingVertex)
         nVertex = (m_bForCursor ? surf->GetCurrentVertex() : surf->GetMouseVertex());
 
@@ -227,7 +243,9 @@ void InfoTreeWidget::UpdateAll()
       if (bMappingVertex && nVertex >= 0)
         surf->GetSourceSurface()->GetSurfaceRASAtVertex(nVertex, sf_pos, FSSurface::SurfaceWhite);
       else
+      {
         surf->GetSurfaceRASAtTarget( m_dRAS, sf_pos );
+      }
       QString editable = QString("%1, %2, %3")
           .arg(sf_pos[0], 0, 'f', 2)
           .arg(sf_pos[1], 0, 'f', 2)
@@ -283,7 +301,7 @@ void InfoTreeWidget::UpdateAll()
         if ( surf->HasCurvature() && m_bShowSurfaceCurvature)
         {
           item = new QTreeWidgetItem(this);
-          item->setText(1, QString("Curvature \t%1").arg(surf->GetCurvatureValue(nVertex)));
+          item->setText(1, QString("Curvature \t%1").arg(MyUtils::RealToNumber(surf->GetCurvatureValue(nVertex), nPrecision)));
         }
 
         int nOverlays = surf->GetNumberOfOverlays();
@@ -291,7 +309,7 @@ void InfoTreeWidget::UpdateAll()
         {
           SurfaceOverlay* overlay = surf->GetOverlay( i );
           item = new QTreeWidgetItem(this);
-          item->setText(1, QString("%1 \t%2").arg(overlay->GetName()).arg(overlay->GetDataAtVertex( nVertex )));
+          item->setText(1, QString("%1 \t%2").arg(overlay->GetName()).arg(MyUtils::RealToNumber(overlay->GetDataAtVertex( nVertex ), nPrecision)));
           item->setToolTip(1, item->text(1));
         }
 
@@ -302,6 +320,17 @@ void InfoTreeWidget::UpdateAll()
           item = new QTreeWidgetItem(this);
           item->setText(1, QString("%1 \t%2").arg(annot->GetName()).arg(annot->GetAnnotationNameAtVertex( nVertex )));
           item->setToolTip(1, item->text(1));
+        }
+
+        int nPath = surf->FindPathAt(nVertex);
+        if (nPath >= 0)
+        {
+            SurfacePath* path = surf->GetMadePath(nPath);
+            if (path)
+            {
+                item = new QTreeWidgetItem(this);
+                item->setText(1, QString("Path %1 \t%2 mm").arg(nPath).arg(path->GetLength(), 0, 'f', 2));
+            }
         }
       }
       else
@@ -412,7 +441,7 @@ void InfoTreeWidget::OnEditFinished()
           if ( mri )
           {
             FSVolume* vol = mri->GetSourceVolume();
-            vol->TalairachVoxelToRAS(ras, ras);
+            vol->TalairachToRAS(ras, ras);
             mri->RASToTarget( ras, ras );
           }
         }

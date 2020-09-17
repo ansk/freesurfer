@@ -1,15 +1,10 @@
 /**
- * @file  MyMRI.cpp
  * @brief A class for MRI utils
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2015/09/23 20:21:10 $
- *    $Revision: 1.30 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -36,19 +31,11 @@
 #include "CostFunctions.h"
 #include "RobustGaussian.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "limits.h"
 #include "error.h"
 #include "macros.h"
 #include "mrimorph.h"
 #include "histo.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 using namespace std;
 
@@ -570,6 +557,39 @@ MRI * MyMRI::gaussianCube(int size)
   return g;
 }
 
+MRI * MyMRI::setTypeUCHAR(MRI * mri)
+{
+  int no_scale_flag = FALSE;
+  printf("       -- changing data type from %d to %d (noscale = %d)...\n",
+      mri->type, MRI_UCHAR , no_scale_flag);
+    // not sure what happens if mri is already UCHAR?
+  MRI * mri2 = MRISeqchangeType(mri, MRI_UCHAR, 0.0, 0.999, no_scale_flag);
+  if (mri2 == NULL)
+  {
+    printf("ERROR: MRISeqchangeType in MyMRI::setTypeUCHAR\n");
+    exit(1);
+  }
+  return mri2;
+}
+
+void MyMRI::setMaxOutsideVal(MRI * mri)
+{
+  float maxval = MRIgetVoxVal (mri,0,0,0,0);
+  int w,h,d;
+  for (d = 0; d<mri->depth; d++)
+  {
+    for (h = 0; h<mri->height; h++)
+    {
+      for (w = 0; w<mri->width; w++)
+      {
+         const float & val = MRIgetVoxVal (mri, w, h, d,0);
+         if (val > maxval) maxval = val;
+      }
+    }
+  }
+  mri->outside_val = maxval;
+}
+
 
 float MyMRI::getBackground(MRI * mri)
 // simple approach : count min and max values
@@ -606,6 +626,7 @@ float MyMRI::getBackground(MRI * mri)
       }
     }
   }
+  //std::cout << "min: " << minval << " (# " << mins<<" ),   max: " << maxval << " (# " <<maxs<<" ) " << std::endl; 
   if (mins > maxs) return minval;
   else return maxval;
   
@@ -1145,6 +1166,7 @@ MRI * MyMRI::entropyImage(MRI* mri, int radius, bool ball, bool correction, MRI 
   if (correction && radius > 1)
   {
     cout << "WARNING: using correction mode with radius > 1 may take a very long time !" << endl;
+    cout << "         Correction usually allows small radis (e.g. 1 in 3D)." << endl;
   }
 
   //int nbins = 64;
@@ -1154,6 +1176,7 @@ MRI * MyMRI::entropyImage(MRI* mri, int radius, bool ball, bool correction, MRI 
   int height = mri->height;
   int depth = mri->depth;
   int x, y, z;
+  bool is2d = (mri->depth == 1);
 
   int insize = width * height * depth;
   unsigned char * mriIn = new unsigned char[insize];
@@ -1259,7 +1282,9 @@ MRI * MyMRI::entropyImage(MRI* mri, int radius, bool ball, bool correction, MRI 
   double sigma = ssize / (4 * sqrt(2 * log(2)));
   cout << "  - compute Gaussian cube( size: " << ssize << " )  sigma: " << sigma
       << endl;
-  int gsize = ssize * ssize * ssize;
+  int zssize = ssize;
+  if (is2d) zssize = 1;
+  int gsize = ssize * ssize * zssize;
   double* g = new double[gsize];
   if (!g)
   {
@@ -1270,10 +1295,14 @@ MRI * MyMRI::entropyImage(MRI* mri, int radius, bool ball, bool correction, MRI 
   count = 0;
   double dtmp, zs, ys, xs;
   sigma = 2.0 * sigma * sigma;
-  for (z = 0; z < ssize; z++)
+  zs = 0;
+  for (z = 0; z < zssize; z++)
   {
-    zs = z - radius;
-    zs = zs * zs / sigma;
+    if (!is2d)
+    { 
+      zs = z - radius;
+      zs = zs * zs / sigma;
+    }
     for (y = 0; y < ssize; y++)
     {
       ys = y - radius;
@@ -1312,6 +1341,7 @@ MRI * MyMRI::entropyImage(MRI* mri, int radius, bool ball, bool correction, MRI 
     ymax--;
     zmax--;
   }
+  if (is2d) zmax = 0;
   double histo[nbins];
   double histosum = 0, entropy = 0, etmp = 0;
   int o = 0, zz = 0, yy = 0, xx = 0;
@@ -1388,7 +1418,7 @@ MRI * MyMRI::entropyImage(MRI* mri, int radius, bool ball, bool correction, MRI 
         int zend = radius + 1;
         int z2 = 0, y2 = 0, x2 = 0;
         int yp = 0, zp = 0;
-        if (depth == 1)
+        if (depth == 1) //is2d
         {
           zstart = 0;
           zend = 1;
@@ -1419,30 +1449,34 @@ MRI * MyMRI::entropyImage(MRI* mri, int radius, bool ball, bool correction, MRI 
               pos = (x + xx) + yp;
               if (correction)
               {
-                unsigned int voxel1, voxel2, voxel3, voxel4, voxel5, voxel6,
-                    voxel7, voxel8;
-
-                pos = (x + xx) + yp;
-                voxel1 = mriIn[pos];
-                voxel2 = mriIn[pos + 1];
-                voxel3 = mriIn[pos + width];
-                voxel4 = mriIn[pos + wtimesh];
-                voxel5 = mriIn[pos + width + 1];
-                voxel6 = mriIn[pos + wtimesh + 1];
-                voxel7 = mriIn[pos + wtimesh + width];
-                voxel8 = mriIn[pos + wtimesh + width + 1];
-                // histo update happens in get3Dcorrection
-                // TET1        
-                get3Dcorrection(histo, voxel1, voxel2, voxel3, voxel4, nbins);
-                // TET2
-                get3Dcorrection(histo, voxel5, voxel2, voxel3, voxel8, nbins);
-                // TET3
-                get3Dcorrection(histo, voxel7, voxel8, voxel3, voxel4, nbins);
-                // TET4
-                get3Dcorrection(histo, voxel6, voxel2, voxel8, voxel4, nbins);
-                // TET5
-                get3Dcorrection(histo, voxel8, voxel2, voxel3, voxel4, nbins);
-
+                pos = (x + xx) + yp;                
+                if (is2d)
+                {
+                  get3Dcorrection(histo, mriIn[pos], mriIn[pos + 1], mriIn[pos + width], mriIn[pos + width + 1], nbins);
+                }
+                else
+                {
+                  unsigned int voxel1, voxel2, voxel3, voxel4, voxel5, voxel6, voxel7, voxel8;
+                  voxel1 = mriIn[pos];
+                  voxel2 = mriIn[pos + 1];
+                  voxel3 = mriIn[pos + width];
+                  voxel4 = mriIn[pos + wtimesh];
+                  voxel5 = mriIn[pos + width + 1];
+                  voxel6 = mriIn[pos + wtimesh + 1];
+                  voxel7 = mriIn[pos + wtimesh + width];
+                  voxel8 = mriIn[pos + wtimesh + width + 1];
+                  // histo update happens in get3Dcorrection
+                  // TET1        
+                  get3Dcorrection(histo, voxel1, voxel2, voxel3, voxel4, nbins);
+                  // TET2
+                  get3Dcorrection(histo, voxel5, voxel2, voxel3, voxel8, nbins);
+                  // TET3
+                  get3Dcorrection(histo, voxel7, voxel8, voxel3, voxel4, nbins);
+                  // TET4
+                  get3Dcorrection(histo, voxel6, voxel2, voxel8, voxel4, nbins);
+                  // TET5
+                  get3Dcorrection(histo, voxel8, voxel2, voxel3, voxel4, nbins);
+                }
               }
               else
               {
@@ -1466,7 +1500,7 @@ MRI * MyMRI::entropyImage(MRI* mri, int radius, bool ball, bool correction, MRI 
             entropy -= etmp * log(etmp);
           }
 
-        if (entropy < 0 || isnan(entropy))
+        if (entropy < 0 || std::isnan(entropy))
         {
           cerr << " ERROR in MyMRI::entropyImage: entropy is negative or nan ? "
               << endl;

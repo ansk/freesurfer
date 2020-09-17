@@ -1,5 +1,4 @@
 /**
- * @file  SurfaceLabel.h
  * @brief The common properties available to surface label
  *
  * An interface implemented by a collection. Layers will get
@@ -8,10 +7,6 @@
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/12/08 17:41:15 $
- *    $Revision: 1.15 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,21 +26,22 @@
 
 #include <QObject>
 #include <vtkSmartPointer.h>
+#include <QList>
 
 
-extern "C"
-{
+
 #include "label.h"
-}
+
 
 class LayerSurface;
 class vtkRGBAColorTransferFunction;
+class LayerMRI;
 
 class SurfaceLabel  : public QObject
 {
   Q_OBJECT
 public:
-  SurfaceLabel ( LayerSurface* surf );
+  SurfaceLabel ( LayerSurface* surf, bool bInitializeLabel = false );
   ~SurfaceLabel ();
 
   enum ColorCode { SolidColor = 0, Heatscale };
@@ -93,6 +89,11 @@ public:
     return m_dHeatscaleMax;
   }
 
+  double GetOpacity()
+  {
+    return m_dOpacity;
+  }
+
   int GetColorCode()
   {
     return m_nColorCode;
@@ -105,6 +106,33 @@ public:
     return m_label;
   }
 
+  void Resample(LayerMRI* mri);
+  void Dilate(int nTimes = 1);
+  void Erode(int nTimes = 1);
+  void Open(int nTimes = 1);
+  void Close(int nTimes = 1);
+
+  QString GetFileName()
+  {
+    return m_strFilename;
+  }
+
+  bool HasVertex(int nvo);
+
+  void EditVertices(const QVector<int>& verts, bool bAdd = true);
+
+  bool SaveToFile(const QString& filename = "");
+
+  bool HasUndo()
+  {
+    return !m_undoBuffer.isEmpty();
+  }
+
+  bool HasRedo()
+  {
+    return !m_redoBuffer.isEmpty();
+  }
+
 Q_SIGNALS:
   void SurfaceLabelChanged();
   void SurfaceLabelVisibilityChanged();
@@ -115,6 +143,11 @@ public slots:
   void SetColorCode(int nCode);
   void SetHeatscaleMin(double dval);
   void SetHeatscaleMax(double dval);
+  void Undo();
+  void Redo();
+  void SaveForUndo();
+  void SetOpacity(double dval);
+  void MaskOverlay();
 
 private:
   void UpdateOutline();
@@ -132,6 +165,11 @@ private:
   int           m_nColorCode;
   double        m_dHeatscaleMin;
   double        m_dHeatscaleMax;
+  double        m_dOpacity;
+  QString       m_strFilename;
+  bool          m_bModified;
+  QList<LABEL*> m_undoBuffer;
+  QList<LABEL*> m_redoBuffer;
 
   vtkSmartPointer<vtkRGBAColorTransferFunction> m_lut;
 };

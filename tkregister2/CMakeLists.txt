@@ -1,16 +1,9 @@
 project(tkregister2)
-include_directories(${tkregister2_SOURCE_DIR}
-${INCLUDE_DIR_TOP} 
-${VXL_INCLUDES} 
-${MINC_INCLUDE_DIRS}) 
 
-SET(tkregister2_SRCS
-tkregister2.c
-)
+include_directories(${FS_INCLUDE_DIRS})
 
-
-add_executable(tkregister2 ${tkregister2_SRCS})
-target_link_libraries(tkregister2 ${FS_LIBS})
-install(TARGETS tkregister2 DESTINATION bin)	
-
-add_subdirectory(cmdl)
+add_executable(tkregister2_cmdl tkregister2.cpp)
+target_compile_definitions(tkregister2_cmdl PRIVATE -DNO_GUI)
+target_link_libraries(tkregister2_cmdl utils)
+install(TARGETS tkregister2_cmdl DESTINATION bin)
+symlink(tkregister2_cmdl ${CMAKE_INSTALL_PREFIX}/bin/tkregister2)

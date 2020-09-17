@@ -1,5 +1,4 @@
 /**
- * @file  mris_volmask.cpp
  * @brief Uses the 4 surfaces of a scan to construct a mask volume
  *
  * Uses the 4 surfaces of a scan to construct a mask volume showing the
@@ -7,10 +6,6 @@
  */
 /*
  * Original Author: Gheorghe Postelnicu
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:34 $
- *    $Revision: 1.2 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -47,18 +42,19 @@
 #include "cmd_line_interface.h"
 
 // FS
-extern "C"
-{
+
+
 #include "fsenv.h"
 #include "mrisurf.h"
 #include "mri.h"
+#include "mri2.h"
 #include "error.h"
 #include "cma.h"
 #include "diag.h"
 #include "macros.h"
 #include "gca.h"
-};
-char *Progname;
+;
+const char *Progname;
 
 // static function declarations
 // forward declaration
@@ -73,6 +69,7 @@ public:
   {}
   virtual ~IoError() throw()
   {}
+  using std::exception::what;
   virtual const char* what()
   {
     return m_what.c_str();
@@ -101,12 +98,6 @@ LoadInputFiles(const IoParams& params,
                MRIS*& surfLeftPial,
                MRIS*& surfRightWhite,
                MRIS*& surfRightPial) throw(IoError) ;
-
-/*
-  converts vertices to the index space
-*/
-void ConvertSurfaceVertexCoordinates(MRI_SURFACE* mris,
-                                     MRI* vol);
 
 void ComputeSurfaceDistanceFunction
 (MRIS* mris, //input surface
@@ -230,7 +221,7 @@ main(int ac, char* av[])
   //---------------------
   // proces white surface - convert to voxel-space
 #ifndef NO_VTK
-  ConvertSurfaceVertexCoordinates(surfLeftWhite, mriTemplate);
+  MRIConvertSurfaceVertexCoordinates(surfLeftWhite, mriTemplate);
 #endif
   // allocate distance
   MRI* dLeftWhite = MRIalloc( mriTemplate->width,
@@ -261,7 +252,7 @@ main(int ac, char* av[])
   //-----------------------
   // process pial surface
 #ifndef NO_VTK
-  ConvertSurfaceVertexCoordinates(surfLeftPial,  mriTemplate);
+  MRIConvertSurfaceVertexCoordinates(surfLeftPial,  mriTemplate);
 #endif
   MRI* dLeftPial = MRIalloc( mriTemplate->width,
                              mriTemplate->height,
@@ -300,7 +291,7 @@ main(int ac, char* av[])
   //-------------------
   // process white
 #ifndef NO_VTK
-  ConvertSurfaceVertexCoordinates(surfRightWhite,mriTemplate);
+  MRIConvertSurfaceVertexCoordinates(surfRightWhite,mriTemplate);
 #endif
   MRI* dRightWhite = MRIalloc( mriTemplate->width,
                                mriTemplate->height,
@@ -327,7 +318,7 @@ main(int ac, char* av[])
   //--------------------
   // process pial
 #ifndef NO_VTK
-  ConvertSurfaceVertexCoordinates(surfRightPial, mriTemplate);
+  MRIConvertSurfaceVertexCoordinates(surfRightPial, mriTemplate);
 #endif
   MRI* dRightPial = MRIalloc( mriTemplate->width,
                               mriTemplate->height,
@@ -576,7 +567,6 @@ LoadInputFiles(const IoParams& params,
                MRIS*& surfRightPial) throw(IoError)
 {
   // determine the mode of the application and infer the input file names
-  // use the BOOST filesystem library to resolve paths (system-independent)
 
   // declare path objects
   std::string pathSurfLeftWhite,
@@ -696,9 +686,13 @@ ComputeSurfaceDistanceFunction(MRIS* mris,
 
   // compute the unsigned distance
   vtkImplicitModeller* implicit = vtkImplicitModeller::New();
+#if VTK_MAJOR_VERSION > 5
+  implicit->SetInputData(mesh);
+#else
   implicit->SetInput(mesh);
+#endif
   double bounds[6] =
-    { 0, dims[0]-1, 0, dims[1]-1, 0, dims[2]-1 };
+    { 0, (double)dims[0]-1.0, 0.0, (double)dims[1]-1.0, 0.0, (double)dims[2]-1.0 };
   implicit->SetModelBounds(bounds);
   implicit->SetMaximumDistance( thickness );
   implicit->SetSampleDimensions(dims);
@@ -875,33 +869,6 @@ MRI* CombineMasks(MRI* maskOne,
   return mri;
 }
 
-void
-ConvertSurfaceVertexCoordinates(MRI_SURFACE* mris,
-                                MRI* vol)
-{
-  double cx, cy, cz;
-  Real vx, vy, vz;
-
-  VERTEX* pvtx = &( mris->vertices[0] );
-  unsigned int nvertices = (unsigned int)mris->nvertices;
-
-  for ( unsigned int ui=0;
-        ui < nvertices;
-        ++ui, ++pvtx )
-  {
-    cx = pvtx->x;
-    cy = pvtx->y;
-    cz = pvtx->z;
-
-    MRIsurfaceRASToVoxel( vol,
-                          cx, cy, cz,
-                          &vx, &vy, &vz);
-
-    pvtx->x = vx;
-    pvtx->y = vy;
-    pvtx->z = vz;
-  } // next ui, pvtx
-}
 
 MRI* FilterLabel(MRI* initialMask,
                  const unsigned char lbl)

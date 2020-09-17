@@ -1,5 +1,4 @@
 /**
- * @file  mris_topo_fixer.cpp
  * @brief optimally correcting the topology of triangulated surface
  *
  * "Genetic Algorithm for the Topology Correction of Cortical Surfaces",
@@ -8,10 +7,6 @@
  */
 /*
  * Original Author: Florent Segonne
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:34 $
- *    $Revision: 1.29 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -32,7 +27,7 @@
 #include <math.h>
 #include <ctype.h>
 
-extern "C" {
+ 
 #include "macros.h"
 #include "error.h"
 #include "diag.h"
@@ -42,10 +37,10 @@ extern "C" {
 #include "macros.h"
 #include "version.h"
 #include "timer.h"
-#include "topology/topo_parms.h"
-}
+#include "topo_parms.h"
+
 #include "mris_topology.h"
-#include "topology/patchdisk.h"
+#include "patchdisk.h"
 
 int main(int argc, char *argv[]) ;
 
@@ -61,11 +56,11 @@ const char *Progname ;
 
 static const char *brain_name    = "brain" ;
 static const char *wm_name       = "wm" ;
-static const char *orig_name     = "orig" ;
 static const char *input_name   = "input" ;
-//static const char *defect_name  = "defects" ;
 static const char *sphere_name = "qsphere" ;
-static const char *out_name = "orig_corrected" ;
+//static const char *defect_name  = "defects" ;
+const char *orig_name = "orig" ;
+const char *out_name = "orig_corrected" ;
 
 static char sdir[STRLEN] = "";
 static TOPOFIX_PARMS parms;
@@ -153,30 +148,16 @@ static void freeTopoFixerParameters() {
 
 int main(int argc, char *argv[]) {
 
-  char          **av, *hemi, *sname, *cp, fname[STRLEN] ;
-  int           ac, nargs ;
+  char          *hemi, *sname, *cp, fname[STRLEN] ;
+  int           nargs ;
   MRI_SURFACE   *mris, *mris_corrected ;
   // MRI           *mri, *mri_wm ;
   int           msec, nvert, nfaces, nedges, eno ,is_valid;
-  struct timeb  then ;
+  Timer then ;
 
-  char cmdline[CMD_LINE_LEN] ;
+  std::string cmdline = getAllInfo(argc, argv, "mris_topo_fixer");
 
-  make_cmd_version_string
-  (argc,
-   argv,
-   "$Id: mris_topo_fixer.cpp,v 1.29 2011/03/02 00:04:34 nicks Exp $",
-   "$Name:  $",
-   cmdline);
-
-  /* rkt: check for and handle version tag */
-  nargs =
-    handle_version_option
-    (argc,
-     argv,
-     "$Id: mris_topo_fixer.cpp,v 1.29 2011/03/02 00:04:34 nicks Exp $",
-     "$Name:  $");
-
+  nargs = handleVersionOption(argc, argv, "mris_topo_fixer");
   if (nargs && argc - nargs == 1)
     exit (0);
   argc -= nargs;
@@ -187,8 +168,6 @@ int main(int argc, char *argv[]) {
   Progname = argv[0] ;
   ErrorInit(NULL, NULL, NULL) ;
   DiagInit(NULL, NULL, NULL) ;
-  ac = argc ;
-  av = argv ;
   for ( ; argc > 1 && ISOPTION(*argv[1]) ; argc--, argv++) {
     nargs = get_option(argc, argv) ;
     argc -= nargs ;
@@ -199,11 +178,11 @@ int main(int argc, char *argv[]) {
 
   print_parameters();
 
-  printf("%s\n",vcid);
-  printf("  %s\n",MRISurfSrcVersion());
+  printf("%s\n",getVersion().c_str());
+  printf("  %s\n",getVersion().c_str());
   fflush(stdout); */
 
-  TimerStart(&then) ;
+  then.reset() ;
   sname = argv[1] ;
   hemi = argv[2] ;
   if (strlen(sdir) == 0) {
@@ -461,7 +440,7 @@ int main(int argc, char *argv[]) {
 
   fprintf(stderr,"\n\n");
 
-  msec = TimerStop(&then) ;
+  msec = then.milliseconds() ;
   fprintf(stderr,"topology fixing took %2.1f minutes\n",
           (float)msec/(60*1000.0f));
 
@@ -577,10 +556,13 @@ get_option(int argc, char *argv[]) {
     nargs = 1 ;
   } else if (!stricmp(option, (char*)"seed")) {
     setRandomSeed(atol(argv[2])) ;
-    fprintf
-    (stderr,
-     "setting seed for random number genererator to %d\n",
-     atoi(argv[2])) ;
+    fprintf(stderr, "setting seed for random number genererator to %d\n", atoi(argv[2])) ;
+    nargs = 1 ;
+  } else if (!stricmp(option, (char*)"out_name")) {
+    out_name = argv[2];
+    nargs = 1 ;
+  } else if (!stricmp(option, (char*)"orig_name")) {
+    orig_name = argv[2];
     nargs = 1 ;
   } else switch (toupper(*option)) {
     case '?':

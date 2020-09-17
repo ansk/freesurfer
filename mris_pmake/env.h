@@ -1,5 +1,4 @@
 /**
- * @file  env.h
  * @brief The environment object API.
  *
  * The environment acts as the main access / interface between the core
@@ -10,10 +9,6 @@
  */
 /*
  * Original Author: Rudolph Pienaar / Christian Haselgrove
- * CVS Revision Info:
- *    $Author: rudolph $
- *    $Date: 2013/01/29 16:57:40 $
- *    $Revision: 1.24 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -39,19 +34,10 @@
 #include "c_SSocket.h"
 #include "scanopt.h"
 
-
-#ifdef __cplusplus
-extern  "C" {
-#endif
-
 #include "mri.h"
 #include "mrisurf.h"
 #include "label.h"
 #include "error.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 #include <string>
 #include <vector>

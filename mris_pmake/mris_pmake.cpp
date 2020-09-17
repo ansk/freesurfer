@@ -1,5 +1,4 @@
 /**
- * @file  mris_pmake.cpp
  * @brief Determine the shortest path on a freesurfer brain curvature map.
  *
  *  SYNPOSIS
@@ -16,10 +15,6 @@
  */
 /*
  * Original Authors: Rudolph Pienaar / Christian Haselgrove
- * CVS Revision Info:
- *    $Author: rudolph $
- *    $Date: 2013/01/25 16:39:24 $
- *    $Revision: 1.18 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -68,13 +63,16 @@ using namespace std;
 // Some global vars...
 extern  const option longopts[];
 stringstream            Gsout("");
-char*   Gpch_Progname;
-char*   Progname        = Gpch_Progname;
+char* Gpch_Progname;
+
+ 
+    const char* Progname = Gpch_Progname;
+
+
 bool    Gb_stdout       = true;         // Global flag controlling output to
                                         //+stdout
 string  G_SELF          = "";           // "My" name
-string  G_VERSION       =               // version
-  "$Id: mris_pmake.cpp,v 1.18 2013/01/25 16:39:24 rudolph Exp $";
+string  G_VERSION       = "mris_pmake"; // version
 char 	pch_buffer[65536];
 
 // "Class"-like globals...

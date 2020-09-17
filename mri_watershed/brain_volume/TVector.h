@@ -1,15 +1,4 @@
-/**
- * @file  TVector.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:25 $
- *    $Revision: 1.4 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -38,8 +27,6 @@
 #define c_tvector_h
 
 #include <iostream>
-
-#ifdef __cplusplus
 
 class TVector {
 
@@ -133,5 +120,4 @@ std::ostream &operator<<(std::ostream &s, const TVector &v) {
   return s;
 }
 
-#endif // __cplusplus
 #endif // multiple inclusion protection

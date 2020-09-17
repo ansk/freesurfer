@@ -1,4 +1,4 @@
-QT       += core gui script
+QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -19,6 +19,7 @@ SOURCES += \
     DialogLoadDTI.cpp \
     DialogLoadPointSet.cpp \
     DialogLoadVolume.cpp \
+    DialogNewAnnotation.cpp \
     DialogNewROI.cpp \
     DialogNewPointSet.cpp \
     DialogNewVolume.cpp \
@@ -67,6 +68,7 @@ SOURCES += \
     LayerVolumeBase.cpp \
     LivewireTool.cpp \
     LUTDataHolder.cpp \
+    WindowEditAnnotation.cpp \
     main.cpp \
     MainWindow.cpp \
     MyCmdLineParser.cpp \
@@ -78,8 +80,6 @@ SOURCES += \
     PanelSurface.cpp \
     PanelVolume.cpp \
     qtcolorpicker.cpp \
-    QVTKWidget.cxx \
-    QVTKPaintEngine.cxx \
     Region2D.cpp \
     Region2DLine.cpp \
     Region2DPolyline.cpp \
@@ -108,6 +108,7 @@ SOURCES += \
     VolumeFilterMedian.cpp \
     VolumeFilterSobel.cpp \
     vtkSimpleLabelEdgeFilter.cpp \
+    vtkSimpleLabelEdgeFilter3D.cpp \
     WidgetHistogram.cpp \
     WindowConfigureOverlay.cpp \
     WindowQuickReference.cpp \
@@ -164,7 +165,25 @@ SOURCES += \
     SplineTreeWidget.cpp \
     DialogLoadTransform.cpp \
     Interactor3DROIEdit.cpp \
-    DialogAddPointSetStat.cpp
+    DialogAddPointSetStat.cpp \
+    BinaryTreeNode.cpp \
+    BinaryTreeEdge.cpp \
+    BinaryTreeView.cpp \
+    DialogSelectSplines.cpp \
+    SurfacePath.cpp \
+    Interactor3DPathEdit.cpp \
+    DialogCustomFill.cpp \
+    DialogSurfaceLabelOperations.cpp \
+    geos/GeodesicMatting.cpp \
+    geos/kde.cpp \
+    GeoSWorker.cpp \
+    QVTKWidget/QVTKWidget.cxx \
+    QVTKWidget/QVTKPaintEngine.cxx \
+    BusyIndicator.cpp \
+    vtkInteractorStyleMyTrackballCamera.cxx \
+    FlowLayout.cpp \
+    WindowLayerInfo.cpp \
+    DialogScreenshotOverlay.cpp
 
 HEADERS  += \
     Annotation2D.h \
@@ -180,6 +199,7 @@ HEADERS  += \
     DialogLoadDTI.h \
     DialogLoadPointSet.h \
     DialogLoadVolume.h \
+    DialogNewAnnotation.h \
     DialogPreferences.h \
     DialogNewPointSet.h \
     DialogNewROI.h \
@@ -236,8 +256,8 @@ HEADERS  += \
     PanelROI.h \
     PanelSurface.h \
     PanelVolume.h \
+    WindowEditAnnotation.h \
     qtcolorpicker.h \
-    QVTKWidget.h \
     Region2D.h \
     Region2DLine.h \
     Region2DPolyline.h \
@@ -262,6 +282,7 @@ HEADERS  += \
     VolumeFilter.h \
     VolumeFilterSobel.h \
     vtkSimpleLabelEdgeFilter.h \
+    vtkSimpleLabelEdgeFilter3D.h \
     WidgetHistogram.h \
     WindowConfigureOverlay.h \
     WindowQuickReference.h \
@@ -316,9 +337,28 @@ HEADERS  += \
     SplineTreeWidget.h \
     DialogLoadTransform.h \
     Interactor3DROIEdit.h \
-    DialogAddPointSetStat.h
+    DialogAddPointSetStat.h \
+    BinaryTreeNode.h \
+    BinaryTreeEdge.h \
+    BinaryTreeView.h \
+    DialogSelectSplines.h \
+    SurfacePath.h \
+    Interactor3DPathEdit.h \
+    DialogCustomFill.h \
+    DialogSurfaceLabelOperations.h \
+    geos/GeodesicMatting.h \
+    geos/kde.h \
+    GeoSWorker.h \
+    QVTKWidget/QVTKWidget.h \
+    BusyIndicator.h \
+    QVTKWidget/QVTKPaintEngine.h \
+    vtkInteractorStyleMyTrackballCamera.h \
+    FlowLayout.h \
+    WindowLayerInfo.h \
+    DialogScreenshotOverlay.h
 
 FORMS    += MainWindow.ui \
+    DialogNewAnnotation.ui \
     PanelVolume.ui \
     PanelSurface.ui \
     PanelROI.ui \
@@ -341,6 +381,7 @@ FORMS    += MainWindow.ui \
     DialogAbout.ui \
     DialogWriteMovieFrames.ui \
     DialogGradientFilter.ui \
+    WindowEditAnnotation.ui \
     WindowQuickReference.ui \
     FloatingStatusBar.ui \
     TermWidget.ui \
@@ -366,7 +407,12 @@ FORMS    += MainWindow.ui \
     DialogThresholdVolume.ui \
     DialogVolumeSegmentation.ui \
     DialogLoadTransform.ui \
-    DialogAddPointSetStat.ui
+    DialogAddPointSetStat.ui \
+    DialogSelectSplines.ui \
+    DialogCustomFill.ui \
+    DialogSurfaceLabelOperations.ui \
+    WindowLayerInfo.ui \
+    DialogScreenshotOverlay.ui
 
 RESOURCES += \
     freeview.qrc
@@ -379,10 +425,12 @@ include ($$PWD/json/qjson.pri)
 QMAKE_CXXFLAGS += -DUNICODE -D_FILE_OFFSET_BITS=64 -D_LARGE_FILES \
                    -DDEVELOPMENT -DHAVE_OPENMP
 
-QMAKE_CXXFLAGS_WARN_ON += -Wno-deprecated -Wno-write-strings #-Wno-reorder
+if(SUPPRESS_WARNINGS) {
+  QMAKE_CXXFLAGS_WARN_ON += -Wno-deprecated -Wno-write-strings #-Wno-reorder
+}
 
 # set this to your local dev directory
-FREESURFER_DEV_DIR = /homes/5/rpwang/freesurfer/dev
+FREESURFER_DEV_DIR = /homes/5/rpwang/freesurfer_dev
 
 # set this to your local install bin directory
 # freeview.bin will be copied to that directory
@@ -392,29 +440,23 @@ FREESURFER_BIN = /homes/5/rpwang/freesurfer/bin
 unix {
 !macx {
   greaterThan(QT_MAJOR_VERSION, 4): QT += x11extras
+  greaterThan(QT_MAJOR_VERSION, 4): QMAKE_CXXFLAGS += -fpermissive
 
   LIBS += \
     -lvtkverdict -lvtkGraphics -lvtkmetaio -lvtkpng -lvtkzlib \
     -lvtksqlite -lvtkImaging -lvtkFiltering -lvtkCommon -lvtksys \
     -lvtkGenericFiltering -lvtkexoIIc -lvtkNetCDF -lvtkVolumeRendering \
-    -lvtkRendering -lvtkftgl -lvtkWidgets -lvtkHybrid -lvtkIO -lvtkDICOMParser
+    -lvtkRendering -lvtkftgl -lvtkWidgets -lvtkHybrid -lvtkIO -lvtkDICOMParser -lvtkjpeg \
+    -lvtkfreetype -lvtkhdf5 -lvtkhdf5_hl -lvtktiff -lvtkexpat -lLSDyna -lvtkNetCDF_cxx
 
-  INCLUDEPATH += /usr/pubsw/packages/vtk/current/include/vtk-5.6 \
+  INCLUDEPATH += /usr/pubsw/packages/vtk/5.10.1/include/vtk-5.10 \
                  $$FREESURFER_DEV_DIR/include $$FREESURFER_DEV_DIR/vtkutils \
                  /usr/pubsw/packages/mni/current/include \
                  $$FREESURFER_DEV_DIR/lineprof
 
-  QMAKE_CXXFLAGS += -I/usr/pubsw/packages/itk/current/include/InsightToolkit \
-      -I/usr/pubsw/packages/itk/current/include/InsightToolkit/Algorithms \
-      -I/usr/pubsw/packages/itk/current/include/InsightToolkit/BasicFilters \
-      -I/usr/pubsw/packages/itk/current/include/InsightToolkit/Common \
-      -I/usr/pubsw/packages/itk/current/include/InsightToolkit/IO \
-      -I/usr/pubsw/packages/itk/current/include/InsightToolkit/Numerics \
-      -I/usr/pubsw/packages/itk/current/include/InsightToolkit/Numerics/Statistics \
-      -I/usr/pubsw/packages/itk/current/include/InsightToolkit/Review \
-      -I/usr/pubsw/packages/itk/current/include/InsightToolkit/Review/Statistics \
-      -I/usr/pubsw/packages/itk/current/include/InsightToolkit/SpatialObject \
-      -I/usr/pubsw/packages/itk/current/include/InsightToolkit/Utilities \
+  ITK_PATH = /usr/pubsw/packages/itk/4.13.0
+
+  QMAKE_CXXFLAGS += -I$$FREESURFER_DEV_DIR/include -I$$ITK_PATH/include/ITK-4.13 \
       -I/usr/pubsw/packages/vxl/current/include/vxl/core \
       -I/usr/pubsw/packages/vxl/current/include/vxl/vcl \
       -I/usr/pubsw/packages/vxl/current/include/vxl/v3p/netlib \
@@ -425,25 +467,41 @@ unix {
       QMAKE_CXXFLAGS += -g -O0
   }
 
-  LIBS += -L/usr/pubsw/packages/vtk/current/lib/vtk-5.6 -L/usr/X11R6/lib \
+
+  LIBS += -L/usr/pubsw/packages/vtk/5.10.1/lib/vtk-5.10 -L/usr/X11R6/lib \
       -lX11 -lXext -lXt -lSM -lICE -lGLU -lm -ldl \
-      -L/usr/pubsw/packages/vxl/current/lib -L/usr/pubsw/packages/itk/current/lib/InsightToolkit \
+      -L/usr/pubsw/packages/vxl/current/lib -L$$ITK_PATH/lib/InsightToolkit \
       $$FREESURFER_DEV_DIR/utils/libutils.a $$FREESURFER_DEV_DIR/fsgdf/libfsgdf.a \
       $$FREESURFER_DEV_DIR/vtkutils/libvtkutils.a \
       $$FREESURFER_DEV_DIR/lineprof/liblineprof.a \
       $$FREESURFER_DEV_DIR/hipsstubs/libhipsstubs.a $$FREESURFER_DEV_DIR/vtkutils/libvtkutils.a \
       $$FREESURFER_DEV_DIR/rgb/librgb.a $$FREESURFER_DEV_DIR/unix/libunix.a $$FREESURFER_DEV_DIR/dicom/libdicom.a \
-      $$FREESURFER_DEV_DIR/jpeg/libjpeg.a $$FREESURFER_DEV_DIR/tiff/libtiff.a $$FREESURFER_DEV_DIR/expat/libexpat.a \
-      /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKIO.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKAlgorithms.a \
-      /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKCommon.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKMetaIO.a \
-      /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKniftiio.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKNrrdIO.a \
-      /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkpng.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitksys.a \
-      /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitktiff.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkv3p_netlib.a \
-      /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkzlib.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkgdcm.a \
-      /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkopenjpeg.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkjpeg8.a \
-      /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkjpeg12.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkjpeg16.a \
-      /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKDICOMParser.a \
-      /usr/lib64/libuuid.a -lz -lcrypt -ldl -lpthread \
+   #   $$FREESURFER_DEV_DIR/jpeg/libjpeg.a $$FREESURFER_DEV_DIR/tiff/libtiff.a $$FREESURFER_DEV_DIR/expat/libexpat.a \
+      /usr/pubsw/packages/jpeg/6b/lib/libjpeg.a /usr/pubsw/packages/tiff/3.6.1/lib/libtiff.a /usr/pubsw/packages/expat/2.0.1/lib/libexpat.a \
+    $$ITK_PATH/lib/libITKIOSpatialObjects-4.13.a $$ITK_PATH/lib/libITKIOXML-4.13.a $$ITK_PATH/lib/libITKLabelMap-4.13.a \
+    $$ITK_PATH/lib/libITKQuadEdgeMesh-4.13.a $$ITK_PATH/lib/libITKOptimizers-4.13.a $$ITK_PATH/lib/libITKPolynomials-4.13.a \
+    $$ITK_PATH/lib/libITKBiasCorrection-4.13.a $$ITK_PATH/lib/libITKBioCell-4.13.a $$ITK_PATH/lib/libITKIOBMP-4.13.a \
+    $$ITK_PATH/lib/libITKIOBioRad-4.13.a $$ITK_PATH/lib/libITKIOBruker-4.13.a $$ITK_PATH/lib/libITKIOCSV-4.13.a \
+    $$ITK_PATH/lib/libITKIOGDCM-4.13.a $$ITK_PATH/lib/libitkgdcmMSFF-4.13.a $$ITK_PATH/lib/libitkgdcmDICT-4.13.a \
+    $$ITK_PATH/lib/libitkgdcmIOD-4.13.a $$ITK_PATH/lib/libitkgdcmDSED-4.13.a $$ITK_PATH/lib/libitkgdcmCommon-4.13.a \
+  $$ITK_PATH/lib/libitkgdcmjpeg8-4.13.a $$ITK_PATH/lib/libitkgdcmjpeg12-4.13.a $$ITK_PATH/lib/libitkgdcmjpeg16-4.13.a \
+    $$ITK_PATH/lib/libitkgdcmopenjp2-4.13.a $$ITK_PATH/lib/libitkgdcmcharls-4.13.a $$ITK_PATH/lib/libitkgdcmuuid-4.13.a \
+    $$ITK_PATH/lib/libITKIOGE-4.13.a $$ITK_PATH/lib/libITKIOGIPL-4.13.a $$ITK_PATH/lib/libITKIOHDF5-4.13.a $$ITK_PATH/lib/libITKIOJPEG-4.13.a \
+    $$ITK_PATH/lib/libITKIOLSM-4.13.a $$ITK_PATH/lib/libITKIOTIFF-4.13.a $$ITK_PATH/lib/libitktiff-4.13.a $$ITK_PATH/lib/libitkjpeg-4.13.a \
+    $$ITK_PATH/lib/libITKIOMINC-4.13.a $$ITK_PATH/lib/libitkminc2-4.13.a $$ITK_PATH/lib/libITKIOMRC-4.13.a $$ITK_PATH/lib/libITKIOMesh-4.13.a \
+    $$ITK_PATH/lib/libITKgiftiio-4.13.a $$ITK_PATH/lib/libITKEXPAT-4.13.a $$ITK_PATH/lib/libITKIOMeta-4.13.a $$ITK_PATH/lib/libITKMetaIO-4.13.a \
+    $$ITK_PATH/lib/libITKIONIFTI-4.13.a $$ITK_PATH/lib/libITKniftiio-4.13.a $$ITK_PATH/lib/libITKznz-4.13.a $$ITK_PATH/lib/libITKIONRRD-4.13.a \
+    $$ITK_PATH/lib/libITKNrrdIO-4.13.a $$ITK_PATH/lib/libITKIOPNG-4.13.a $$ITK_PATH/lib/libitkpng-4.13.a $$ITK_PATH/lib/libITKIOSiemens-4.13.a \
+    $$ITK_PATH/lib/libITKIOIPL-4.13.a $$ITK_PATH/lib/libITKIOStimulate-4.13.a $$ITK_PATH/lib/libITKIOTransformHDF5-4.13.a $$ITK_PATH/lib/libitkhdf5_cpp.a \
+    $$ITK_PATH/lib/libitkhdf5.a $$ITK_PATH/lib/libitkzlib-4.13.a $$ITK_PATH/lib/libITKIOTransformInsightLegacy-4.13.a $$ITK_PATH/lib/libITKIOTransformMatlab-4.13.a \
+    $$ITK_PATH/lib/libITKIOTransformBase-4.13.a $$ITK_PATH/lib/libITKTransformFactory-4.13.a $$ITK_PATH/lib/libITKIOVTK-4.13.a \
+    $$ITK_PATH/lib/libITKIOImageBase-4.13.a $$ITK_PATH/lib/libITKKLMRegionGrowing-4.13.a $$ITK_PATH/lib/libITKWatersheds-4.13.a \
+    $$ITK_PATH/lib/libITKStatistics-4.13.a $$ITK_PATH/lib/libitkNetlibSlatec-4.13.a $$ITK_PATH/lib/libITKSpatialObjects-4.13.a \
+    $$ITK_PATH/lib/libITKMesh-4.13.a $$ITK_PATH/lib/libITKTransform-4.13.a $$ITK_PATH/lib/libITKPath-4.13.a $$ITK_PATH/lib/libITKCommon-4.13.a \
+    $$ITK_PATH/lib/libitkdouble-conversion-4.13.a $$ITK_PATH/lib/libitksys-4.13.a $$ITK_PATH/lib/libITKVNLInstantiation-4.13.a $$ITK_PATH/lib/libitkvnl_algo-4.13.a \
+     $$ITK_PATH/lib/libitkvnl-4.13.a $$ITK_PATH/lib/libitkv3p_netlib-4.13.a $$ITK_PATH/lib/libitknetlib-4.13.a $$ITK_PATH/lib/libitkvcl-4.13.a \
+      #/usr/lib64/libuuid.a
+      -luuid -lz -lcrypt -ldl -lpthread \
       /usr/pubsw/packages/mni/1.4/lib/libvolume_io.a -L/usr/pubsw/packages/mni/1.4/lib /usr/pubsw/packages/mni/1.4/lib/libminc.a /usr/pubsw/packages/mni/1.4/lib/libnetcdf.a \
       -lvnl_algo -lvnl -lvcl -lnetlib -lv3p_netlib \
       -L/usr/pubsw/packages/petsc/current/lib -lpetscts -lpetscsnes -lpetscksp \
@@ -460,6 +518,12 @@ macx {
 
 TARGET = FreeView
 RC_FILE = resource/icons/freeview.icns
+
+HEADERS  +=  \
+    MacHelper.h
+
+OBJECTIVE_SOURCES += \
+    MacHelper.mm
 
 greaterThan(QT_MAJOR_VERSION, 4): QT -= x11extras script
 
@@ -483,21 +547,21 @@ INCLUDEPATH += /usr/pubsw/packages/vtk/current/include/vtk-5.6 $$FREESURFER_DEV_
 
 LIBS += -L/usr/pubsw/packages/vtk/current/lib/vtk-5.6 -framework OpenGL -lm -ldl -lz -framework ApplicationServices \
     -framework CoreServices -framework cocoa -framework IOKit \
-    -L/usr/pubsw/packages/vxl/current/lib -L/usr/pubsw/packages/itk/current/lib/InsightToolkit \
+    -L/usr/pubsw/packages/vxl/current/lib -L$$ITK_PATH/lib/InsightToolkit \
     $$FREESURFER_DEV_DIR/lib/libutils.a $$FREESURFER_DEV_DIR/lib/libfsgdf.a \
     $$FREESURFER_DEV_DIR/lib/libhipsstubs.a $$FREESURFER_DEV_DIR/lib/libvtkutils.a \
     $$FREESURFER_DEV_DIR/lib/librgb.a $$FREESURFER_DEV_DIR/lib/libunix.a $$FREESURFER_DEV_DIR/lib/libdicom.a \
     $$FREESURFER_DEV_DIR/lib/libjpeg.a $$FREESURFER_DEV_DIR/lib/libtiff.a $$FREESURFER_DEV_DIR/lib/libexpat.a \
     $$FREESURFER_DEV_DIR/lib/liblineprof.a \
-    /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKIO.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKAlgorithms.a \
-    /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKCommon.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKMetaIO.a \
-    /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKniftiio.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKNrrdIO.a \
-    /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkpng.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitksys.a \
-    /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitktiff.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkv3p_netlib.a \
-    /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkzlib.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkgdcm.a \
-    /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkopenjpeg.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkjpeg8.a \
-    /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkjpeg12.a /usr/pubsw/packages/itk/current/lib/InsightToolkit/libitkjpeg16.a \
-    /usr/pubsw/packages/itk/current/lib/InsightToolkit/libITKDICOMParser.a -lz -ldl -lpthread \
+    $$ITK_PATH/lib/InsightToolkit/libITKIO.a $$ITK_PATH/lib/InsightToolkit/libITKAlgorithms.a \
+    $$ITK_PATH/lib/InsightToolkit/libITKCommon.a $$ITK_PATH/lib/InsightToolkit/libITKMetaIO.a \
+    $$ITK_PATH/lib/InsightToolkit/libITKniftiio.a $$ITK_PATH/lib/InsightToolkit/libITKNrrdIO.a \
+    $$ITK_PATH/lib/InsightToolkit/libitkpng.a $$ITK_PATH/lib/InsightToolkit/libitksys.a \
+    $$ITK_PATH/lib/InsightToolkit/libitktiff.a $$ITK_PATH/lib/InsightToolkit/libitkv3p_netlib.a \
+    $$ITK_PATH/lib/InsightToolkit/libitkzlib.a $$ITK_PATH/lib/InsightToolkit/libitkgdcm.a \
+    $$ITK_PATH/lib/InsightToolkit/libitkopenjpeg.a $$ITK_PATH/lib/InsightToolkit/libitkjpeg8.a \
+    $$ITK_PATH/lib/InsightToolkit/libitkjpeg12.a $$ITK_PATH/lib/InsightToolkit/libitkjpeg16.a \
+    $$ITK_PATH/lib/InsightToolkit/libITKDICOMParser.a -lz -ldl -lpthread \
     /usr/pubsw/packages/mni/current/lib/libvolume_io.a -L/usr/pubsw/packages/mni/current/lib \
     /usr/pubsw/packages/mni/current/lib/libminc.a /usr/pubsw/packages/mni/current/lib/libnetcdf.a \
     -lvnl_algo -lvnl -lvcl -lnetlib -lv3p_netlib \
@@ -513,3 +577,6 @@ DESTDIR = ./
 OTHER_FILES += \
     resource/QuickRef.html \
     Makefile.am
+
+DISTFILES += \
+    CMakeLists.txt

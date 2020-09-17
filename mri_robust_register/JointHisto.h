@@ -1,15 +1,10 @@
 /**
- * @file  JointHisto.h
  * @brief A class for a joint histogram of two images
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2012/09/21 23:05:15 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,18 +24,14 @@
 #ifndef JointHisto_H
 #define JointHisto_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "mri.h"
 #include "mriBSpline.h"
-#ifdef __cplusplus
-}
-#endif
 
+#define export // obsolete feature 'export template' used in these headers 
 #include <vnl/vnl_matrix_fixed.h>
 #include <vnl/vnl_matlab_print.h>
+#undef export
+
 #include <vcl_iostream.h>
 
 class JointHisto

@@ -1,5 +1,4 @@
 /**
- * @file  vtkRGBAColorTransferFunction.cxx
  * @brief Defines transfer function for mapping a property to an RGBA color value
  *
  * This code is based on vtkColorTransferFunction. It was modified to
@@ -10,10 +9,6 @@
  */
 /*
  * Original Author: Kitware, Inc, modified by Ruopeng Wang
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:56 $
- *    $Revision: 1.2 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -59,6 +54,7 @@
 #ifndef __vtkRGBAColorTransferFunction_h
 #define __vtkRGBAColorTransferFunction_h
 
+//#include "vtkCommonCoreModule.h" // For export macro
 #include "vtkScalarsToColors.h"
 
 class vtkRGBAColorTransferFunctionInternals;
@@ -71,11 +67,13 @@ class vtkRGBAColorTransferFunctionInternals;
 #define VTK_CTF_LINEAR        0
 #define VTK_CTF_LOG10         1
 
-class VTK_FILTERING_EXPORT vtkRGBAColorTransferFunction : public vtkScalarsToColors 
+class /*VTKCOMMONCORE_EXPORT*/ vtkRGBAColorTransferFunction : public vtkScalarsToColors 
 {
 public:
   static vtkRGBAColorTransferFunction *New();
-  vtkTypeRevisionMacro(vtkRGBAColorTransferFunction,vtkScalarsToColors);
+  vtkTypeMacro(vtkRGBAColorTransferFunction,vtkScalarsToColors);
+
+  using vtkScalarsToColors::DeepCopy;
   void DeepCopy( vtkRGBAColorTransferFunction *f );
   void ShallowCopy( vtkRGBAColorTransferFunction *f );
 
@@ -132,7 +130,11 @@ public:
   
   // Description:
   // Map one value through the lookup table.
+#if VTK_MAJOR_VERSION >= 8 && VTK_MINOR_VERSION >= 2
+  virtual const unsigned char *MapValue(double v);
+#else
   virtual unsigned char *MapValue(double v);
+#endif
 
   // Description:
   // Returns min and max position of all function points.
@@ -248,7 +250,7 @@ protected:
   // Set the range of scalars being mapped. The set has no functionality
   // in this subclass of vtkScalarsToColors.
   virtual void SetRange(double, double) {};
-  void SetRange(double rng[2]) {this->SetRange(rng[0],rng[1]);};
+  void SetRange(const double rng[2]) {this->SetRange(rng[0],rng[1]);};
 
   // Internal method to sort the vector and update the
   // Range whenever a node is added or removed

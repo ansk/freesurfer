@@ -1,5 +1,4 @@
 /**
- * @file  c_label.h
  * @brief The label related object API.
  *
  * Label type functions include saving / loading surface structures
@@ -7,10 +6,6 @@
  */
 /*
  * Original Author: Rudolph Pienaar / Christian Haselgrove
- * CVS Revision Info:
- *    $Author: rudolph $
- *    $Date: 2012/01/29 22:33:28 $
- *    $Revision: 1.3 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -32,18 +27,10 @@
 #include "env.h"
 #include <deque>
 
-#ifdef __cplusplus
-extern  "C" {
-#endif
-
 #include "mri.h"
 #include "mrisurf.h"
 #include "label.h"
 #include "error.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 #include <string>
 using namespace std;

@@ -1,13 +1,8 @@
 /**
- * @file  xDebug.h
  * @brief general purpose utils
  */
 /*
  * Original Author: Kevin Teich
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:10 $
- *    $Revision: 1.19 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -45,7 +40,7 @@ void xDbg_PrintStatus ();
 void xDbg_RegisterSegfaultHandler ( void(*f)(int) );
 void xDbg_PushStack ( char* isTitle, char* isNote );
 void xDbg_PopStack ();
-char* xDbg_GetCurrentFunction ();
+const char* xDbg_GetCurrentFunction ();
 void xDbg_PrintStack ();
 void xDbg_SegfaultHandler ( int );
 void xDbg_Segfault ();

@@ -14,16 +14,11 @@ function [dat thresh fwhm searchspace anattype] = load_csd(csdfile)
 % searchspace in mm^D
 % anattype is volume or surface
 %
-% $Id: load_csd.m,v 1.4 2011/03/02 00:04:12 nicks Exp $
 
 %
 % load_csd.m
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:12 $
-%    $Revision: 1.4 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

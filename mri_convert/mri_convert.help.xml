@@ -73,6 +73,8 @@ Supply the orientation information in the form of an orientation string  (ostrin
       <explanation>see SPECIFYING THE ORIENTATION</explanation>
       <argument>-ic, --in_center &lt;R coordinate&gt; &lt;A coordinate&gt; &lt;S coordinate&gt;</argument>
       <argument>-dic, --delta_in_center &lt;dR coordinate&gt; &lt;dA coordinate&gt; &lt;dS coordinate&gt;</argument>
+      <argument>--delete-cmds   Remove imbedded command history</argument>
+      <argument>--new-transform-fname xfmname   Change the internal transform name to xfmname</argument>
       <argument>--sphinx</argument>
       <explanation>change orientation info to sphinx</explanation>
       <argument>-oni, -oic, --out_i_count &lt;count&gt;</argument>
@@ -82,6 +84,8 @@ Supply the orientation information in the form of an orientation string  (ostrin
       <explanation>specify the size (mm) - useful for upsampling or downsampling</explanation>
       <argument>-ds, --downsample &lt;ds_x&gt; &lt;ds_y&gt; &lt;ds_z&gt;</argument>
       <explanation>specify the downsampling or upsampling factor</explanation>
+      <argument>-ds2, --downsample2</argument>
+      <explanation>downsample m3z file by factor of 2</explanation>
       <argument>-ois, --out_i_size &lt;size&gt;</argument>
       <argument>-ojs, --out_j_size &lt;size&gt;</argument>
       <argument>-oks, --out_k_size &lt;size&gt;</argument>
@@ -101,8 +105,12 @@ Supply the orientation information in the form of an orientation string  (ostrin
       <explanation>output data is a stats table (use --like to pass template table for measure, columns and rows header)</explanation>
       <argument>-rt, --resample_type &lt;interpolate|weighted|nearest|cubic&gt;</argument>
       <explanation>default is interpolate</explanation>
+      <argument>-nth</argument>
+      <explanation>specify frame number</explanation>
       <argument>--no_scale flag &lt;-ns&gt;</argument>
       <explanation>1 = dont rescale values for COR</explanation>
+      <argument>--no-dwi </argument>
+      <explanation>Do not attempt to read bvec and bval parameters (same as setenv FS_LOAD_DWI 0)</explanation>
       <argument>-nc --nochange</argument>
       <explanation>don't change type of input to that of template</explanation>
       <argument>-tr TR</argument>
@@ -113,11 +121,17 @@ Supply the orientation information in the form of an orientation string  (ostrin
       <explanation>TI in msec (note upper case flag)</explanation>
       <argument>-flip_angle flip angle </argument>
       <explanation>angle in radians </explanation>
+      <argument>--ctab &lt;colortablefile&gt;</argument>
+      <explanation>Embed colortablefile into output volume. If colortablefile is 'remove', any embedded table will be deleted.</explanation>
       <argument>--autoalign mtxfile </argument>
       <explanation>text file with autoalign matrix </explanation>
       <argument>-oval  val</argument>
       <argument>--outside_val  val</argument>
       <explanation>set the values outside of the image that may rotate in if a transform is applied to val </explanation>
+      <argument>--no-rescale-dicom</argument>
+      <explanation>Do NOT apply DICOM rescale intercept and slope based on (0028,1052) (0028,1053). Same as setenv FS_RESCALE_DICOM 0</explanation>
+      <argument>--rescale-dicom</argument>
+      <explanation>DO apply DICOM rescale intercept and slope based on (0028,1052) (0028,1053). Same as setenv FS_RESCALE_DICOM 1</explanation>
       <intro>APPLYING TRANSFORMS (INCLUDING TALAIRACH) </intro>
       <argument>--apply_transform xfmfile (-T or -at) </argument>
       <explanation>apply tranform given by xfm or m3z files </explanation> 
@@ -150,6 +164,8 @@ The main and aux volumes should overlap very closely. If they do not, use tkregi
       <explanation>reverse order of slices, update vox2ras</explanation> 
       <argument>--nslices-override nslices </argument>
       <explanation>Use this number of slices when converting DICOM mosaics</explanation> 
+      <argument>--mosaic-fix-noascii</argument>
+      <explanation>fix the center of DICOM mosaics without using the ASCII header</explanation>
       <argument>--slice-bias alpha </argument>
       <explanation>apply half-cosine bias field</explanation> 
       <argument>--fwhm fwhm </argument>
@@ -258,6 +274,8 @@ if the input/output has extension .nii.gz, then compressed is used</explanation>
       <explanation>input intensity scale factor</explanation> 
       <argument>-osc, --out-scale factor</argument>
       <explanation>output intensity scale factor</explanation> 
+      <argument>--rescale rescalefactor </argument>
+      <explanation>Rescale input so that the global mean is rescalefactor</explanation> 
       <argument>-il, --in_like</argument>
       <argument>-roi</argument>
       <argument>-fp, --fill_parcellation</argument>

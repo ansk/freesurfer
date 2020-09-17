@@ -1,14 +1,9 @@
 /**
- * @file  rfa.h
  * @brief utilities for whole-brain segmentation with Random Forests
  *
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2012/06/13 20:57:20 $
- *    $Revision: 1.3 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -25,11 +20,6 @@
 
 #ifndef RFA_H
 #define RFA_H
-
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 
 #include "mri.h"
 #include "transform.h"
@@ -109,14 +99,7 @@ int  RFAsourceVoxelToAtlas( const RFA *rfa, MRI *mri, TRANSFORM *transform,
 			    double *px, double *py, double *pz ) ;
 
 int  extract_feature(MRI *mri_in, int wsize, int x, int y, int z, double *feature, int xatlas, int yatlas, int zatlas) ;
-
   
-#if defined(__cplusplus)
-};
-#endif
-
-
-
 #define NOT_TRAINING_LABEL(l) (\
     ((l) == Left_Accumbens_area) || \
     ((l) == Right_Accumbens_area) || \
@@ -154,4 +137,5 @@ int  extract_feature(MRI *mri_in, int wsize, int x, int y, int z, double *featur
 
 int MRIcountCSFInNbhd(MRI *mri_seg, int wsize, int x, int y, int z) ;
 int extract_long_features(MRI *mri_in, MRI *mri_seg, TRANSFORM *transform, GCA *gca, int wsize, int x, int y, int z, double *feature);
+
 #endif

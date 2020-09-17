@@ -1,14 +1,9 @@
 /**
- * @file  FSPointSet.h
  * @brief Base way points class that takes care of I/O and data conversion.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/01 15:28:54 $
- *    $Revision: 1.17 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -118,9 +113,15 @@ bool FSPointSet::ReadFromStringAsControlPoints(const QString &content)
   m_label = ::LabelAlloc( nCount, NULL, (char*)"" );
   m_label->n_points = nCount;
   if (bRealRAS)
+  {
     m_label->coords = LABEL_COORDS_SCANNER_RAS;
+    strncpy(m_label->space, "scanner", sizeof(m_label->space));
+  }
   else
+  {
     m_label->coords = LABEL_COORDS_TKREG_RAS;
+    strncpy(m_label->space, "TkReg", sizeof(m_label->space));
+  }
   for ( int i = 0; i < nCount; i++ )
   {
     m_label->lv[i].x = values[i*3];
@@ -174,7 +175,7 @@ QString FSPointSet::WriteAsControlPointsToString()
   {
     strg += QString("%1 %2 %3\n").arg(m_label->lv[i].x).arg(m_label->lv[i].y).arg(m_label->lv[i].z);
   }
-  strg += QString("info\nnumpoints %1\nuseRealRAS 0\n").arg( m_label->n_points );
+  strg += QString("info\nnumpoints %1\nuseRealRAS 1\n").arg( m_label->n_points );
   return strg;
 }
 
@@ -192,7 +193,7 @@ void FSPointSet::UpdateLabel( PointSet& points_in, FSVolume* ref_vol )
   {
     ref_vol->TargetToRAS( points_in[i].pt, pos );
     ref_vol->RASToNativeRAS( pos, pos );
-    ref_vol->NativeRASToTkReg(pos, pos);
+//    ref_vol->NativeRASToTkReg(pos, pos);
     values.push_back( pos[0] );
     values.push_back( pos[1] );
     values.push_back( pos[2] );
@@ -201,8 +202,10 @@ void FSPointSet::UpdateLabel( PointSet& points_in, FSVolume* ref_vol )
   }
 
   m_label = ::LabelAlloc( nCount, NULL, (char*)"" );
+  ::LabelInit(m_label, ref_vol->GetMRI(), NULL, 0);
+  ::LabelToScannerRAS(m_label, ref_vol->GetMRI(), m_label);
+
   m_label->n_points = nCount;
-  m_label->coords = LABEL_COORDS_TKREG_RAS;
   for ( int i = 0; i < nCount; i++ )
   {
     m_label->lv[i].x = values[i*4];

@@ -1,14 +1,9 @@
 /**
- * @file  image.h
  * @brief image processing prototypes
  *
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2014/04/14 19:00:56 $
- *    $Revision: 1.17 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -33,7 +28,7 @@
 #define UCHAR  unsigned char
 #endif
 
-#include "hipl_format.h"
+#include "hips.h"
 
 typedef struct header IMAGE ;
 
@@ -252,6 +247,11 @@ double ImageEntropy(IMAGE *image, int pairflag) ;
 IMAGE  *ImageDownsample2Horizontal(IMAGE *Isrc, IMAGE *Idst) ;
 IMAGE  *ImageDownsample2(IMAGE *Isrc, IMAGE *Idst) ;
 IMAGE  *ImageUpsample2(IMAGE *Isrc, IMAGE *Idst) ;
+
+// hips functions
+int init_header(IMAGE *I,const char *onm,const char *snm,int nfr,const char *odt,int rw,int cl,int pfmt,int nc,const char *desc);
+int h_copy(IMAGE *Isrc, IMAGE *Idst);
+int free_header(IMAGE *I);
 
 /*
   constants which specify the morphological operation carried out

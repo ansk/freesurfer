@@ -1,14 +1,9 @@
 /**
- * @file  LayerCollection.h
  * @brief Collection of layers of the same type.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/05/31 18:30:40 $
- *    $Revision: 1.34 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,6 +24,7 @@
 #include <QObject>
 #include <QString>
 #include <QList>
+#include <QMap>
 
 class Layer;
 class vtkRenderer;
@@ -53,6 +49,7 @@ public:
   bool MoveToTop( Layer* layer );
   bool CycleLayer( bool bMoveUp = true, bool bChangeActiveLayer = false );
   void ReorderLayers( const QList<Layer*>& layers);
+  void UpdateLayerOrder(const QList<int>& layer_ids);
 
   void Append2DProps( vtkRenderer* renderer, int nImagePlane );
   void Append3DProps( vtkRenderer* renderer, bool* bSliceVisibility = NULL );
@@ -69,6 +66,8 @@ public:
   QList<Layer*> GetLayers(const QString& type);
 
   Layer* GetLayerByName( const QString& name );
+
+  Layer* GetLayerById( int nId );
 
   double* GetSlicePosition();
   void GetSlicePosition( double* slicePos );

@@ -1,14 +1,9 @@
 /**
- * @file  Interactor2DVolumeEdit.cpp
  * @brief Interactor for editing volume in 2D render view.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2015/07/30 20:22:19 $
- *    $Revision: 1.35 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -36,6 +31,9 @@
 #include "BrushProperty.h"
 #include <vtkRenderer.h>
 #include <QDebug>
+#include "LayerROI.h"
+#include "LayerPropertyROI.h"
+#include <QTimer>
 
 Interactor2DVolumeEdit::Interactor2DVolumeEdit( const QString& layerTypeName, QObject* parent ) :
   Interactor2D( parent ),
@@ -56,21 +54,93 @@ void Interactor2DVolumeEdit::PreprocessMouseEvent(QMouseEvent *event)
   bool bRightButtonErase = MainWindow::GetMainWindow()->GetSetting("RightButtonErase").toBool();
   if (bRightButtonErase && event->button() == Qt::RightButton && event->modifiers() == Qt::NoModifier)
   {
-    QMouseEvent e(event->type(), event->pos(), Qt::LeftButton,Qt::LeftButton, Qt::ShiftModifier);
+    QMouseEvent e(event->type(), event->pos(), Qt::LeftButton, Qt::LeftButton, Qt::ShiftModifier);
     *event = e;
   }
 }
+
+#include "LUTDataHolder.h"
 
 bool Interactor2DVolumeEdit::ProcessMouseDownEvent( QMouseEvent* event, RenderView* renderview )
 {
   RenderView2D* view = ( RenderView2D* )renderview;
 
-  if ( !view->hasFocus() )
-  {
-    return Interactor2D::ProcessMouseDownEvent( event, renderview );
-  }
+  //  if ( !view->hasFocus() )
+  //  {
+  //    return Interactor2D::ProcessMouseDownEvent( event, renderview );
+  //  }
 
   PreprocessMouseEvent(event);
+
+  if (m_nAction == EM_GeoSeg)
+  {
+    if ( (event->button() == Qt::LeftButton || event->button() == Qt::RightButton)
+         && !(event->modifiers() & CONTROL_MODIFIER))
+    {
+      BrushProperty* bp = MainWindow::GetMainWindow()->GetBrushProperty();
+      LayerMRI* mri = (LayerMRI*)bp->GetReferenceLayer();
+      if (!mri)
+      {
+        emit Error( QString("Must select a reference layer."));
+        return false;
+      }
+
+      LayerMRI* layer_draw = qobject_cast<LayerMRI*>(MainWindow::GetMainWindow()->FindSupplementLayer("GEOS_DRAW"));
+      LayerCollection* lc = MainWindow::GetMainWindow()->GetLayerCollection("Supplement");
+      if (!layer_draw)
+      {
+        layer_draw = new LayerMRI(mri);
+        if ( !layer_draw->Create( mri, false, MRI_UCHAR) )
+        {
+          //  QMessageBox::warning( this, "Error", "Can not create drawing layer." );
+          delete layer_draw;
+          return false;
+        }
+        QVariantMap map = bp->GetGeosSettings();
+        QMap<int, QColor> colors;
+        colors[0] = QColor(0,0,0,0);
+        colors[1] = map.contains("ForegroundColor")?map["ForegroundColor"].value<QColor>():QColor(0,255,0);
+        colors[2] = map.contains("BackgroundColor")?map["BackgroundColor"].value<QColor>():QColor(255,0,0);
+        layer_draw->GetProperty()->SetCustomColors(colors);
+        layer_draw->GetProperty()->SetColorMapToLUT();
+        layer_draw->SetName( "GEOS_DRAW" );
+
+        LayerMRI* layer_fill = new LayerMRI(mri);
+        if ( !layer_fill->Create( mri, false, MRI_UCHAR) )
+        {
+          //  QMessageBox::warning( this, "Error", "Can not create drawing layer." );
+          delete layer_fill;
+          return false;
+        }
+        colors.clear();
+        colors[0] = QColor(0,0,0,0);
+        colors[1] = map.contains("FillColor")?map["FillColor"].value<QColor>():QColor(255,255,0);
+        layer_fill->GetProperty()->SetCustomColors(colors);
+        layer_fill->GetProperty()->SetColorMapToLUT();
+        layer_fill->SetName( "GEOS_FILL" );
+        layer_fill->SetFillValue(1);
+        if (map.contains("Opacity"))
+          layer_fill->GetProperty()->SetOpacity(map.value("Opacity").toDouble());
+
+        lc->AddLayer(layer_fill);
+        lc->AddLayer(layer_draw);
+      }
+
+      layer_draw->SetFillValue(event->button() == Qt::RightButton ? 2:1);
+      double ras[3];
+      m_nMousePosX = event->x();
+      m_nMousePosY = event->y();
+      view->MousePositionToRAS( event->x(), event->y(), ras );
+      layer_draw->SaveForUndo(view->GetViewPlane());
+      if (event->modifiers() & Qt::ShiftModifier)
+        layer_draw->SetVoxelByRAS(ras, view->GetViewPlane(), false);
+      else
+        layer_draw->SetVoxelByRAS(ras, view->GetViewPlane());
+      m_bEditing = true;
+      view->grabMouse();
+      return false;
+    }
+  }
 
   if ( event->button() == Qt::LeftButton ||
        ( event->button() == Qt::RightButton && (event->buttons() & Qt::LeftButton) ) )
@@ -121,6 +191,16 @@ bool Interactor2DVolumeEdit::ProcessMouseDownEvent( QMouseEvent* event, RenderVi
         double ras[3];
         view->MousePositionToRAS( m_nMousePosX, m_nMousePosY, ras );
         bool bCondition = !(event->modifiers() & Qt::ShiftModifier) && !(event->buttons() & Qt::RightButton);
+        if (bCondition && (m_nAction == EM_Freehand || m_nAction == EM_Fill || m_nAction == EM_Polyline))
+        {
+          if (mri->IsTypeOf("MRI") && ((LayerMRI*)mri)->GetProperty()->GetColorMap() == LayerPropertyMRI::LUT
+              && !((LayerMRI*)mri)->GetProperty()->IsValueInColorTable(mri->GetFillValue()))
+          {
+            emit Error("Brush value is not in the current color table. I don't know what color to use. Drawing cannot continue.");
+            return false;
+          }
+        }
+
         if ( (m_nAction == EM_ColorPicker || m_bColorPicking ) && mri->IsTypeOf( "MRI" ) )
         {
           if ( event->modifiers() & CONTROL_MODIFIER )
@@ -149,8 +229,9 @@ bool Interactor2DVolumeEdit::ProcessMouseDownEvent( QMouseEvent* event, RenderVi
           {
             mri->SaveForUndo( view->GetViewPlane() );
             m_bEditing = true;
-            mri->SetVoxelByRAS( ras, view->GetViewPlane(),bCondition );
+            mri->SetVoxelByRAS( ras, view->GetViewPlane(), bCondition );
           }
+          view->grabMouse();
         }
         else if ( m_nAction == EM_Clone )
         {
@@ -158,10 +239,21 @@ bool Interactor2DVolumeEdit::ProcessMouseDownEvent( QMouseEvent* event, RenderVi
           m_bEditing = true;
           mri->CloneVoxelByRAS( ras, view->GetViewPlane() );
         }
-        else if ( m_nAction == EM_Fill ) //&& ( event->ControlDown() ) )
+        else if ( m_nAction == EM_Shift)
+        {
+          mri->SaveForUndo(view->GetViewPlane());
+          m_bEditing = true;
+          mri->PrepareShifting(view->GetViewPlane());
+        }
+        else if ( m_nAction == EM_Fill )
         {
           mri->SaveForUndo(bFill3D ? -1 : view->GetViewPlane());
-          mri->FloodFillByRAS( ras, view->GetViewPlane(), bCondition, bFill3D );
+          if (event->modifiers() & CONTROL_MODIFIER)
+          {
+            mri->BorderFillByRAS(ras, view->GetViewPlane(), true);
+          }
+          else
+            mri->FloodFillByRAS( ras, view->GetViewPlane(), bCondition, bFill3D );
         }
         else if ( m_nAction == EM_Polyline || m_nAction == EM_Livewire )
         {
@@ -310,6 +402,9 @@ bool Interactor2DVolumeEdit::ProcessMouseUpEvent( QMouseEvent* event, RenderView
 
   UpdateCursor( event, renderview );
 
+  //  if (m_nAction == EM_GeoSeg)
+  //    QTimer::singleShot(0, MainWindow::GetMainWindow(), SIGNAL(SupplementLayerChanged()));
+
   if ( m_bEditing )
   {
     m_nMousePosX = event->x();
@@ -335,6 +430,36 @@ bool Interactor2DVolumeEdit::ProcessMouseMoveEvent( QMouseEvent* event, RenderVi
   RenderView2D* view = ( RenderView2D* )renderview;
 
   PreprocessMouseEvent(event);
+
+  if (m_nAction == EM_GeoSeg && m_bEditing)
+  {
+    LayerCollection* lc = MainWindow::GetMainWindow()->GetLayerCollection("Supplement");
+    QList<Layer*> layers = lc->GetLayers("MRI");    // Get foreground/background drawing layers
+    LayerMRI* layer_draw = NULL;
+    foreach (Layer* layer, layers)
+    {
+      if (layer->GetName() == "GEOS_DRAW")
+      {
+        layer_draw = (LayerMRI*)layer;
+        break;
+      }
+    }
+    if (!layer_draw)
+      return false;
+
+    layer_draw->SetFillValue(event->buttons() & Qt::RightButton ? 2:1);
+    double ras1[3], ras2[3];
+    view->MousePositionToRAS( m_nMousePosX, m_nMousePosY, ras1 );
+    view->MousePositionToRAS( event->x(), event->y(), ras2 );
+    if (event->modifiers() & Qt::ShiftModifier)
+      layer_draw->SetVoxelByRAS( ras1, ras2, view->GetViewPlane(), false);
+    else
+      layer_draw->SetVoxelByRAS( ras1, ras2, view->GetViewPlane());
+
+    m_nMousePosX = event->x();
+    m_nMousePosY = event->y();
+    return false;
+  }
 
   if ( m_bEditing )
   {
@@ -385,6 +510,16 @@ bool Interactor2DVolumeEdit::ProcessMouseMoveEvent( QMouseEvent* event, RenderVi
       view->GetCursor2D()->SetPosition( view->GetCursor2D()->GetPosition(), true );
       view->RequestRedraw();
     }
+    else if (m_nAction == EM_Shift)
+    {
+      double ras1[3], ras2[3];
+      view->MousePositionToRAS( m_nMousePosX, m_nMousePosY, ras1 );
+      view->MousePositionToRAS( posX, posY, ras2 );
+      for (int i = 0; i < 3; i++)
+        ras1[i] = ras2[i] - ras1[i];
+      foreach (LayerVolumeBase* mri, mriLayers)
+        mri->ShiftVoxelsByRAS(ras1, view->GetViewPlane());
+    }
     else if ( m_nAction == EM_Contour )
     {
       LayerMRI* mri_ref = (LayerMRI*)MainWindow::GetMainWindow()->GetBrushProperty()->GetReferenceLayer();
@@ -418,8 +553,11 @@ bool Interactor2DVolumeEdit::ProcessMouseMoveEvent( QMouseEvent* event, RenderVi
       view->RequestRedraw();
     }
 
-    m_nMousePosX = posX;
-    m_nMousePosY = posY;
+    if (m_nAction != EM_Shift)
+    {
+      m_nMousePosX = posX;
+      m_nMousePosY = posY;
+    }
 
     return false;
   }
@@ -450,6 +588,55 @@ bool Interactor2DVolumeEdit::ProcessKeyDownEvent( QKeyEvent* event, RenderView* 
   {
     m_bColorPicking = false;
     return false;
+  }
+
+  // disable using keyboard to shift voxels
+  if (false) // (event->modifiers() & Qt::ShiftModifier) && m_nAction == EM_Shift )
+  {
+    int nKeyCode = event->key();
+    int n[3] = {0, 0, 0};
+    int nx = 0, ny = 1;
+    int nPlane = view->GetViewPlane();
+    int nx_sign = -1;
+    switch (nPlane)
+    {
+    case 0:
+      nx = 1;
+      ny = 2;
+      nx_sign = 1;
+      break;
+    case 1:
+      nx = 0;
+      ny = 2;
+      break;
+    default:
+      break;
+    }
+    if ( nKeyCode == Qt::Key_Up )
+    {
+      n[ny]+=1;
+    }
+    else if ( nKeyCode == Qt::Key_Down )
+    {
+      n[ny]-=1;
+    }
+    else if ( nKeyCode == Qt::Key_Left )
+    {
+      n[nx]-=nx_sign;
+    }
+    else if ( nKeyCode == Qt::Key_Right )
+    {
+      n[nx]+=nx_sign;
+    }
+    LayerCollection* lc = MainWindow::GetMainWindow()->GetLayerCollection( m_strLayerTypeName );
+    LayerVolumeBase* mri = qobject_cast<LayerVolumeBase*>(lc->GetActiveLayer());
+    if (mri)
+    {
+      mri->SaveForUndo(nPlane);
+      mri->PrepareShifting(nPlane);
+      mri->ShiftVoxels(n, nPlane);
+      return false;
+    }
   }
 
   if ( !m_bEditing )
@@ -526,10 +713,13 @@ void Interactor2DVolumeEdit::UpdateCursor( QEvent* event, QWidget* wnd )
         case EM_Contour:
           wnd->setCursor( CursorFactory::CursorContour );
           break;
+        case EM_Shift:
+          wnd->setCursor( Qt::OpenHandCursor );
+          break;
         }
       }
     }
-    else
+    else if (m_nAction != EM_GeoSeg)
     {
       wnd->setCursor( CursorFactory::CursorFill );
     }

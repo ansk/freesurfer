@@ -1,5 +1,4 @@
 /**
- * @file  mris_distance_to_label.cpp
  * @brief computes distance maps for subcortical structures
  *
  * compute distance maps for amygdala, hippocampus, pallidum, putamen,
@@ -7,10 +6,6 @@
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:31 $
- *    $Revision: 1.8 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -30,8 +25,7 @@
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
-
-extern "C" {
+ 
 #include "macros.h"
 #include "error.h"
 #include "diag.h"
@@ -41,12 +35,8 @@ extern "C" {
 #include "macros.h"
 #include "version.h"
 #include "timer.h"
-}
-
 #include "fastmarching.h"
 
-static const char vcid[] = 
-  "$Id: mris_distance_to_label.cpp,v 1.8 2011/03/02 00:04:31 nicks Exp $";
 
 static char *aseg_fname=NULL;
 
@@ -93,7 +83,7 @@ static void mrisExtractMRIvalues(MRIS * mris,
                                  float distance,
                                  int mode) {
   int n;
-  Real xw,yw,zw,xv,yv,zv,val;
+  double xw,yw,zw,xv,yv,zv,val;
   VERTEX *v;
 
   MRISclearCurvature(mris);
@@ -132,7 +122,7 @@ static void mrisExtractMidGrayValues(MRIS *mris, MRI *mri) {
 
   int n;
   float th;
-  Real xw,yw,zw,xv,yv,zv,val;
+  double xw,yw,zw,xv,yv,zv,val;
   VERTEX *v;
 
   for (n=0;n<mris->nvertices;n++) {
@@ -190,19 +180,15 @@ static int findSurfaceReference(int label) {
 }
 
 int main(int argc, char *argv[]) {
-  char **av,*subject_fname,*subjects_fname[STRLEN],fname[STRLEN],*cp,*hemi;
-  int ac, nargs,n , m,surface_reference,nsubjects;
+  char *subject_fname,*subjects_fname[STRLEN],fname[STRLEN],*cp,*hemi;
+  int  nargs,n , m,surface_reference,nsubjects;
   MRI_SURFACE  *mris;
   MRI *mri,*mri_distance, *mri_orig;
 
   int msec, minutes, seconds ;
-  struct timeb start;
+  Timer start;
 
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option
-    (argc, argv,
-     "$Id: mris_distance_to_label.cpp,v 1.8 2011/03/02 00:04:31 nicks Exp $",
-     "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "mris_distance_to_label");
   if (nargs && argc - nargs == 1)
     exit (0);
   argc -= nargs;
@@ -211,10 +197,8 @@ int main(int argc, char *argv[]) {
   ErrorInit(NULL, NULL, NULL) ;
   DiagInit(NULL, NULL, NULL) ;
 
-  TimerStart(&start) ;
+  start.reset() ;
 
-  ac = argc ;
-  av = argv ;
   for ( ; argc > 1 && ISOPTION(*argv[1]) ; argc--, argv++) {
     nargs = get_option(argc, argv) ;
     argc -= nargs ;
@@ -346,7 +330,7 @@ int main(int argc, char *argv[]) {
     MRISfree(&mris);
   }
 
-  msec = TimerStop(&start) ;
+  msec = start.milliseconds() ;
   seconds = (int)((float)msec/1000.0f) ;
   minutes = seconds / 60 ;
   seconds = seconds % 60 ;
@@ -438,7 +422,7 @@ print_help(void) {
 
 static void
 print_version(void) {
-  fprintf(stderr, "%s\n", vcid) ;
+  fprintf(stderr, "%s\n", getVersion().c_str()) ;
   exit(1) ;
 }
 

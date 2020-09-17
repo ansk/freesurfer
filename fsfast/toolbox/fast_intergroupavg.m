@@ -4,7 +4,6 @@ function r = fast_intergroupavg(varargin)
 %
 % Author: Douglas Greve
 % Questions or Comments: analysis-bugs@nmr.mgh.harvard.edu
-% Version: $Id: fast_intergroupavg.m,v 1.3 2011/03/02 00:04:04 nicks Exp $
 % r = fast_isxavg_fe(varargin)
 
 
@@ -12,10 +11,6 @@ function r = fast_intergroupavg(varargin)
 % fast_intergroupavg.m
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:04 $
-%    $Revision: 1.3 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

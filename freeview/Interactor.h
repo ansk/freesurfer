@@ -1,14 +1,9 @@
 /**
- * @file  Interactor.h
  * @brief Base Interactor class manage mouse and key input in render view.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2013/02/28 20:35:34 $
- *    $Revision: 1.14 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -51,7 +46,7 @@ public:
 
   enum EditMode
   {
-    EM_Freehand = 0, EM_Fill, EM_Polyline, EM_Livewire, EM_ColorPicker, EM_Contour, EM_Clone
+    EM_Freehand = 0, EM_Fill, EM_Polyline, EM_Livewire, EM_ColorPicker, EM_Contour, EM_Shift, EM_Clone, EM_GeoSeg
   };
 
   int GetAction();

@@ -1,14 +1,5 @@
-/**
- * @file  LayerPropertyTrack.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2011/12/05 20:03:33 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,13 +22,15 @@ LayerPropertyTrack::LayerPropertyTrack(QObject* parent) :
   m_color(Qt::yellow),
   m_nRenderRep(Line),
   m_dTubeRadius(0.2),
-  m_nNumberOfSides(5)
+  m_nNumberOfSides(5),
+  m_dOpacity(1)
 {
   connect(this, SIGNAL(ColorCodeChanged(int)), this, SIGNAL(PropertyChanged()));
   connect(this, SIGNAL(DirectionSchemeChanged(int)), this, SIGNAL(PropertyChanged()));
   connect(this, SIGNAL(DirectionMappingChanged(int)), this, SIGNAL(PropertyChanged()));
   connect(this, SIGNAL(SolidColorChanged(QColor)), this, SIGNAL(PropertyChanged()));
   connect(this, SIGNAL(RenderRepChanged()), this, SIGNAL(PropertyChanged()));
+  connect(this, SIGNAL(OpacityChanged(double)), this, SIGNAL(PropertyChanged()));
 }
 
 void LayerPropertyTrack::SetColorCode(int nCode)
@@ -100,3 +93,11 @@ void LayerPropertyTrack::SetNumberOfSides(int nVal)
   }
 }
 
+void LayerPropertyTrack::SetOpacity(double val)
+{
+  if (val != m_dOpacity)
+  {
+    m_dOpacity = val;
+    emit OpacityChanged(val);
+  }
+}

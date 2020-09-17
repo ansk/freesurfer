@@ -1,15 +1,4 @@
-/**
- * @file  diag.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2012/08/07 22:10:59 $
- *    $Revision: 1.24 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -37,10 +26,6 @@
 #ifndef DIAG_H
 #define DIAG_H
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 #include <stdarg.h>
 #include "image.h"
 
@@ -56,12 +41,12 @@ unsigned long  DiagInit
  int (*vfprint)(FILE *fp, const char *fmt, va_list args),
  int (*vprint)(const char *fmt, va_list args)) ;
 
-int  DiagPrintf(unsigned long diag_bits, char *fmt, ...) ;
+int  DiagPrintf(unsigned long diag_bits, const char *fmt, ...) ;
 int  DiagFprintf(unsigned long diag_bits, char *fmt, ...) ;
 void DiagBreak(void) ;  /* dummy for break points in debugger */
 void DiagHeartbeat(float pct_done) ;
 void DiagShowPctDone(float pct_done, int nprints) ;
-int check_finite(char *where, double what) ;
+int check_finite(const char *where, double what) ;
 
 /* diagnostic codes */
 #define DIAG_SURFACE    0x00000001L  /* never in same apps, so can re-use */
@@ -156,13 +141,4 @@ extern FILE *Gstderr ;
 extern FILE *Gstdin ;
 extern FILE *Gdiag_fp ;
 
-#if defined(__cplusplus)
-};
 #endif
-
-#endif
-
-
-
-
-

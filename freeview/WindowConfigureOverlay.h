@@ -1,14 +1,5 @@
-/**
- * @file  WindowConfigureOverlay.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2015/05/05 18:53:40 $
- *    $Revision: 1.13 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -38,6 +29,7 @@ class LayerSurface;
 class SurfaceLabel;
 class SurfaceOverlayProperty;
 class QAbstractButton;
+class DialogScreenshotOverlay;
 
 class WindowConfigureOverlay : public QWidget, public UIUpdateHelper
 {
@@ -47,20 +39,29 @@ public:
   explicit WindowConfigureOverlay(QWidget *parent = 0);
   ~WindowConfigureOverlay();
 
-  virtual void showEvent(QShowEvent *);
+  void showEvent(QShowEvent *);
+  void hideEvent(QHideEvent *);
+  void resizeEvent(QResizeEvent* e);
 
 signals:
-  void ActiveFrameChanged();
+  void ActiveFrameChanged(int nframe);
   void MaskLoadRequested(const QString& filename);
+  void OverlayChanged();
 
 public slots:
-  void UpdateGraph();
+  void UpdateGraph(bool bApply = false);
+  void UpdateGraphAndApply()
+  {
+    UpdateGraph(true);
+  }
   void UpdateUI();
   void OnCurrentVertexChanged();
+  void OnFrameChanged(int nFrame);
+  void LoadLabelMask(const QString& fn);
 
 protected slots:
   void OnActiveSurfaceChanged(Layer* layer);
-  void OnClicked( QAbstractButton* btn );
+  void OnButtonClicked();
   void OnSliderOpacity( int nVal );
   void OnSpinBoxOpacity( double dVal );
   void OnButtonAdd();
@@ -71,15 +72,23 @@ protected slots:
   void OnSmoothChanged();
   void OnTextThresholdChanged(const QString& strg);
   void OnApply();
-  void OnFrameChanged(int nFrame);
   void OnCheckComputeCorrelation(bool bChecked);
   void OnComboCorrelationVolume(int n);
   void OnCheckUsePercentile(bool bChecked);
   void OnCustomColorScale();
-  void OnCheckApplyToAll(bool bChecked);
+  void CheckApply(bool bChecked);
   void OnComboMask(int n);
   void OnCheckInverseMask(bool bChecked);
   void OnSurfaceLabelAdded(SurfaceLabel* label);
+  void OnCheckAutoFrameByVertex(bool bChecked);
+  void OnCheckUseNonZeroVertices(bool bChecked);
+  void OnComboOverlayChanged(int n);
+  void OnCycleOverlay();
+  void UpdateGeometry();
+  void OnCheckFixedAxes(bool bChecked, bool bUpdateGraph = true);
+  void OnActiveOverlayChanged();
+  void OnButtonLoadCustom();
+  void OnButtonSaveCustom();
 
 private:
   Ui::WindowConfigureOverlay *ui;
@@ -88,6 +97,8 @@ private:
   LayerSurface* m_layerSurface;
   float*        m_fDataCache;
   double        m_dSavedOffset;
+  double        m_rangeOverall[2];
+  DialogScreenshotOverlay*  m_dlgScreenshot;
 };
 
 #endif // WINDOWCONFIGUREOVERLAY_H

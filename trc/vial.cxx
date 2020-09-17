@@ -1,12 +1,10 @@
 /**
- * @file  vial.cxx
  * @brief Holds utilities for probabilistic tractography
  *
  * Holds utilities for probabilistic tractography
  */
 /*
  * Original Author: Anastasia Yendiki
- * CVS Revision Info:
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -258,32 +256,32 @@ void AffineReg::PrintRotate() {
 //
 // Return components of affine transform
 //
-vector<float> AffineReg::GetTranslate() {
+vector<float>::const_iterator AffineReg::GetTranslate() {
   if (mTranslate.empty())
     DecomposeXfm();
 
-  return mTranslate;
+  return mTranslate.begin();
 }
 
-vector<float> AffineReg::GetRotate() {
+vector<float>::const_iterator AffineReg::GetRotate() {
   if (mRotate.empty())
     DecomposeXfm();
 
-  return mRotate;
+  return mRotate.begin();
 }
 
-vector<float> AffineReg::GetShear() {
+vector<float>::const_iterator AffineReg::GetShear() {
   if (mShear.empty())
     DecomposeXfm();
 
-  return mShear;
+  return mShear.begin();
 }
 
-vector<float> AffineReg::GetScale() {
+vector<float>::const_iterator AffineReg::GetScale() {
   if (mScale.empty())
     DecomposeXfm();
 
-  return mScale;
+  return mScale.begin();
 }
 
 #ifndef NO_CVS_UP_IN_HERE
@@ -292,7 +290,7 @@ vector<float> AffineReg::GetScale() {
 // Non-linear registration class
 //
 NonlinReg::NonlinReg() {
-  mMorph = boost::shared_ptr<gmp::VolumeMorph>(new gmp::VolumeMorph);
+  mMorph = std::shared_ptr<gmp::VolumeMorph>(new gmp::VolumeMorph);
 }
 
 NonlinReg::~NonlinReg() {}

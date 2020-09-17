@@ -145,6 +145,10 @@ if(-e $IsRunningFile) then
   exit 1;
 endif
 
+# If not explicitly specfied, set to 1
+if($?ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS == 0) then
+  setenv ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS 1
+endif
 
 # If everything is in place, let's do it! First, we create the IsRunning file
 echo "------------------------------" > $IsRunningFile
@@ -161,15 +165,15 @@ if($?PBS_JOBID) then
 endif
 
 # Parameters
-set RUNTIME="$FREESURFER_HOME/MCRv80/";
+set RUNTIME="$FREESURFER_HOME/MCRv84/";
 set RESOLUTION="0.5";
 set ATLASMESH="$FREESURFER_HOME/average/BrainstemSS/atlas/AtlasMesh.gz";
 set ATLASDUMP="$FREESURFER_HOME/average/BrainstemSS/atlas/AtlasDump.mgz";
 set LUT="$FREESURFER_HOME/average/BrainstemSS/atlas/compressionLookupTable.txt";
 set K="0.05";
-set OPTIMIZER="ConjGrad";
+set OPTIMIZER="L-BFGS";
 set MRFCONSTANT="0";
-set SUFFIX="v11";
+set SUFFIX="v12";
 
 
 # Now the real job
@@ -182,12 +186,19 @@ echo "HOST `hostname`" >> $BSSLOG
 echo "PROCESSID $$ "   >> $BSSLOG
 echo "PROCESSOR `uname -m`" >> $BSSLOG
 echo "OS `uname -s`"       >> $BSSLOG
+echo "ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS $ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS " >> $BSSLOG
 uname -a         >> $BSSLOG
 if($?PBS_JOBID) then
   echo "pbsjob $PBS_JOBID"  >> $BSSLOG
 endif
 echo "------------------------------" >> $BSSLOG
 echo " " >> $BSSLOG
+cat $FREESURFER_HOME/build-stamp.txt  >> $BSSLOG
+echo " " >> $BSSLOG
+echo "setenv SUBJECTS_DIR $SUBJECTS_DIR"  >> $BSSLOG
+echo "cd `pwd`"   >> $BSSLOG
+echo $0 $argv  >> $BSSLOG
+echo ""  >> $BSSLOG
 
 echo "#--------------------------------------------" \
   |& tee -a $BSSLOG
@@ -195,16 +206,18 @@ echo "#@# Brainstem Substructures processing `date`" \
   |& tee -a $BSSLOG
 
 # command
-set cmd="run_SegmentSubject.sh $RUNTIME $SUBJECTNAME $SUBJECTS_DIR $RESOLUTION $ATLASMESH $ATLASDUMP $LUT $K $OPTIMIZER $SUFFIX ${FREESURFER_HOME}/bin/"
+set cmd="run_SegmentSubject.sh $RUNTIME $SUBJECTNAME $SUBJECTS_DIR $RESOLUTION $ATLASMESH $ATLASDUMP $LUT $K $OPTIMIZER $SUFFIX '${FREESURFER_HOME}/bin/fs_run_from_mcr ${FREESURFER_HOME}/bin/'"
 
 fs_time ls >& /dev/null
 if ($status) then
   $cmd |& tee -a $BSSLOG 
+  set returnVal=$status
 else
   fs_time $cmd |& tee -a $BSSLOG
+  set returnVal=$status
 endif
 
-if ($status) then
+if ($returnVal) then
   uname -a | tee -a $BSSLOG
   echo "" |& tee -a $BSSLOG
   echo "T1 Brainstem Substructures exited with ERRORS at `date`" \
@@ -216,7 +229,17 @@ if ($status) then
   exit 1;
 endif
 
- 
+# Convert the txt file into a stats file so that asegstats2table can
+# be run Note: the number of voxels is set to 0 and there is no info
+# about intensity. The only useful info is the volume in mm and the
+# structure name. The segmentation IDs also do not mean anything. 
+# Could run mri_segstats instead, but the volumes would not include
+# partial volume correction.
+set txt=$SUBJECTS_DIR/$SUBJECTNAME/mri/brainstemSsVolumes.$SUFFIX.txt
+set stats=$SUBJECTS_DIR/$SUBJECTNAME/stats/brainstem.$SUFFIX.stats
+echo "# Brainstem structure volumes as created by segmentBS.sh" > $stats
+cat $txt | awk '{print NR" "NR"  0 "$2" "$1}' >> $stats
+
 # All done!
 rm -f $IsRunningFile
 

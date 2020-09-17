@@ -1,5 +1,4 @@
 /**
- * @file  LayerPropertySurface.cxx
  * @brief Implementation for surface layer properties.
  *
  * In 2D, the MRI is viewed as a single slice, and controls are
@@ -9,10 +8,6 @@
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/01/26 20:34:24 $
- *    $Revision: 1.9 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -53,7 +48,10 @@ LayerPropertySurface::LayerPropertySurface ( QObject* parent ) :
   m_surface( NULL ),
   m_bShowOverlay(true),
   m_bShowAnnotation(true),
-  m_bUseSurfaceColorOn2D(false)
+  m_bUseSurfaceColorOn2D(false),
+  m_nZOrderLabel(3),
+  m_nZOrderAnnotation(2),
+  m_nZOrderOverlay(1)
 {
   m_lutCurvature = vtkSmartPointer<vtkRGBAColorTransferFunction>::New();
 
@@ -90,6 +88,11 @@ void LayerPropertySurface::SetColorMapChanged()
   BuildCurvatureLUT( m_lutCurvature, m_nCurvatureMap );
   // Notify the layers that use the color map stuff.
   emit ColorMapChanged();
+}
+
+void LayerPropertySurface::RebuildCurvatureLUT()
+{
+  SetColorMapChanged();
 }
 
 QVariantMap LayerPropertySurface::GetFullSettings()
@@ -482,5 +485,32 @@ void LayerPropertySurface::SetUseSurfaceColorOn2D(bool bKeep)
   {
     m_bUseSurfaceColorOn2D = bKeep;
     emit ColorMapChanged();
+  }
+}
+
+void LayerPropertySurface::SetZOrderAnnotation(int nOrder)
+{
+  if (m_nZOrderAnnotation != nOrder)
+  {
+    m_nZOrderAnnotation = nOrder;
+    emit OverlayChanged();
+  }
+}
+
+void LayerPropertySurface::SetZOrderLabel(int nOrder)
+{
+  if (m_nZOrderLabel != nOrder)
+  {
+    m_nZOrderLabel = nOrder;
+    emit OverlayChanged();
+  }
+}
+
+void LayerPropertySurface::SetZOrderOverlay(int nOrder)
+{
+  if (m_nZOrderOverlay != nOrder)
+  {
+    m_nZOrderOverlay = nOrder;
+    emit OverlayChanged();
   }
 }

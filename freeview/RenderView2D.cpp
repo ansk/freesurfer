@@ -1,14 +1,9 @@
 /**
- * @file  RenderView2D.cpp
  * @brief 2D slice view
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/02 16:40:06 $
- *    $Revision: 1.79 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -24,13 +19,18 @@
 #include "RenderView2D.h"
 #include "LayerCollection.h"
 #include "MainWindow.h"
+#include "ui_MainWindow.h"
+#include "LayerLineProfile.h"
+#include "LayerSurface.h"
 #include "LayerMRI.h"
+// #undef isfinite
 #include "LayerPropertyMRI.h"
 #include "Contour2D.h"
 #include "VolumeCropper.h"
 #include <vtkRenderer.h>
 #include <vtkCamera.h>
 #include <vtkImageActor.h>
+#include <vtkTextActor.h>
 #include "Annotation2D.h"
 #include "Interactor2DNavigate.h"
 #include "Interactor2DMeasure.h"
@@ -47,8 +47,8 @@
 #include <QMessageBox>
 #include <QMenu>
 #include <QDebug>
-#include "LayerLineProfile.h"
-#include "LayerSurface.h"
+#include <QApplication>
+#include <QClipboard>
 
 RenderView2D::RenderView2D( QWidget* parent ) : RenderView( parent )
 {
@@ -134,6 +134,11 @@ void RenderView2D::RefreshAllActors(bool bForScreenShot)
     {
       m_annotation2D->AppendAnnotations( m_renderer );
     }
+    if (!bForScreenShot || !setting.HideScaleBar)
+    {
+      m_annotation2D->AppendAnnotations( m_renderer, true );
+    }
+
     m_selection2D->AppendProp( m_renderer );
 
     // add scalar bar
@@ -299,11 +304,18 @@ void RenderView2D::OnSlicePositionChanged(bool bCenter)
   {
     double x, y, z;
     WorldToViewport(slicePos[0], slicePos[1], slicePos[2], x, y, z);
+#if VTK_MAJOR_VERSION > 7
+  if (devicePixelRatio() > 1)
+  {
+      x /= devicePixelRatio();
+      y /= devicePixelRatio();
+  }
+#endif
     if (!rect().contains(QPoint(x, y)))
       this->CenterAtCursor();
   }
 
-  RenderView::OnSlicePositionChanged();
+  RenderView::OnSlicePositionChanged(bCenter);
 }
 
 void RenderView2D::CenterAtCursor()
@@ -321,6 +333,13 @@ void RenderView2D::MousePositionToRAS( int posX, int posY, double* pos )
   pos[0] = posX;
   pos[1] = rect().height() - posY;
   pos[2] = 0;
+#if VTK_MAJOR_VERSION > 7
+  if (devicePixelRatio() > 1)
+  {
+      pos[0] = pos[0] * devicePixelRatio();
+      pos[1] = pos[1] * devicePixelRatio();
+  }
+#endif
   m_renderer->ViewportToNormalizedViewport( pos[0], pos[1] );
   m_renderer->NormalizedViewportToView( pos[0], pos[1], pos[2] );
   m_renderer->ViewToWorld( pos[0], pos[1], pos[2] );
@@ -459,6 +478,17 @@ void RenderView2D::MoveSlice( int nStep )
   LayerMRI* mri = qobject_cast<LayerMRI*>(lc_mri->GetActiveLayer());
   if (mri)
   {
+    if (!mri->IsVisible())
+    {
+      for (int i = 0; i < lc_mri->GetNumberOfLayers(); i++)
+      {
+        if (lc_mri->GetLayer(i)->IsVisible())
+        {
+          mri = qobject_cast<LayerMRI*>(lc_mri->GetLayer(i));
+          break;
+        }
+      }
+    }
     voxelSize = mri->GetWorldVoxelSize();
   }
   int nPlane = GetViewPlane();
@@ -533,6 +563,28 @@ bool RenderView2D::GetShowCoordinateAnnotation()
   return m_annotation2D->IsVisible();
 }
 
+void RenderView2D::SetAutoScaleText(bool b)
+{
+  m_bAutoScaleText = b;
+  m_annotation2D->SetAutoScaleText(b);
+  for (int i = 0; i < m_regions.size(); i++)
+  {
+    m_regions[i]->SetAutoScaleText(b);
+  }
+  RequestRedraw();
+}
+
+void RenderView2D::SetTextSize(int nsize)
+{
+  m_nTextSize = nsize;
+  m_annotation2D->SetTextSize(nsize);
+  for (int i = 0; i < m_regions.size(); i++)
+  {
+    m_regions[i]->SetTextSize(nsize);
+  }
+  RequestRedraw();
+}
+
 bool RenderView2D::SetSliceNumber( int nNum )
 {
   LayerCollection* lc_mri = MainWindow::GetMainWindow()->GetLayerCollection( "MRI" );
@@ -580,7 +632,8 @@ void RenderView2D::TriggerContextMenu( QMouseEvent* event )
 {
   QMenu menu;
   bool bShowBar = this->GetShowScalarBar();
-  QList<Layer*> layers = MainWindow::GetMainWindow()->GetLayers("MRI");
+  MainWindow* mainwnd = MainWindow::GetMainWindow();
+  QList<Layer*> layers = mainwnd->GetLayers("MRI");
   Region2D* reg = GetRegion(event->x(), event->y());
   if (reg)
   {
@@ -589,7 +642,7 @@ void RenderView2D::TriggerContextMenu( QMouseEvent* event )
     connect(act, SIGNAL(triggered()), this, SLOT(OnDuplicateRegion()));
     menu.addAction(act);
   }
-  else if (layers.size() > 1)
+  if (layers.size() > 1)
   {
     QMenu* menu2 = menu.addMenu("Show Color Bar");
     QActionGroup* ag = new QActionGroup(this);
@@ -605,15 +658,55 @@ void RenderView2D::TriggerContextMenu( QMouseEvent* event )
     }
     connect(ag, SIGNAL(triggered(QAction*)), this, SLOT(SetScalarBarLayer(QAction*)));
   }
-  LayerSurface* surf = (LayerSurface*)MainWindow::GetMainWindow()->GetActiveLayer("Surface");
+
+  if (!layers.isEmpty())
+  {
+    if (!menu.actions().isEmpty() && layers.size() == 1)
+      menu.addSeparator();
+
+    if (layers.size() == 1)
+    {
+      LayerMRI* mri = (LayerMRI*)layers.first();
+      double val = mri->GetVoxelValue(mri->GetSlicePosition());
+      QAction* act = new QAction(QString("Copy Voxel Value  (%1)").arg(val), this);
+      act->setProperty("voxel_value", val);
+      connect(act, SIGNAL(triggered()), SLOT(OnCopyVoxelValue()));
+      menu.addAction(act);
+    }
+    else
+    {
+      QMenu* menu2 = menu.addMenu("Copy Voxel Value");
+      foreach (Layer* layer, layers)
+      {
+        LayerMRI* mri = (LayerMRI*)layer;
+        double val = mri->GetVoxelValue(layer->GetSlicePosition());
+        QAction* act = new QAction(layer->GetName() + "  (" + QString::number(val) + ")", this);
+        act->setProperty("voxel_value", val);
+        connect(act, SIGNAL(triggered()), SLOT(OnCopyVoxelValue()));
+        menu2->addAction(act);
+      }
+    }
+  }
+
+  LayerSurface* surf = (LayerSurface*)mainwnd->GetActiveLayer("Surface");
   if ( surf && surf->IsContralateralPossible())
   {
     if (!menu.actions().isEmpty())
       menu.addSeparator();
     QAction* act = new QAction("Go To Contralateral Point", this);
     menu.addAction(act);
-    connect(act, SIGNAL(triggered()), MainWindow::GetMainWindow(), SLOT(GoToContralateralPoint()));
+    connect(act, SIGNAL(triggered()), mainwnd, SLOT(GoToContralateralPoint()));
   }
+
+  if (!mainwnd->IsEmpty() && mainwnd->GetMainView() == this)
+  {
+      menu.addSeparator();
+      QAction* action = new QAction("Copy", this);
+      connect(action, SIGNAL(triggered(bool)), mainwnd, SLOT(OnCopyView()));
+      menu.addAction(action);
+      menu.addAction(mainwnd->ui->actionSaveScreenshot);
+  }
+
   if (!menu.actions().isEmpty())
     menu.exec(event->globalPos());
 }
@@ -669,4 +762,10 @@ bool RenderView2D::PickLineProfile(int x, int y)
     }
   }
   return false;
+}
+
+void RenderView2D::OnCopyVoxelValue()
+{
+  if (sender())
+    QApplication::clipboard()->setText(sender()->property("voxel_value").toString());
 }

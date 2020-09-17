@@ -15,7 +15,9 @@
 // \author awf@robots.ox.ac.uk
 // \date   05 Dec 00
 
+#define export // obsolete feature "export template" used in these header files
 #include <vnl/vnl_nonlinear_minimizer.h>
+#undef export
 #include "fs_vnl/fs_cost_function.h"
 
 //: The ever-popular Powell minimizer.
@@ -28,8 +30,7 @@ public:
 
   //: Initialize a powell with the given cost function
   fs_powell(fs_cost_function* functor)
-      : functor_(functor), linmin_xtol_(1e-4), initial_step_(1.0),
-      is_contrained_(false)
+      : functor_(functor), linmin_xtol_(1e-4), initial_step_(1.0)
   {}
 
   //: Run minimization, place result in x.
@@ -63,9 +64,6 @@ protected:
 
   //: Initial step when bracketting minima along a line
   double initial_step_;
-
-private:
-  bool is_contrained_;
 };
 
 #endif // fs_powell_h_

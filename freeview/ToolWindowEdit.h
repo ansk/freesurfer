@@ -1,14 +1,5 @@
-/**
- * @file  ToolWindowEdit.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/01/11 21:05:23 $
- *    $Revision: 1.22 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -61,6 +52,17 @@ protected slots:
   void OnEraseRangeChanged(const QString& strg);
   void OnEraseExcludeRangeChanged(const QString& strg);
 
+  void OnButtonGeoSegClear();
+  void OnButtonGeoSegGo();
+  void OnButtonGeoSegClearFilling();
+  void OnButtonGeoSegApply();
+  void OnButtonGeoSegUndo();
+  void OnColorPickerGeoSeg(const QColor& color);
+  void OnSliderGeoOpacity(int nVal);
+  void OnButtonGeoSegAbort();
+  void OnGeoSegFinished(double time);
+  void OnGeoSegProgress(double val);
+
 protected:
   virtual void showEvent(QShowEvent *);
 
@@ -74,6 +76,7 @@ private:
   QList<QWidget*>  m_widgetsConstrain;
   QList<QWidget*>  m_widgetsSmooth;
   QList<QWidget*>  m_widgetsContour;
+  QList<QWidget*>  m_widgetsGeoSeg;
 };
 
 #endif // TOOLWINDOWEDIT_H

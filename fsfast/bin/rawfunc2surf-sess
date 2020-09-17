@@ -4,10 +4,6 @@
 # rawfunc2surf-sess
 #
 # Original Author: Doug Greve
-# CVS Revision Info:
-#    $Author: zkaufman $
-#    $Date: 2015/12/10 22:51:30 $
-#    $Revision: 1.28 $
 #
 # Copyright (C) 2002-2007,
 # The General Hospital Corporation (Boston, MA). 
@@ -22,7 +18,7 @@
 # Bug reports: analysis-bugs@nmr.mgh.harvard.edu
 #
 
-set VERSION = '$Id: rawfunc2surf-sess,v 1.28 2015/12/10 22:51:30 zkaufman Exp $';
+set VERSION = 'rawfunc2surf-sess @FS_VERSION@';
 
 set inputargs = ($argv);
 
@@ -414,6 +410,11 @@ while( $#argv != 0 )
       set ExpKeyNeeded = 1;
       breaksw
 
+    case "-dof":
+      if ($#argv < 1) goto arg1err;
+      set RegDOF = $argv[1]; shift;
+      breaksw
+
     case "-b0dc":
     case "-b0dcor":
     case "-vsm":
@@ -590,6 +591,7 @@ usage_exit:
   echo "  -surfreg SurfReg : change from $SurfReg"
   echo "  -per-session : use session-level registration and mask instead of -per-run"
   echo "  -no-cortex-label : do not use cortex label for masking"
+  echo "  -dof DOF"
   echo ""
   echo "Other options"
   echo "  -save-unsmoothed : save sm0 in addition to smoothed data"

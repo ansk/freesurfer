@@ -1,15 +1,10 @@
 /**
- * @file MyMatrix.cpp
  * @brief A static class with Matrix operations
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2014/03/20 20:22:27 $
- *    $Revision: 1.30 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -27,6 +22,8 @@
 #include "MyMatrix.h"
 #include "Quaternion.h"
 #include "utils.h" //nint
+
+#define export // obsolete feature 'export template' used in these headers 
 #include <vnl/vnl_inverse.h>
 #include <vnl/algo/vnl_matrix_inverse.h>
 #include <vnl/algo/vnl_determinant.h>
@@ -40,23 +37,15 @@
 #include <vnl/vnl_complexify.h>
 #include <vcl_iostream.h>
 #include <vnl/vnl_matlab_print.h>
+#undef export
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "matrix.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 #define sign(x) (( x > 0 ) - ( x < 0 ))
 
 using namespace std;
 
-extern "C"
-{
+extern "C" {
 
 // complex Schur decomposition
 extern void zgees_(char *jobvs, char *sort, long (*select)(), long *n,
@@ -89,7 +78,7 @@ extern void ztrsen_(char *job, char *compq, int *select, long *n,
 // 
 // }
 
-// extern "C"{
+// extern "C" {
 // /*: Computes Schur Decomposistion of nxn complex matrix */
 // extern int v3p_netlib_zgees_(
 //   char v3p_netlib_const *jobvs,
@@ -754,7 +743,7 @@ vnl_matrix < vcl_complex < double > > & TS)
   work.data_block(),// WORK
   &lwork,// LWORK 
   &info);
-  delete(selecti);
+  delete[] selecti;
   TS.inplace_transpose();// switch back ..
   US.inplace_transpose();// from fortran ordering
   //cout << " info: " << info << endl;
@@ -1344,7 +1333,7 @@ vnl_matrix<double> MyMatrix::MatrixSqrt(const vnl_matrix<double>& A)
         //cout << " upper triangular ! " << endl;
 
         vnl_matrix < vcl_complex < double > > R(n,n,0.0);
-        vcl_complex < double > s;
+        // vcl_complex < double > s;
         for (int j= 0; j< n; j++)// column
         {
           R[j][j] = sqrt(T[j][j]);
@@ -2021,11 +2010,10 @@ double MyMatrix::AffineTransDistSq(const vnl_matrix<double>&a,
     drigid -= id;
   }
 
-  double EPS = 0.000001;
   assert(drigid.rows() ==4 && drigid.cols() == 4);
-  assert(fabs(drigid[3][0]) < EPS);
-  assert(fabs(drigid[3][1]) < EPS);
-  assert(fabs(drigid[3][2]) < EPS);
+  assert(fabs(drigid[3][0]) < 0.000001);
+  assert(fabs(drigid[3][1]) < 0.000001);
+  assert(fabs(drigid[3][2]) < 0.000001);
 
   //cout << " drigid: " << endl;
   //MatrixPrintFmt(stdout,"% 2.8f",drigid);
@@ -2074,12 +2062,11 @@ double MyMatrix::RigidTransDistSq(const vnl_matrix<double>&a,
     drigid = b * drigid;
   }
 
-  double EPS = 0.000001;
   assert(drigid.rows() ==4 && drigid.cols() == 4);
-  assert(fabs(drigid[3][0]) < EPS);
-  assert(fabs(drigid[3][1]) < EPS);
-  assert(fabs(drigid[3][2]) < EPS);
-  assert(fabs(drigid[3][3]-1) < EPS);
+  assert(fabs(drigid[3][0]) < 0.000001);
+  assert(fabs(drigid[3][1]) < 0.000001);
+  assert(fabs(drigid[3][2]) < 0.000001);
+  assert(fabs(drigid[3][3]-1) < 0.000001);
 
   //cout << " drigid: " << endl;
   //MatrixPrintFmt(stdout,"% 2.8f",drigid);
@@ -2519,11 +2506,10 @@ double MyMatrix::AffineTransDistSq(MATRIX * a, MATRIX * b, double r)
     MatrixFree(&id);
   }
 
-  double EPS = 0.000001;
   assert(drigid->rows ==4 && drigid->cols == 4);
-  assert(fabs(drigid->rptr[4][1]) < EPS);
-  assert(fabs(drigid->rptr[4][2]) < EPS);
-  assert(fabs(drigid->rptr[4][3]) < EPS);
+  assert(fabs(drigid->rptr[4][1]) < 0.000001);
+  assert(fabs(drigid->rptr[4][2]) < 0.000001);
+  assert(fabs(drigid->rptr[4][3]) < 0.000001);
 
   //cout << " drigid: " << endl;
   //MatrixPrintFmt(stdout,"% 2.8f",drigid);
@@ -2572,12 +2558,11 @@ double MyMatrix::RigidTransDistSq(MATRIX * a, MATRIX * b)
     drigid = MatrixMultiply(b, drigid, drigid);
   }
 
-  double EPS = 0.000001;
   assert(drigid->rows ==4 && drigid->cols == 4);
-  assert(fabs(drigid->rptr[4][1]) < EPS);
-  assert(fabs(drigid->rptr[4][2]) < EPS);
-  assert(fabs(drigid->rptr[4][3]) < EPS);
-  assert(fabs(drigid->rptr[4][4]-1) < EPS);
+  assert(fabs(drigid->rptr[4][1]) < 0.000001);
+  assert(fabs(drigid->rptr[4][2]) < 0.000001);
+  assert(fabs(drigid->rptr[4][3]) < 0.000001);
+  assert(fabs(drigid->rptr[4][4]-1) < 0.000001);
 
   //cout << " drigid: " << endl;
   //MatrixPrintFmt(stdout,"% 2.8f",drigid);
@@ -2794,7 +2779,8 @@ MATRIX * MyMatrix::getHalfRT(MATRIX * m, MATRIX *mhalf)
     MatrixFree(&mhalf);
 
   float d = MatrixDeterminant(m);
-  assert(fabs(d-1) < 0.000001);
+  d = fabs(d-1);
+  assert(d < 0.000001);
 
   Quaternion q;
   q.importMatrix(*MATRIX_RELT(m, 1, 1), *MATRIX_RELT(m, 1, 2),
@@ -2918,11 +2904,10 @@ pair<MATRIX *, VECTOR *> MyMatrix::getRTfromM(MATRIX * M, MATRIX * R,
   assert(T->cols ==1);
 
   // check M
-  double eps = 0.000001;
-  assert(fabs(M->rptr[4][1]) < eps);
-  assert(fabs(M->rptr[4][2]) < eps);
-  assert(fabs(M->rptr[4][3]) < eps);
-  assert(fabs(M->rptr[4][4] - 1.0) < eps);
+  assert(fabs(M->rptr[4][1]) < 0.000001);
+  assert(fabs(M->rptr[4][2]) < 0.000001);
+  assert(fabs(M->rptr[4][3]) < 0.000001);
+  assert(fabs(M->rptr[4][4] - 1.0) < 0.000001);
 
   for (int c = 1; c < 4; c++)
   {
@@ -2938,7 +2923,7 @@ pair<MATRIX *, VECTOR *> MyMatrix::getRTfromM(MATRIX * M, MATRIX * R,
 
 MATRIX * MyMatrix::getMfromRT(MATRIX * R, VECTOR * T, MATRIX * M)
 {
-  int type;
+  int type = 0;
   if (R != NULL)
     type = R->type;
   else if (T != NULL)

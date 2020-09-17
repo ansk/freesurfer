@@ -1,15 +1,4 @@
-/**
- * @file  mris_spherical_wavelets.c
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:34 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,9 +20,6 @@
 // date: 11/10/04
 //
 // Warning: Do not edit the following four lines.  CVS maintains them.
-// Revision Author: $Author: nicks $
-// Revision Date  : $Date: 2011/03/02 00:04:34 $
-// Revision       : $Revision: 1.5 $
 ////////////////////////////////////////////
 
 #include <math.h>
@@ -59,12 +45,9 @@
 #include "matrix.h"
 
 
-//static char vcid[] = "$Id: mris_spherical_wavelets.c,v 1.5 2011/03/02 00:04:34 nicks Exp $";
-
-
 int             main(int argc, char *argv[]) ;
 static int      get_option(int argc, char *argv[]) ;
-char            *Progname ;
+const char            *Progname ;
 static MRI_SURFACE *center_brain(MRI_SURFACE *mris_src, MRI_SURFACE *mris_dst);
 
 
@@ -77,7 +60,7 @@ static char     *fname;
 int
 main(int argc, char *argv[]) {
   int           nargs, msec, order, i, number, vno, nnum, m, k, b1, b2, cno, flag=0, fno;
-  struct timeb  then ;
+  Timer then ;
   MRIS          *mris_in, *mris_out, *mris_high;
   MRI_SP        *mrisp ;
   VERTEX        *vm_out, *vm_high, *v;
@@ -97,7 +80,7 @@ main(int argc, char *argv[]) {
     ErrorExit(ERROR_BADPARM,
               "usage: %s <input surface> <orig surface> <finest order> <output surface>", Progname);
 
-  TimerStart(&then) ;
+  then.reset() ;
 
   order = atoi (argv[3]);
   fprintf(stdout, "Set %s as the finest scale level\n", argv[3]);
@@ -155,7 +138,7 @@ main(int argc, char *argv[]) {
       mris_high = ReadIcoByOrder(i, 100); //higher order surface
       for (m = 0; m<mris_high->nvertices; m++)
         mris_high->vertices[m].nsize=1;
-      MRISsetNeighborhoodSize(mris_high, 3) ;
+      MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
       number = IcoNVtxsFromOrder(i-1); //the start of m vertices
       for (m = number; m<mris_high->nvertices; m++) {
         vm_out = &mris_out->vertices[m];
@@ -201,7 +184,7 @@ main(int argc, char *argv[]) {
       mris_high = ReadIcoByOrder(i, 100); //higher order surface
       for (m = 0; m<mris_high->nvertices; m++)
         mris_high->vertices[m].nsize=1;
-      MRISsetNeighborhoodSize(mris_high, 3) ;
+      MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
 
       number = IcoNVtxsFromOrder(i-1); //the start of m vertices
       /* compute Yj,m for each m vertices */
@@ -318,7 +301,7 @@ main(int argc, char *argv[]) {
       mris_high = ReadIcoByOrder(i, 100); //higher order surface
       for (m = 0; m<mris_high->nvertices; m++)
         mris_high->vertices[m].nsize=1;
-      MRISsetNeighborhoodSize(mris_high, 3) ;
+      MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
       number = IcoNVtxsFromOrder(i-1); //the start of m vertices
       for (m = number; m<mris_high->nvertices; m++) {
         vm_out = &mris_out->vertices[m];
@@ -364,7 +347,7 @@ main(int argc, char *argv[]) {
       mris_high = ReadIcoByOrder(i, 100); //higher order surface
       for (m = 0; m<mris_high->nvertices; m++)
         mris_high->vertices[m].nsize=1;
-      MRISsetNeighborhoodSize(mris_high, 3) ;
+      MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
 
       number = IcoNVtxsFromOrder(i-1); //the start of m vertices
       /* compute Yj,m for each m vertices */
@@ -436,7 +419,7 @@ main(int argc, char *argv[]) {
     fprintf(stdout, "Reading wavelet coefficients from %s\n", argv[1]);
     for (m = 0; m<mris_out->nvertices; m++)
       mris_out->vertices[m].nsize=1;
-    MRISsetNeighborhoodSize(mris_out, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_out, 3) ;
 
     if (COMPARE) {
       mris_in = MRISread(fname);
@@ -485,7 +468,7 @@ main(int argc, char *argv[]) {
       mris_high = ReadIcoByOrder(i, 100); //higher order surface
       for (m = 0; m<mris_high->nvertices; m++)
         mris_high->vertices[m].nsize=1;
-      MRISsetNeighborhoodSize(mris_high, 3) ;
+      MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
       number = IcoNVtxsFromOrder(i-1); //the start of m vertices
       for (m = number; m<mris_high->nvertices; m++) {
         vm_out = &mris_out->vertices[m];
@@ -530,7 +513,7 @@ main(int argc, char *argv[]) {
       mris_high = ReadIcoByOrder(i, 100); //higher order surface
       for (m = 0; m<mris_high->nvertices; m++)
         mris_high->vertices[m].nsize=1;
-      MRISsetNeighborhoodSize(mris_high, 3) ;
+      MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
       number = IcoNVtxsFromOrder(i-1); //the start of m vertices
 
       /* Synthesis Stage I */
@@ -614,7 +597,7 @@ main(int argc, char *argv[]) {
 
   MRISfree(&mris_out);
   MRISfree(&mris_high) ;
-  msec = TimerStop(&then) ;
+  msec = then.milliseconds() ;
   fprintf(stdout, "spherical wavelet took %2.1f minutes\n", (float)msec/(1000.0f*60.0f));
   exit(0) ;
   return(0) ;

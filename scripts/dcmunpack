@@ -2,7 +2,7 @@
 # dcmunpack
 # 
 
-set VERSION = '$Id: dcmunpack,v 1.21 2017/01/30 23:39:21 greve Exp $';
+set VERSION = 'dcmunpack @FS_VERSION@';
 
 set SeriesInfo = ();
 
@@ -28,6 +28,9 @@ set AutoRunSeqFmt = ""
 set ExitOnError = 1;
 @ ErrorsFound = 0;
 set RunNoSkip = ()
+set iid = ()
+set ijd = ()
+set ikd = ()
 
 set RunNos = ();
 set SubDirs = ();
@@ -68,12 +71,12 @@ goto check_params;
 check_params_return:
 
 # Create target dir, if necessary
-if($#TargetDir) mkdir -p $TargetDir
+if($#TargetDir) mkdir -p $TargetDir/log
 
 # Create the log file
 if($#LF == 0) then
   if($#TargetDir) then
-    set LF = $TargetDir/dcmunpack.log
+    set LF = $TargetDir/log/dcmunpack.log
     rm -f $LF
   else
     set LF = /dev/null
@@ -117,7 +120,7 @@ echo "Searching for matching files" | tee -a $LF
 date | tee -a $LF
 set flist = ();
 foreach d ($SrcDirList2)
-  echo "Searching $d" >> $LF
+  #echo "Searching $d" >> $LF
   if($#SrcPre || $#SrcPat || $#SrcExt) then
     set flist0 = (`find $d -name "$SrcPre*$SrcPat*$SrcExt"`)
   else
@@ -146,13 +149,21 @@ endif
 # -one-per-dir functionality with -ext, -pat, and/or -pre.
 if($#infofile == 0) then
   if($#TargetDir) then
-    set infofile = $TargetDir/imagelist.dat
+    set infofile = $TargetDir/log/imagelist.dat
   else
     set infofile = /tmp/dcmdir-all.$$
   endif
 endif
-rm -f $infofile
-if($#SrcInfo) cp $SrcInfo $infofile
+if($#SrcInfo) then
+  if($SrcInfo != $infofile) then
+    # This may still fail if they are truly the same file but diff
+    # path spec, but that will not be important (it just might
+    # confuse people)
+    cp $SrcInfo $infofile
+  endif
+else
+  rm -f $infofile
+endif
 
 set dumpfile = /tmp/dcmunpack.dump.$$
 rm -f $dumpfile 
@@ -161,7 +172,7 @@ foreach f ($flist)
   @ nth = $nth + 1;
   set filetype = `mri_probedicom --i $f --d filetype`
   if($filetype == notdicom) continue;
-  echo "#@# $nth/$#flist `date`" >>& $LF
+  #echo "#@# $nth/$#flist `date`" >>& $LF
 
   mri_probedicom --i $f >& $dumpfile
   if($status) then
@@ -214,10 +225,10 @@ rm -f $dumpfile
 set SeriesNos = (`cat $infofile | awk '{print $2}' | sort -n | uniq`)
 echo "Found $#SeriesNos unique series: $SeriesNos" | tee -a $LF
 
-echo "Subject $Patient"
-echo "Date $Date"
-echo "Time $Time"
-echo "$Institution"
+echo "Subject $Patient" | tee -a $LF
+echo "Date $Date" | tee -a $LF
+echo "Time $Time" | tee -a $LF
+echo "$Institution" | tee -a $LF
 
 
 # Print out one line for each series:
@@ -231,7 +242,7 @@ set AutoNDrops = ()
 
 if($#SeriesInfo == 0) then
   if($#TargetDir) then
-    set SeriesInfo = $TargetDir/series-info.dat
+    set SeriesInfo = $TargetDir/log/series-info.dat
   else
     set SeriesInfo = /tmp/series-info-$$.dat
   endif
@@ -251,16 +262,17 @@ foreach series ($SeriesNos)
   if($status) then 
     set descr = "unknown"
   else
-    set descr = `mri_probedicom --i $f --t 8 103e | sed 's/ //g' | sed 's/\///g' | sed 's/(//g' | sed 's/)//g'`
+    set descr = `mri_probedicom --i $f --t 8 103e | sed 's/ //g' | sed 's/\///g' | sed 's/(//g' | sed 's/)//g'| sed 's/\]//g'|sed 's/\[//g'`
   endif
   set fname = $r[11];
   if($DoBase) set fname = `basename $f`
   echo $Key $r[2] "$descr" $r[5-10] $fname $max | tee -a $SeriesInfo
 
   if($DoAutoRunSeq) then
-    if($descr == Localizer || $descr == localizer || $descr == AAHScout || \
-       $descr == AAHScout_sag || $descr == AAHScout_cor || \
-       $descr == AAHScout_tra || $descr == AAScout) continue
+    if("$descr" == Localizer || "$descr" == localizer || "$descr" == AAHScout || \
+       "$descr" == AAHScout_sag || "$descr" == AAHScout_cor || \
+       "$descr" == AAHScout_tra || "$descr" == AAScout || \
+       "$descr" == T1w_setter || "$descr" == T2w_setter) continue
     set AutoRunNos = ($AutoRunNos $series)
     set AutoSubDirs = ($AutoSubDirs ".")
     set AutoFormats = ($AutoFormats $AutoRunSeqFmt)
@@ -270,6 +282,8 @@ foreach series ($SeriesNos)
     set AutoNDrops = ($AutoNDrops 0)
   endif
 end
+
+cat $SeriesInfo >> $LF
 
 if($DoAutoRunSeq) then
   set RunNos = ($AutoRunNos)
@@ -348,7 +362,12 @@ foreach run ($RunNos)
     set outfname = $outdir/$FName.$Format
     echo "" |& tee -a $LF
     echo "#@# Run $run `date` ==================================" |& tee -a $LF
-    mri_convert $f $outfname --nskip $NSkip --ndrop $NDrop $itdicom |& tee -a $LF
+    set cmd = (mri_convert $f $outfname --nskip $NSkip --ndrop $NDrop $itdicom)
+    if($#iid) set cmd = ($cmd -iid $iid);
+    if($#ijd) set cmd = ($cmd -ijd $ijd);
+    if($#ikd) set cmd = ($cmd -ikd $ikd);
+    echo $cmd |& tee -a $LF
+    $cmd |& tee -a $LF
     if($status) then
       if($ExitOnError) then
         echo "ERROR: a conversion error was detected in Run $run" |& tee -a $LF
@@ -370,7 +389,7 @@ foreach run ($RunNos)
 
   if($DoInfoDump) then
     set f = `cat $infofile | awk -v r=$run '{if($2 == r) print $11}' | head -n 1`
-    set dumpfile = $outdir/$FName-infodump.dat
+    set dumpfile = $outdir/log/$FName-infodump.dat
     mri_probedicom --i $f > $dumpfile |& tee -a $LF
     if($status) cat $dumpfile | tee -a $LF
   endif
@@ -469,6 +488,24 @@ while( $#argv != 0 )
       set Key = "$argv[1]"; shift;
       breaksw
 
+    case "-iid":
+      if($#argv < 3) goto arg3err;
+      set iid = ($argv[1] $argv[2] $argv[3]); 
+      shift; shift; shift;
+      breaksw
+
+    case "-ijd":
+      if($#argv < 3) goto arg3err;
+      set ijd = ($argv[1] $argv[2] $argv[3]); 
+      shift; shift; shift;
+      breaksw
+
+    case "-ikd":
+      if($#argv < 3) goto arg3err;
+      set ikd = ($argv[1] $argv[2] $argv[3]); 
+      shift; shift; shift;
+      breaksw
+
     case "-base":
       set DoBase = 1;
       breaksw
@@ -544,6 +581,15 @@ while( $#argv != 0 )
       set DoAutoRunSeq = 1
       set DoUnpack = 1;
       set FSFAST = 0;
+      breaksw     
+
+    case "-no-rescale-dicom"
+      setenv FS_RESCALE_DICOM 0
+      breaksw     
+
+    case "-rescale-dicom"
+      # This is currently the default for mri_convert
+      setenv FS_RESCALE_DICOM 1
       breaksw     
 
     case "-fips":
@@ -655,6 +701,9 @@ while( $#argv != 0 )
       set RunNoSkip = ($RunNoSkip $argv[1]); shift
       breaksw
       
+    case "-no-dwi":
+      setenv FS_LOAD_DWI 0 # turn off trying to read DWI parameters
+      breaksw
 
     case "-debug":
       set verbose = 1;
@@ -762,6 +811,12 @@ arg1err:
 ############--------------##################
 
 ############--------------##################
+arg3err:
+  echo "ERROR: flag $flag requires three arguments"
+  exit 1
+############--------------##################
+
+############--------------##################
 arg4err:
   echo "ERROR: flag $flag requires four arguments"
   exit 1
@@ -797,6 +852,12 @@ usage_exit:
   echo "   -itdicom : add -it dicom to mri_convert cmd line"
   echo "   -no-exit-on-error : continue to unpack data even if there is an error in coversion"
   echo "   -run-skip runno : skip a given run (good when using -auto-runseq)"
+  echo "   -no-rescale-dicom : turn off DICOM rescaling based on tags (0028,1052) (0028,1053)"
+  echo "   -rescale-dicom : turn it on (default)"
+  echo "   -no-dwi : turn off trying to read DWI parameters"
+  echo "   -iid dcx dcy dcz : set -iid to mri_convert"
+  echo "   -ijd dcx dcy dcz : set -ijd to mri_convert"
+  echo "   -ikd dcx dcy dcz : set -ikd to mri_convert"
   echo ""
   echo "   -fips project site birnid visit"
   echo "   -fips-run run paradigm <<nskip> ndrop>"

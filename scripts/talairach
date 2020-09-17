@@ -3,10 +3,6 @@
 #
 # talairach
 #
-# CVS Revision Info:
-#    $Author: zkaufman $
-#    $Date: 2016/02/16 17:17:20 $
-#    $Revision: 1.8 $
 #
 # Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 #
@@ -21,7 +17,7 @@
 #
 
 #
-set VERSION = '$Id: talairach,v 1.8 2016/02/16 17:17:20 zkaufman Exp $'
+set VERSION = 'talairach @FS_VERSION@';
 setenv LANG C # needed by MNI perl module
 
 
@@ -102,6 +98,14 @@ if($st) then
   echo "ERROR: mritotal failed, see $LF"
   exit 1;
 endif
+
+# Create an LTA version of the XFM.
+set target = ${MINC_BIN_DIR}/../share/mni_autoreg/average_305.mnc
+set cmd = (lta_convert --src $InVol --trg $target)
+set cmd = ($cmd --inxfm $XFM --outlta $XFM.lta --subject fsaverage)
+echo $cmd |& tee -a $LF
+$cmd >> $LF
+if($status) exit 1;
 
 echo " " |& tee -a $LF
 echo " " |& tee -a $LF

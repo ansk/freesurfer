@@ -1,5 +1,4 @@
 /**
- * @file  CostFunctions.cpp
  * @brief A class that makes available many different cost functions for images
  *   and to combine multiple volumes by mean or median
  *
@@ -7,10 +6,6 @@
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2015/09/23 20:21:10 $
- *    $Revision: 1.26 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,22 +26,17 @@
 #include <sstream>
 #include "RobustGaussian.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "error.h"
 #include "macros.h"
 #include "mrimorph.h"
 #include "matrix.h"
 
-#ifdef __cplusplus
-}
-#endif
+#define export // obsolete feature
 #include <vnl/vnl_matrix_fixed.h>
 #include <vnl/vnl_matrix.h>
 #include <vnl/algo/vnl_symmetric_eigensystem.h>
 #include <vnl/vnl_det.h>
+#undef export
 
 using namespace std;
 
@@ -732,7 +722,7 @@ double CostFunctions::localNCC(MRI *mriS, MRI* mriT,
           tvar = sqrt( tvar);
           d += fabs(dd / (svar * tvar)); 
           
-          if (isnan(d))
+          if (std::isnan(d))
           {
             cout << "d is nan " << dd << " " << svar << " " << tvar << endl;
             exit (1);
@@ -1197,7 +1187,7 @@ std::vector<double> CostFunctions::centroid(MRI *i)
   dd[0] = dd[0] / n;
   dd[1] = dd[1] / n;
   dd[2] = dd[2] / n;
-  if (isnan(dd[0] + dd[1] + dd[2]))
+  if (std::isnan(dd[0] + dd[1] + dd[2]))
   {
     cerr << "CostFunctions::centroid is NAN (empty image? n = " << n << " )"
         << endl;

@@ -4,10 +4,6 @@
 # mkcontrast-sess
 #
 # Original Author: Doug Greve
-# CVS Revision Info:
-#    $Author: zkaufman $
-#    $Date: 2015/12/10 22:51:30 $
-#    $Revision: 1.19 $
 #
 # Copyright (C) 2002-2007,
 # The General Hospital Corporation (Boston, MA). 
@@ -23,7 +19,7 @@
 #
 
 
-set VERSION = '$Id: mkcontrast-sess,v 1.19 2015/12/10 22:51:30 zkaufman Exp $'
+set VERSION = 'mkcontrast-sess @FS_VERSION@';
 set cmdargs = ($argv);
 
 set contrast   = ();
@@ -49,6 +45,7 @@ set UseSXADat = 0;
 set PrintHelp = 0;
 set mfile = ();
 if(! $?FS_MKCON_USE_BIN)  setenv FS_MKCON_USE_BIN 0
+#FS_MCRROOT set in mkcontrast2
 set UseNew = 1;
 
 set UseOctave = 0;
@@ -195,7 +192,7 @@ if($UseNew == 1) set cmd = (mkcontrast2 -config $analname/$contrast.config)
 set cmd = ($cmd -anadir $analname)
 set cmd = ($cmd -wcond $wcond $sumconds -o $cmtxfile)
 
-set cmd = ($cmd  $sumdelays $showcmtx $rmprestim)
+set cmd = ($cmd  $sumdelays $showcmtx $rmprestim -prestim $TPreStim)
 if($nircorr != 0) then
   set cmd = ($cmd -ircorr $nircorr -deltarange $deltarange -taurange $taurange)
 else
@@ -454,6 +451,12 @@ check_params:
     echo "ERROR: analysis $analname does not exist"
     exit 1;
   endif
+
+  if(! -e $analname/analysis.info ) then
+    echo "ERROR: analysis $analname/analysis.info does not exist"
+    exit 1;
+  endif
+  set TPreStim = `cat $analname/analysis.info | awk '{if($1=="prestim")print $2}'`
 
   if($#wcond == 0) then
     if($#actcond == 0) then

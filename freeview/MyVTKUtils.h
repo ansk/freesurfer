@@ -1,14 +1,9 @@
 /**
- * @file  MyVTKUtils.h
  * @brief Misc utility class.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/06/24 17:11:04 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -60,10 +55,10 @@ public:
                                double world_z, double& x, double& y, double& z );
 
   static bool BuildContourActor( vtkImageData* data_in, double dTh1, double dTh2, vtkActor* actor_out,
-                                 int nSmoothIterations = 0, int* ext = NULL, bool bAllRegion = false, bool bUpsample = false );
+                                 int nSmoothIterations = 0, int* ext = NULL, bool bAllRegion = false, bool bUpsample = false);
 
   static bool BuildLabelContourActor( vtkImageData* data_in, int labelIndex, vtkActor* actor_out,
-                                 int nSmoothIterations = 0, int* ext = NULL, bool bAllRegion = false , bool bUpsample = false);
+                                 int nSmoothIterations = 0, int* ext = NULL, bool bAllRegion = false , bool bUpsample = false, bool bVoxelized = false);
 
   static bool BuildLabelContourActor( vtkImageData* data_in, const QList<int>& labelIndices, vtkActor* actor_out,
                                  int nSmoothIterations = 0, int* ext = NULL, bool bAllRegion = false , bool bUpsample = false);

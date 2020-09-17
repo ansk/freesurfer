@@ -1,14 +1,6 @@
-/**
- * @file  conc.c
- *
- */
 /*
  * Original Author: Avi Z. Snyder, Washington University
  * 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2007/05/05 00:00:06 $
- *    $Revision: 1.2 $
  *
  * Copyright 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
  * Washington University, Mallinckrodt Institute of Radiology.
@@ -54,7 +46,6 @@ int split (char *string, char *srgv[], int maxp) {
 /********************/
 /* global variables */
 /********************/
-static char	rcsid[] = "$Id: conc.c,v 1.2 2007/05/05 00:00:06 nicks Exp $";
 
 void conc_init_quiet (CONC_BLOCK *conc_block, char *program) {
 	strcpy (conc_block->program, program);
@@ -63,7 +54,7 @@ void conc_init_quiet (CONC_BLOCK *conc_block, char *program) {
 }
 
 void conc_init (CONC_BLOCK *conc_block, char *program) {
-	printf ("%s\n", rcsid);
+	printf ("%s\n", "freesurfer conc.c");
 	strcpy (conc_block->program, program);
 	conc_block->rnfile = conc_block->wnfile = conc_block->imgfp_open = 0;
 	*conc_block->lstroot = *conc_block->lstfile = *conc_block->outroot = *conc_block->outfile = '\0';

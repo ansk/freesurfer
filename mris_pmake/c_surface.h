@@ -1,5 +1,4 @@
 /**
- * @file  c_surface.h
  * @brief The surface related object API.
  *
  * Surface type functions setting whole surface function pointers, and
@@ -7,10 +6,6 @@
  */
 /*
  * Original Author: Rudolph Pienaar / Christian Haselgrove
- * CVS Revision Info:
- *    $Author: rudolph $
- *    $Date: 2012/04/13 21:20:38 $
- *    $Revision: 1.6 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,18 +26,10 @@
 #include "general.h"
 #include "env.h"
 
-#ifdef __cplusplus
-extern  "C" {
-#endif
-
 #include "mri.h"
 #include "mrisurf.h"
 #include "label.h"
 #include "error.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 #include <string>
 using namespace std;

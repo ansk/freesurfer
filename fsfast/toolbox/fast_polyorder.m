@@ -7,16 +7,11 @@ function [order, X] = fast_polyorder(ntp,TR,fCutOffHz)
 %
 % X = fast_polytrendmtx(1,ntp,1,order);%  
 %
-% $Id: fast_polyorder.m,v 1.1 2012/02/17 23:55:40 greve Exp $
 
 %
 % fast_polyorder.m
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: greve $
-%    $Date: 2012/02/17 23:55:40 $
-%    $Revision: 1.1 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

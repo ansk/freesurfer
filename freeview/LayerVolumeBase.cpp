@@ -1,14 +1,9 @@
 /**
- * @file  LayerVolumeBase.cpp
  * @brief Layer data object for MRI volume.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/01/26 16:54:31 $
- *    $Revision: 1.36 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -39,6 +34,8 @@
 #include <QFile>
 #include <QDir>
 #include <QDebug>
+#include "vtkSimpleLabelEdgeFilter.h"
+#include "vtkImageReslice.h"
 
 LayerVolumeBase::LayerVolumeBase( QObject* parent ) : LayerEditable( parent )
 {
@@ -52,6 +49,8 @@ LayerVolumeBase::LayerVolumeBase( QObject* parent ) : LayerEditable( parent )
   m_livewire = new LivewireTool();
   m_imageData = NULL;
   m_imageDataRef = NULL;
+  m_shiftBackgroundData = NULL;
+  m_shiftForegroundData = NULL;
   connect(m_propertyBrush, SIGNAL(FillValueChanged(double)), this, SLOT(SetFillValue(double)));
   if (GetEndType() != "ROI")
     connect(m_propertyBrush, SIGNAL(EraseValueChanged(double)), this, SLOT(SetBlankValue(double)));
@@ -79,9 +78,9 @@ LayerVolumeBase::~LayerVolumeBase()
   delete m_livewire;
 }
 
-QList<int> LayerVolumeBase::SetVoxelByIndex( int* n_in, int nPlane, bool bAdd )
+QVector<int> LayerVolumeBase::SetVoxelByIndex( int* n_in, int nPlane, bool bAdd, bool ignore_brush_size )
 {
-  QList<int> indices;
+  QVector<int> indices;
   int* nDim = m_imageData->GetDimensions();
   /* for ( int i = 0; i < 3; i++ )
    {
@@ -93,7 +92,7 @@ QList<int> LayerVolumeBase::SetVoxelByIndex( int* n_in, int nPlane, bool bAdd )
   // if ( !ptr )
   //  return false;
 
-  int nBrushSize = m_propertyBrush->GetBrushSize();
+  int nBrushSize = (ignore_brush_size? 1 : m_propertyBrush->GetBrushSize());
   int n[3], nsize[3] = { nBrushSize/2+1, nBrushSize/2+1, nBrushSize/2+1 };
   nsize[nPlane] = 1;
   int nActiveComp = GetActiveFrame();
@@ -115,6 +114,7 @@ QList<int> LayerVolumeBase::SetVoxelByIndex( int* n_in, int nPlane, bool bAdd )
   int* ref_dim = ref->GetDimensions();
   int ref_scalar_type = ref->GetScalarType();
   int ref_n_frames = ref->GetNumberOfScalarComponents();
+  bool bNotROI = (GetEndType() != "ROI");
   for ( int i = -nsize[0]+1; i < nsize[0]; i++ )
   {
     for ( int j = -nsize[1]+1; j < nsize[1]; j++ )
@@ -132,18 +132,18 @@ QList<int> LayerVolumeBase::SetVoxelByIndex( int* n_in, int nPlane, bool bAdd )
           double fvalue = MyVTKUtils::GetImageDataComponent(ref_ptr, ref_dim, ref_n_frames, n[0], n[1], n[2], nActiveCompRef, ref_scalar_type );
           if (bAdd)
           {
-            if ( ( m_propertyBrush->GetDrawRangeEnabled() &&
+            if ( ( bNotROI && m_propertyBrush->GetDrawRangeEnabled() &&
                    ( fvalue < draw_range[0] || fvalue > draw_range[1] ) ) ||
-                 ( m_propertyBrush->GetExcludeRangeEnabled() &&
+                 ( bNotROI && m_propertyBrush->GetExcludeRangeEnabled() &&
                    ( fvalue >= exclude_range[0] && fvalue <= exclude_range[1] ) ) ||
-                 ( m_propertyBrush->GetDrawConnectedOnly() &&
+                 ( bNotROI && m_propertyBrush->GetDrawConnectedOnly() &&
                    ( !GetConnectedToOld( m_imageData, nActiveComp, n, nPlane ) ) ) )
             {
               ;
             }
             else
             {
-           //   m_imageData->SetScalarComponentFromFloat( n[0], n[1], n[2], nActiveComp, m_fFillValue );
+              //   m_imageData->SetScalarComponentFromFloat( n[0], n[1], n[2], nActiveComp, m_fFillValue );
               MyVTKUtils::SetImageDataComponent(ptr, dim, n_frames, n[0], n[1], n[2], nActiveComp, scalar_type, m_fFillValue);
               indices << n[0] << n[1] << n[2];
               UpdateVoxelValueRange( m_fFillValue );
@@ -151,16 +151,16 @@ QList<int> LayerVolumeBase::SetVoxelByIndex( int* n_in, int nPlane, bool bAdd )
           }
           else
           {
-            if ( ( m_propertyBrush->GetEraseRangeEnabled() &&
+            if ( ( bNotROI && m_propertyBrush->GetEraseRangeEnabled() &&
                    ( fvalue < draw_range[0] || fvalue > draw_range[1] ) ) ||
-                 ( m_propertyBrush->GetEraseExcludeRangeEnabled() &&
+                 ( bNotROI && m_propertyBrush->GetEraseExcludeRangeEnabled() &&
                    ( fvalue >= exclude_range[0] && fvalue <= exclude_range[1] ) ) )
             {
               ;
             }
             else
             {
-            //  m_imageData->SetScalarComponentFromFloat( n[0], n[1], n[2], nActiveComp, m_fBlankValue );
+              //  m_imageData->SetScalarComponentFromFloat( n[0], n[1], n[2], nActiveComp, m_fBlankValue );
               MyVTKUtils::SetImageDataComponent(ptr, dim, n_frames, n[0], n[1], n[2], nActiveComp, scalar_type, m_fBlankValue);
               indices << n[0] << n[1] << n[2];
             }
@@ -198,6 +198,7 @@ bool LayerVolumeBase::CloneVoxelByIndex( int* n_in, int nPlane )
   int* ref_dim = ref->GetDimensions();
   int ref_scalar_type = ref->GetScalarType();
   int ref_n_frames = ref->GetNumberOfScalarComponents();
+  bool bNotROI = (GetEndType() != "ROI");
   for ( int i = -nsize[0]+1; i < nsize[0]; i++ )
   {
     for ( int j = -nsize[1]+1; j < nsize[1]; j++ )
@@ -213,11 +214,11 @@ bool LayerVolumeBase::CloneVoxelByIndex( int* n_in, int nPlane )
              MyUtils::GetDistance<int>( n, n_in ) <= nBrushSize/2.0 )
         {
           double fvalue = MyVTKUtils::GetImageDataComponent(ref_ptr, ref_dim, ref_n_frames, n[0], n[1], n[2], nActiveCompRef, ref_scalar_type );
-          if ( ( m_propertyBrush->GetDrawRangeEnabled() &&
+          if ( ( bNotROI && m_propertyBrush->GetDrawRangeEnabled() &&
                  ( fvalue < draw_range[0] || fvalue > draw_range[1] ) ) ||
-               ( m_propertyBrush->GetExcludeRangeEnabled() &&
+               ( bNotROI && m_propertyBrush->GetExcludeRangeEnabled() &&
                  ( fvalue >= exclude_range[0] && fvalue <= exclude_range[1] ) ) ||
-               ( m_propertyBrush->GetDrawConnectedOnly() &&
+               ( bNotROI && m_propertyBrush->GetDrawConnectedOnly() &&
                  ( !GetConnectedToOld( m_imageData, nActiveComp, n, nPlane ) ) ) )
           {
             ;
@@ -270,7 +271,7 @@ bool LayerVolumeBase::GetConnectedToOld( vtkImageData* img, int nFrame, int* n_i
   return false;
 }
 
-void LayerVolumeBase::SetVoxelByRAS( double* ras, int nPlane, bool bAdd )
+void LayerVolumeBase::SetVoxelByRAS( double* ras, int nPlane, bool bAdd, bool ignore_brush_size )
 {
   int n[3];
   double* origin = m_imageData->GetOrigin();
@@ -280,7 +281,7 @@ void LayerVolumeBase::SetVoxelByRAS( double* ras, int nPlane, bool bAdd )
     n[i] = ( int )( ( ras[i] - origin[i] ) / voxel_size[i] + 0.5 );
   }
 
-  QList<int> list = SetVoxelByIndex( n, nPlane, bAdd );
+  QVector<int> list = SetVoxelByIndex( n, nPlane, bAdd, ignore_brush_size );
   if ( !list.isEmpty() )
   {
     SetModified();
@@ -293,7 +294,7 @@ void LayerVolumeBase::SetVoxelByRAS( double* ras, int nPlane, bool bAdd )
   }
 }
 
-void LayerVolumeBase::SetVoxelByRAS( double* ras1, double* ras2, int nPlane, bool bAdd )
+void LayerVolumeBase::SetVoxelByRAS( double* ras1, double* ras2, int nPlane, bool bAdd, bool ignore_brush_size )
 {
   int n1[3], n2[3];
   double* origin = m_imageData->GetOrigin();
@@ -304,7 +305,7 @@ void LayerVolumeBase::SetVoxelByRAS( double* ras1, double* ras2, int nPlane, boo
     n2[i] = ( int )( ( ras2[i] - origin[i] ) / voxel_size[i] + 0.5 );
   }
 
-  QList<int> list = SetVoxelByIndex( n1, n2, nPlane, bAdd );
+  QVector<int> list = SetVoxelByIndex( n1, n2, nPlane, bAdd, ignore_brush_size );
   if ( !list.isEmpty() )
   {
     SetModified();
@@ -317,7 +318,7 @@ void LayerVolumeBase::SetVoxelByRAS( double* ras1, double* ras2, int nPlane, boo
   }
 }
 
-QList<int> LayerVolumeBase::SetVoxelByIndex( int* n1, int* n2, int nPlane, bool bAdd )
+QVector<int> LayerVolumeBase::SetVoxelByIndex( int* n1, int* n2, int nPlane, bool bAdd, bool ignore_brush_size )
 {
   int nx = 1, ny = 2;
   if ( nPlane == 1 )
@@ -336,8 +337,8 @@ QList<int> LayerVolumeBase::SetVoxelByIndex( int* n1, int* n2, int nPlane, bool 
   int dy = y1 - y0;
   double t = 0.5;
   int n[3];
-  QList<int> list;
-  list = SetVoxelByIndex( n1, nPlane, bAdd );
+  QVector<int> list;
+  list = SetVoxelByIndex( n1, nPlane, bAdd, ignore_brush_size );
   if ( abs( dx ) > abs( dy ) )
   {
     double m = (double) dy / (double) dx;
@@ -351,7 +352,7 @@ QList<int> LayerVolumeBase::SetVoxelByIndex( int* n1, int* n2, int nPlane, bool 
       n[nx] = x0;
       n[ny] = (int) t;
       n[nPlane] = n1[nPlane];
-      QList<int> list1 = SetVoxelByIndex( n, nPlane, bAdd );
+      QVector<int> list1 = SetVoxelByIndex( n, nPlane, bAdd, ignore_brush_size );
       if (!list1.isEmpty())
         list << list1;
     }
@@ -369,7 +370,7 @@ QList<int> LayerVolumeBase::SetVoxelByIndex( int* n1, int* n2, int nPlane, bool 
       n[nx] = (int) t;
       n[ny] = y0;
       n[nPlane] = n1[nPlane];
-      QList<int> list1 = SetVoxelByIndex( n, nPlane, bAdd );
+      QVector<int> list1 = SetVoxelByIndex( n, nPlane, bAdd, ignore_brush_size );
       if (!list1.isEmpty())
         list << list1;
     }
@@ -475,6 +476,145 @@ bool LayerVolumeBase::CloneVoxelByIndex( int* n1, int* n2, int nPlane)
   return true;
 }
 
+bool LayerVolumeBase::BorderFillByRAS(double *ras, int nPlane, bool b3D)
+{
+  int n[3];
+  double* origin = m_imageData->GetOrigin();
+  double* voxel_size = m_imageData->GetSpacing();
+  for ( int i = 0; i < 3; i++ )
+  {
+    n[i] = ( int )( ( ras[i] - origin[i] ) / voxel_size[i] + 0.5 );
+  }
+
+  QVector<int> list = BorderFillByRAS(n, nPlane);
+  if (!list.isEmpty())
+  {
+    SetModified();
+    emit ActorUpdated();
+    emit BaseVoxelEdited(list, true);
+    return true;
+  }
+  else
+    return false;
+}
+
+QVector<int> LayerVolumeBase::BorderFillByRAS(int *n, int nPlane)
+{
+  QVector<int> voxel_list;
+  int* nDim = m_imageData->GetDimensions();
+  double* origin = m_imageData->GetOrigin();
+  double* voxel_size = m_imageData->GetSpacing();
+  int nx = 0, ny = 0;
+  vtkSmartPointer<vtkImageReslice> reslice = vtkSmartPointer<vtkImageReslice>::New();
+  reslice->SetOutputDimensionality(2);
+  double slicePos[3];
+  for (int i = 0; i < 3; i++)
+  {
+    slicePos[i] = n[i]*voxel_size[i]+origin[i];
+  }
+  switch ( nPlane )
+  {
+  case 0:
+    nx = nDim[1];
+    ny = nDim[2];
+    reslice->SetResliceAxesDirectionCosines( 0, 1, 0,
+                                                 0, 0, 1,
+                                                 1, 0, 0 );
+    reslice->SetResliceAxesOrigin( slicePos[0], 0, 0  );
+    break;
+  case 1:
+    nx = nDim[0];
+    ny = nDim[2];
+    reslice->SetResliceAxesDirectionCosines( 1, 0, 0,
+                                                 0, 0, 1,
+                                                 0, 1, 0 );
+    reslice->SetResliceAxesOrigin( 0, slicePos[1], 0 );
+    break;
+  case 2:
+    nx = nDim[0];
+    ny = nDim[1];
+    reslice->SetResliceAxesDirectionCosines( 1, 0, 0,
+                                                 0, 1, 0,
+                                                 0, 0, 1 );
+    reslice->SetResliceAxesOrigin( 0, 0, slicePos[2] );
+    break;
+  }
+
+  LayerVolumeBase* ref_layer = m_propertyBrush->GetReferenceLayer();
+  vtkImageData* ref = m_imageData;
+  int nActiveCompRef = 0;
+  if ( ref_layer != NULL )
+  {
+    ref = ref_layer->GetImageData();
+    nActiveCompRef = ref_layer->GetActiveFrame();
+  }
+  int nActiveComp = this->GetActiveFrame();
+  char* ptr = (char*)m_imageData->GetScalarPointer();
+  int* dim = m_imageData->GetDimensions();
+  int scalar_type = m_imageData->GetScalarType();
+  int n_frames = m_imageData->GetNumberOfScalarComponents();
+  char* ref_ptr = (char*)ref->GetScalarPointer();
+  int* ref_dim = ref->GetDimensions();
+  int ref_scalar_type = ref->GetScalarType();
+  int ref_n_frames = ref->GetNumberOfScalarComponents();
+  float fVoxelValue = MyVTKUtils::GetImageDataComponent(ref_ptr, ref_dim, ref_n_frames, n[0], n[1], n[2], 0, ref_scalar_type);
+  vtkSmartPointer<vtkSimpleLabelEdgeFilter> filter = vtkSmartPointer<vtkSimpleLabelEdgeFilter>::New();
+#if VTK_MAJOR_VERSION > 5
+  reslice->SetInputData(ref);
+#else
+  reslice->SetInput(ref);
+#endif
+  filter->SetInputConnection(reslice->GetOutputPort());
+  filter->Update();
+  vtkSmartPointer<vtkImageData> outline_image = filter->GetOutput();
+  ref_ptr = (char*)outline_image->GetScalarPointer();
+  ref_dim = outline_image->GetDimensions();
+  float fTolerance = 0;
+  switch ( nPlane )
+  {
+  case 0:
+    for ( int i = 0; i < nx; i++ )
+    {
+      for ( int j = 0; j < ny; j++ )
+      {
+        if (fabs( MyVTKUtils::GetImageDataComponent(ref_ptr, ref_dim, ref_n_frames, i, j, 0, nActiveCompRef, scalar_type ) - fVoxelValue) <= fTolerance)
+        {
+          MyVTKUtils::SetImageDataComponent(ptr, dim, n_frames, n[nPlane], i, j, nActiveComp, scalar_type, m_fFillValue);
+          voxel_list << n[nPlane] << i << j;
+        }
+      }
+    }
+    break;
+  case 1:
+    for ( int i = 0; i < nx; i++ )
+    {
+      for ( int j = 0; j < ny; j++ )
+      {
+        if (fabs( MyVTKUtils::GetImageDataComponent(ref_ptr, ref_dim, ref_n_frames, i, j, 0, nActiveCompRef, ref_scalar_type ) - fVoxelValue ) <= fTolerance)
+        {
+          MyVTKUtils::SetImageDataComponent(ptr, dim, n_frames, i, n[nPlane], j, nActiveComp, scalar_type, m_fFillValue);
+          voxel_list << i << n[nPlane] << j;
+        }
+      }
+    }
+    break;
+  case 2:
+    for ( int i = 0; i < nx; i++ )
+    {
+      for ( int j = 0; j < ny; j++ )
+      {
+        if (fabs( MyVTKUtils::GetImageDataComponent(ref_ptr, ref_dim, ref_n_frames, i, j, 0, nActiveCompRef, ref_scalar_type ) - fVoxelValue ) <= fTolerance)
+        {
+          MyVTKUtils::SetImageDataComponent(ptr, dim, n_frames, i, j, n[nPlane], nActiveComp, scalar_type, m_fFillValue );
+          voxel_list << i << j << n[nPlane];
+        }
+      }
+    }
+    break;
+  }
+  return voxel_list;
+}
+
 bool LayerVolumeBase::FloodFillByRAS( double* ras, int nPlane, bool bAdd, bool b3D, char* mask_out, bool ignore_exclusion )
 {
   int n[3];
@@ -488,7 +628,7 @@ bool LayerVolumeBase::FloodFillByRAS( double* ras, int nPlane, bool bAdd, bool b
 
   if (!b3D)
   {
-    QList<int> list = FloodFillByIndex( n, nPlane, bAdd, true, mask_out, ignore_exclusion );
+    QVector<int> list = FloodFillByIndex( n, nPlane, bAdd, true, mask_out, ignore_exclusion );
     if ( !list.isEmpty() )
     {
       if ( !mask_out )
@@ -506,12 +646,12 @@ bool LayerVolumeBase::FloodFillByRAS( double* ras, int nPlane, bool bAdd, bool b
   }
   else
   {
-    QList<int> list_all;
+    QVector<int> list_all;
     int n0[3] = { n[0], n[1], n[2]};
     for (int i = n0[nPlane]; i < dim[nPlane]; i++)
     {
       n[nPlane] = i;
-      QList<int> list = FloodFillByIndex( n, nPlane, bAdd, false);
+      QVector<int> list = FloodFillByIndex( n, nPlane, bAdd, false);
       if (list.isEmpty())
         break;
       else
@@ -520,7 +660,7 @@ bool LayerVolumeBase::FloodFillByRAS( double* ras, int nPlane, bool bAdd, bool b
     for (int i = n0[nPlane]-1; i >= 0; i--)
     {
       n[nPlane] = i;
-      QList<int> list = FloodFillByIndex( n, nPlane, bAdd, false);
+      QVector<int> list = FloodFillByIndex( n, nPlane, bAdd, false);
       if (list.isEmpty())
         break;
       else
@@ -534,9 +674,9 @@ bool LayerVolumeBase::FloodFillByRAS( double* ras, int nPlane, bool bAdd, bool b
 }
 
 // when mask_out is not null, do not fill the actual image data. instead, fill the mask_out buffer
-QList<int> LayerVolumeBase::FloodFillByIndex( int* n, int nPlane, bool bAdd, bool ignore_overflow, char* mask_out, bool ignore_exclusion )
+QVector<int> LayerVolumeBase::FloodFillByIndex( int* n, int nPlane, bool bAdd, bool ignore_overflow, char* mask_out, bool ignore_exclusion )
 {
-  QList<int> voxel_list;
+  QVector<int> voxel_list;
   int* nDim = m_imageData->GetDimensions();
   int nx = 0, ny = 0, x = 0, y = 0;
   switch ( nPlane )
@@ -585,6 +725,7 @@ QList<int> LayerVolumeBase::FloodFillByIndex( int* n, int nPlane, bool bAdd, boo
   double fRange[2];
   ref->GetScalarRange( fRange );
   double fTolerance = (fRange[1]-fRange[0]) * m_propertyBrush->GetBrushTolerance() / 100.0;   // tolerance is percentage
+  bool bNotROI = (GetEndType() != "ROI");
   switch ( nPlane )
   {
   case 0:
@@ -685,9 +826,9 @@ QList<int> LayerVolumeBase::FloodFillByIndex( int* n, int nPlane, bool bAdd, boo
         if ( mask[j][i] == 2 )
         {
           double fvalue = MyVTKUtils::GetImageDataComponent(ref_ptr, ref_dim, ref_n_frames, n[nPlane], i, j, nActiveCompRef, ref_scalar_type );
-          if ( ( m_propertyBrush->GetDrawRangeEnabled() &&
+          if ( ( bNotROI && m_propertyBrush->GetDrawRangeEnabled() &&
                  ( fvalue < draw_range[0] || fvalue > draw_range[1] ) ) ||
-               ( !ignore_exclusion && m_propertyBrush->GetExcludeRangeEnabled() &&
+               ( bNotROI && !ignore_exclusion && m_propertyBrush->GetExcludeRangeEnabled() &&
                  ( fvalue >= exclude_range[0] && fvalue <= exclude_range[1] ) ) )
           {
             ;
@@ -718,9 +859,9 @@ QList<int> LayerVolumeBase::FloodFillByIndex( int* n, int nPlane, bool bAdd, boo
         if ( mask[j][i] == 2 )
         {
           double fvalue = MyVTKUtils::GetImageDataComponent(ref_ptr, ref_dim, ref_n_frames, i, n[nPlane], j, nActiveCompRef, ref_scalar_type );
-          if ( ( m_propertyBrush->GetDrawRangeEnabled() &&
+          if ( ( bNotROI && m_propertyBrush->GetDrawRangeEnabled() &&
                  ( fvalue < draw_range[0] || fvalue > draw_range[1] ) ) ||
-               ( m_propertyBrush->GetExcludeRangeEnabled() &&
+               ( bNotROI && m_propertyBrush->GetExcludeRangeEnabled() &&
                  ( fvalue >= exclude_range[0] && fvalue <= exclude_range[1] ) ) )
           {
             ;
@@ -751,9 +892,9 @@ QList<int> LayerVolumeBase::FloodFillByIndex( int* n, int nPlane, bool bAdd, boo
         if ( mask[j][i] == 2 )
         {
           double fvalue = MyVTKUtils::GetImageDataComponent(ref_ptr, ref_dim, ref_n_frames, i, j, n[nPlane], nActiveCompRef, ref_scalar_type );
-          if ( ( m_propertyBrush->GetDrawRangeEnabled() &&
+          if ( ( bNotROI && m_propertyBrush->GetDrawRangeEnabled() &&
                  ( fvalue < draw_range[0] || fvalue > draw_range[1] ) ) ||
-               ( m_propertyBrush->GetExcludeRangeEnabled() &&
+               ( bNotROI && m_propertyBrush->GetExcludeRangeEnabled() &&
                  ( fvalue >= exclude_range[0] && fvalue <= exclude_range[1] ) ) )
           {
             ;
@@ -784,13 +925,13 @@ QList<int> LayerVolumeBase::FloodFillByIndex( int* n, int nPlane, bool bAdd, boo
 
 void LayerVolumeBase::SetLiveWireByRAS( double* pt1, double* pt2, int nPlane )
 {
-  int n1[3], n2[3];
+  int n1[3];
   double* orig = m_imageData->GetOrigin();
   double* vxlsize = m_imageData->GetSpacing();
   for ( int i = 0; i < 3; i++ )
   {
     n1[i] = ( int )( ( pt1[i] - orig[i] ) / vxlsize[i] );
-    n2[i] = ( int )( ( pt2[i] - orig[i] ) / vxlsize[i] );
+    //    n2[i] = ( int )( ( pt2[i] - orig[i] ) / vxlsize[i] );
   }
 
   vtkSmartPointer<vtkPoints> pts = vtkSmartPointer<vtkPoints>::New();
@@ -808,7 +949,7 @@ void LayerVolumeBase::SetLiveWireByRAS( double* pt1, double* pt2, int nPlane )
 
   m_livewire->GetLivewirePoints( image, nPlane, n1[nPlane], pt1, pt2, pts );
   int n[3];
-  QList<int> list;
+  QVector<int> list;
   for ( int i = 0; i < pts->GetNumberOfPoints(); i++ )
   {
     double* p = pts->GetPoint( i );
@@ -838,13 +979,13 @@ std::vector<double> LayerVolumeBase::GetLiveWirePointsByRAS( double* pt1, double
     image = m_imageDataRef;
   }
 
-  int n1[3], n2[3];
+  int n1[3];
   double* orig = image->GetOrigin();
   double* vxlsize = image->GetSpacing();
   for ( int i = 0; i < 3; i++ )
   {
     n1[i] = ( int )( ( pt1[i] - orig[i] ) / vxlsize[i] );
-    n2[i] = ( int )( ( pt2[i] - orig[i] ) / vxlsize[i] );
+    //    n2[i] = ( int )( ( pt2[i] - orig[i] ) / vxlsize[i] );
   }
 
   vtkSmartPointer<vtkPoints> pts = vtkSmartPointer<vtkPoints>::New();
@@ -866,7 +1007,7 @@ bool LayerVolumeBase::SetLiveWireByIndex( int* n1, int* n2, int nPlane )
   Q_UNUSED(n1);
   Q_UNUSED(n2);
   Q_UNUSED(nPlane);
-//  vtkSmartPointer<vtkPoints> pts = vtkSmartPointer<vtkPoints>::New();
+  //  vtkSmartPointer<vtkPoints> pts = vtkSmartPointer<vtkPoints>::New();
   // MyUtils::GetLivewirePoints( m_imageData, nPlane, n1[nPlane], n1, n2, pts );
   return true;
 }
@@ -922,7 +1063,7 @@ void LayerVolumeBase::Redo()
   }
 }
 
-void LayerVolumeBase::SaveForUndo( int nPlane )
+void LayerVolumeBase::SaveForUndo( int nPlane, bool bAllFrames )
 {
   double* origin = m_imageData->GetOrigin();
   double* voxel_size = m_imageData->GetSpacing();
@@ -939,7 +1080,7 @@ void LayerVolumeBase::SaveForUndo( int nPlane )
   }
 
   UndoRedoBufferItem item;
-  SaveBufferItem( item, nPlane, nSlice, GetActiveFrame() );
+  SaveBufferItem( item, nPlane, nSlice, bAllFrames? -1 : GetActiveFrame() );
   m_bufferUndo.push_back( item );
 
   // clear redo buffer
@@ -1057,13 +1198,13 @@ void LayerVolumeBase::SaveBufferItem( UndoRedoBufferItem& item, int nPlane, int 
   {
     int nDim[3];
     m_imageData->GetDimensions( nDim );
-    long long nSize = ((long long)nDim[0])*nDim[1]*nDim[2]*m_imageData->GetScalarSize();
+    long long nSize = ((long long)nDim[0])*nDim[1]*nDim[2]*m_imageData->GetScalarSize()*(nFrame >= 0 ? 1 : m_imageData->GetNumberOfScalarComponents());
     QFile file(this->GenerateCacheFileName());
-    if (!file.open(QIODevice::WriteOnly))
+    if (!file.open(QIODevice::WriteOnly) || file.write((char*)m_imageData->GetScalarPointer() + (nFrame >= 0 ? nSize*nFrame : 0), nSize) != nSize)
     {
+      cerr << "Could not write undo cache to disk" << endl;
       return;
     }
-    file.write((char*)m_imageData->GetScalarPointer() + nSize*m_nActiveFrame, nSize);
     file.close();
     item.cache_filename = file.fileName();
     if (this->IsTypeOf("MRI"))
@@ -1118,8 +1259,8 @@ void LayerVolumeBase::LoadBufferItem( UndoRedoBufferItem& item, bool bIgnoreZero
     }
     int nDim[3];
     m_imageData->GetDimensions( nDim );
-    int nSize = nDim[0]*nDim[1]*nDim[2]*m_imageData->GetScalarSize();
-    char* p = (char*)m_imageData->GetScalarPointer() + nSize*m_nActiveFrame;
+    int nSize = nDim[0]*nDim[1]*nDim[2]*m_imageData->GetScalarSize()*(item.frame >= 0 ? 1 : m_imageData->GetNumberOfScalarComponents());;
+    char* p = (char*)m_imageData->GetScalarPointer() + (item.frame >= 0 ? nSize*item.frame : 0);
     file.read(p, nSize);
     file.close();
     if (this->IsTypeOf("MRI"))
@@ -1206,4 +1347,113 @@ QString LayerVolumeBase::GenerateCacheFileName()
   strg = MyUtils::NormalizeCygwinPath(strg);
 #endif
   return strg;
+}
+
+void LayerVolumeBase::ClearVoxels()
+{
+  int* dim = m_imageData->GetDimensions();
+  memset(m_imageData->GetScalarPointer(), 0, ((size_t)dim[0])*dim[1]*dim[2]*m_imageData->GetScalarSize());
+  m_imageData->Modified();
+}
+
+void LayerVolumeBase::ShiftVoxelsByRAS(double* ras, int nPlane)
+{
+  int n[3];
+  double* origin = m_imageData->GetOrigin();
+  double* voxel_size = m_imageData->GetSpacing();
+  for ( int i = 0; i < 3; i++ )
+  {
+    n[i] = ( int )( ( ras[i] - origin[i] ) / voxel_size[i] + 0.5 );
+  }
+
+  ShiftVoxels(n, nPlane);
+}
+
+void LayerVolumeBase::ShiftVoxels(int *nOffset, int nPlane)
+{
+  int nDim[3], nStart[3] = { 0, 0, 0 };
+  double* origin = m_imageData->GetOrigin();
+  double* voxel_size = m_imageData->GetSpacing();
+  m_imageData->GetDimensions( nDim );
+  nDim[nPlane] = 1;
+  nStart[nPlane] = ( int )( ( m_dSlicePosition[nPlane] - origin[nPlane] ) / voxel_size[nPlane] + 0.5 );
+  char* ptr = (char*)m_imageData->GetScalarPointer();
+  int scalar_size = m_imageData->GetScalarSize();
+  int scalar_type = m_imageData->GetScalarType();
+  int n_frames = m_imageData->GetNumberOfScalarComponents();
+  int nFrame = m_nActiveFrame;
+  int nOrigDim[3];
+  m_imageData->GetDimensions( nOrigDim );
+  for ( size_t i = nStart[0]; i < (size_t)nStart[0] + nDim[0]; i++ )
+  {
+    for ( size_t j = nStart[1]; j < (size_t)nStart[1] + nDim[1]; j++ )
+    {
+      for ( size_t k = nStart[2]; k < (size_t)nStart[2] + nDim[2]; k++ )
+      {
+        int ii = i-nStart[0]-nOffset[0];
+        int jj = j-nStart[1]-nOffset[1];
+        int kk = k-nStart[2]-nOffset[2];
+        double val = 0;
+        if (ii >= 0 && ii < nDim[0] && jj >= 0 && jj < nDim[1] && kk >= 0 && kk < nDim[2])
+          val = MyVTKUtils::GetImageDataComponent(m_shiftForegroundData, nDim, 1, ii, jj, kk, 0, scalar_type);
+        if (val > 0)
+          MyVTKUtils::SetImageDataComponent(ptr, nOrigDim, n_frames, i, j, k, nFrame, scalar_type, m_fFillValue);
+        else
+          memcpy( ptr + ((k*nOrigDim[0]*nOrigDim[1] + j*nOrigDim[0] + i) * n_frames + nFrame) * scalar_size,
+            m_shiftBackgroundData + ( (k-nStart[2])*nDim[1]*nDim[0] + (j-nStart[1])*nDim[0] + (i-nStart[0]) ) * scalar_size,
+            scalar_size );
+      }
+    }
+  }
+  SetModified();
+  emit ActorUpdated();
+}
+
+void LayerVolumeBase::PrepareShifting(int nPlane)
+{
+  delete[] m_shiftBackgroundData;
+  delete[] m_shiftForegroundData;
+  int nDim[3], nStart[3] = { 0, 0, 0 };
+  double* origin = m_imageData->GetOrigin();
+  double* voxel_size = m_imageData->GetSpacing();
+  m_imageData->GetDimensions( nDim );
+  nDim[nPlane] = 1;
+  nStart[nPlane] = ( int )( ( m_dSlicePosition[nPlane] - origin[nPlane] ) / voxel_size[nPlane] + 0.5 );
+  char* ptr = (char*)m_imageData->GetScalarPointer();
+  int scalar_size = m_imageData->GetScalarSize();
+  int scalar_type = m_imageData->GetScalarType();
+  int n_frames = m_imageData->GetNumberOfScalarComponents();
+  int nFrame = m_nActiveFrame;
+  size_t nsize = ((size_t)nDim[0])*nDim[1]*nDim[2]*scalar_size;
+  m_shiftBackgroundData = new char[nsize];
+  m_shiftForegroundData = new char[nsize];
+  memset(m_shiftBackgroundData, 0, nsize);
+  memset(m_shiftForegroundData, 0, nsize);
+  int nOrigDim[3];
+  m_imageData->GetDimensions( nOrigDim );
+  for ( size_t i = nStart[0]; i < (size_t)nStart[0] + nDim[0]; i++ )
+  {
+    for ( size_t j = nStart[1]; j < (size_t)nStart[1] + nDim[1]; j++ )
+    {
+      for ( size_t k = nStart[2]; k < (size_t)nStart[2] + nDim[2]; k++ )
+      {
+        double val = MyVTKUtils::GetImageDataComponent(ptr, nOrigDim, n_frames, i, j, k, nFrame, scalar_type);
+        if ( val == m_fFillValue )
+        {
+          MyVTKUtils::SetImageDataComponent(m_shiftForegroundData, nDim, 1, i-nStart[0], j-nStart[1], k-nStart[2], 0, scalar_type, 1);
+        }
+        else
+        {
+          memcpy( m_shiftBackgroundData + ( (k-nStart[2])*nDim[1]*nDim[0] + (j-nStart[1])*nDim[0] + (i-nStart[0]) ) * scalar_size,
+              ptr + ((k*nOrigDim[0]*nOrigDim[1] + j*nOrigDim[0] + i) * n_frames + nFrame) * scalar_size,
+              scalar_size );
+        }
+      }
+    }
+  }
+}
+
+void LayerVolumeBase::DoneShifting()
+{
+
 }

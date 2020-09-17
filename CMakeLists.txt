@@ -1,381 +1,635 @@
-# ADD 
-# #define _CRT_SECURE_NO_WARNINGS
-# /wd n   - n is the number of warning to silence
-
+# project info
+cmake_minimum_required(VERSION 3.9)
 project(freesurfer)
-cmake_minimum_required (VERSION 2.6)
-INCLUDE(freesurfer.cmake)
+enable_language(C CXX Fortran)
 
-option (GRAPHIC_LIBS_DEFINED "Graphic Libraries" ON)
-IF (GRAPHIC_LIBS_DEFINED)
-option (GRAPHIC_APPS_DEFINED "Graphic Applications" ON)
-option (QT_APPS_DEFINED "QT Applications" OFF)
-ENDIF (GRAPHIC_LIBS_DEFINED)
-option (FSGDF_DEFINED "FSGDF Apps" ON)
-option (LABEL_DEFINED "Label Apps" ON)
-option (DMRI_APPS_DEFINED "DMRI Apps" ON)
-option (OPTSEQ_APPS_DEFINED "Optseq Apps" ON)
-option (MRI_APPS_DEFINED "MRI Apps" ON)
-option (MRIS_APPS_DEFINED "MRI Apps" ON)
-option (FSLUTILS_APPS "FSL Utils" OFF)
-option (MISC_APPS_DEFINED "Misc Apps" ON)
-option (RARELY_USED "Not included in usual FS" OFF) 
+# a few build options
+option(MINIMAL "Only build core components" OFF)
+option(BUILD_GUIS "Build GUI tools" ON)
+option(BUILD_ATTIC "Build deprecated tools from the attic" OFF)
+option(INFANT_MODULE "Include infant recon-all" OFF)
+option(QATOOLS_MODULE "Install QA tools" ON)
+option(BUILD_DNG "Build Doug's testing tools" OFF)
+option(FREEVIEW_LINEPROF "Build FreeView with lineprof enabled" OFF)
+option(PROFILING "Complile binaries for profiling with gprof" OFF)
+option(INSTALL_PYTHON_DEPENDENCIES "Install python package dependencies" ON)
 
-#Core Libs
-add_subdirectory(rgb)
-add_subdirectory(image)
-add_subdirectory(dicom)
-add_subdirectory(unix)
-add_subdirectory(hipsstubs)
-add_subdirectory(log)
-add_subdirectory(utilscpp)
+if(NOT APPLE)
+  # linux-only build options
+  option(TKTOOLS_MODULE "Install old Linux TK GUIs" OFF)
+endif()
+
+# enable ctest
+enable_testing()
+
+# include our custom cmake functions (and others)
+include(cmake/functions.cmake)
+include(TestBigEndian)
+include(CheckFunctionExists)
+
+# prevent third-party packages from importing as a system
+set(CMAKE_NO_SYSTEM_FROM_IMPORTED TRUE)
+
+# if an install prefix is not provided, check the FS_INSTALL_DIR env var, and
+# if that is not defined, set the default path to /usr/local/freesurfer
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  if(NOT "$ENV{FS_INSTALL_DIR}" STREQUAL "")
+    set(CMAKE_INSTALL_PREFIX "$ENV{FS_INSTALL_DIR}" CACHE PATH "Copied from FS_INSTALL_DIR env variable" FORCE)
+  else()
+    set(CMAKE_INSTALL_PREFIX "/usr/local/freesurfer" CACHE PATH "Default install path" FORCE)
+  endif()
+endif()
+
+# version stamp
+set(FS_VERSION "$ENV{USER}-local" CACHE STRING "Distribution version")
+
+# build stamp
+string(TIMESTAMP TODAY "%Y%m%d")
+set(BUILD_STAMP "freesurfer-local-build-${TODAY}" CACHE STRING "Distribution build stamp")
+install(CODE "file(WRITE ${CMAKE_INSTALL_PREFIX}/build-stamp.txt ${BUILD_STAMP}\\n)")
+
+# set the default build type to 'Release' for optimization purposes
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "No build type selected - defaulting to Release")
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Default build type" FORCE)
+endif()
+
+# create a custom target "make install-nmr" to only install nmr-component files 
+add_custom_target(install-nmr COMMAND ${CMAKE_COMMAND} -D COMPONENT=nmr -P cmake_install.cmake)
+
+# --------------------------------------------------
+#               external dependencies
+# --------------------------------------------------
+
+# xxd is used to generate the helptext headers
+find_program(XXD xxd)
+if(NOT XXD)
+  message(WARNING "MISSING xxd - required to build executable help texts")
+endif()
+
+# Most of the packages required by freesurfer are located by custom find-modules stored in the
+# 'cmake' subdir. The find-modules expect each package to be installed under a common
+# path defined by FS_PACKAGES_DIR. On Martinos machines, this variable automatically defaults
+# to /usr/pubsw/packages, but external developers must provide this path manually. External developers
+# can run the packages/build_packages.py script to compile the dependencies locally. If a package
+# is not found under FS_PACKAGES_DIR, cmake will continue to look through the default search paths.
+# Additionally, alternative paths to package installs can be specified with the <PACKAGE>_DIR variables
+# Note: FS_PACKAGES_DIR can be defined in an environment variable
+
+if(NOT FS_PACKAGES_DIR)
+  if(NOT "$ENV{FS_PACKAGES_DIR}" STREQUAL "")
+    # check if FS_PACKAGES_DIR has been set 
+    set(FS_PACKAGES_DIR "$ENV{FS_PACKAGES_DIR}" CACHE INTERNAL "Copied from FS_PACKAGES_DIR environment variable")
+  elseif(EXISTS /usr/pubsw/packages)
+    # if the user is at Martinos, default to /usr/pubsw/packages
+    set(FS_PACKAGES_DIR /usr/pubsw/packages CACHE INTERNAL "Default Martinos packages dir")
+  else()
+    # setting FS_PACKAGES_DIR is required if the user is outside Martinos
+    # for more information visit https://surfer.nmr.mgh.harvard.edu/fswiki/BuildRequirements
+    message(WARNING "FS_PACKAGES_DIR is NOT defined - build will be limited")
+  endif()
+endif()
+
+# all custom find-modules are stored in the cmake subdir
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+# -------- zlib --------
+find_package(ZLIB REQUIRED)
+add_definitions(-DHAVE_ZLIB)
+
+# -------- gfortran/blas/lapack --------
+if(NOT APPLE)
+  find_library(GFORTRAN_LIBRARIES
+    HINTS /usr/lib64 /usr/lib /usr/lib/gcc/*/*/
+    NAMES libgfortran.a gfortran)
+  find_library(BLAS_LIBRARIES NAMES libblas.a libopenblas.a)
+  find_library(LAPACK_LIBRARIES NAMES liblapack.a)
+endif()
+
+# -------- armadillo --------
+find_package(Armadillo)
+
+# -------- petsc --------
+find_package(PETSC)
+
+# -------- itk --------
+set(ITK_DIR ${FS_PACKAGES_DIR}/itk/4.13.0 CACHE PATH "ITK install directory")
+find_package(ITK HINTS ${ITK_DIR} REQUIRED)
+
+# -------- ann --------
+# ANN is only used by mris_resample
+find_package(ANN)
+
+# -------- openMP --------
+if(APPLE)
+  # this is an ugly hack to ensure that cmake looks for the
+  # static version of libomp on mac, since we don't want
+  # to distribute the shared library
+  set(ORIG_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+  find_package(OpenMP)
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ${ORIG_LIBRARY_SUFFIXES})
+else()
+  find_package(OpenMP)
+endif()
+
+if(OPENMP_FOUND)
+  add_definitions(-DHAVE_OPENMP)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
+  set(OMP_CXX_LIBRARIES OpenMP::OpenMP_CXX)
+endif()
+
+# -------- openCV --------
+if(NOT APPLE)
+  find_package(OpenCV)
+endif()
+
+# -------- X11 ---------
+find_package(X11)
+
+# search for GUI libraries
+if(BUILD_GUIS)
+
+  # -------- openGL --------
+  if(EXISTS /usr/lib64/nvidia/libGL.so)
+    # on some martinos centos7 machines, linking to the default libGL.so fails due to missing symbols
+    # in the nvidia drivers, so as a temporary fix, link directly to the nvidia GL library
+    list(APPEND CMAKE_PREFIX_PATH "/usr/lib64/nvidia")
+  endif()
+  find_package(OpenGL)
+  if(OPENGL_FOUND)
+    add_definitions(-DHAVE_OPENGL)
+  endif()
+
+  # -------- qt --------
+  find_package(QT)
+
+endif()
+
+# -------- vtk --------
+set(VTK_DIR ${FS_PACKAGES_DIR}/vtk/7.1 CACHE PATH "VTK install directory")
+find_package(VTK HINTS ${VTK_DIR})
+if(VTK_FOUND AND VTK_BUILD_SHARED_LIBS)
+  # locate all shared vtk libraries
+  if(${VTK_VERSION} LESS 7)
+    file(GLOB _vtk_library_list "${VTK_LIBRARY_DIRS}/lib*.so*")
+  else()
+    foreach(_vtk_module ${VTK_MODULES_ENABLED})
+      foreach(_vtk_library ${${_vtk_module}_LIBRARIES})
+        file(GLOB _found_library "${${_vtk_module}_RUNTIME_LIBRARY_DIRS}/lib${_vtk_library}*.so*")
+        list(APPEND _vtk_library_list ${_found_library})
+      endforeach()
+      foreach(_vtk_library ${${_vtk_module}_DEPENDS})
+        file(GLOB _found_library "${${_vtk_module}_RUNTIME_LIBRARY_DIRS}/lib${_vtk_library}*.so*")
+        list(APPEND _vtk_library_list ${_found_library})
+      endforeach()
+    endforeach()
+  endif()
+  # install found libraries to the freesurfer lib/vtk dir and add this directory to rpath
+  if(_vtk_library_list)
+    list(REMOVE_DUPLICATES _vtk_library_list)
+    install(PROGRAMS ${_vtk_library_list} DESTINATION lib/vtk)
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib/vtk:${CMAKE_INSTALL_RPATH}")
+  endif()
+endif()
+
+# --------------------------------------------------
+#              global system information
+# --------------------------------------------------
+
+add_definitions(-D${CMAKE_SYSTEM_NAME})
+
+# general check for big endian
+test_big_endian(IS_BIG_ENDIAN)
+if(IS_BIG_ENDIAN)
+  set(BYTEORDER 4321)
+else()
+  set(BYTEORDER 1234)
+endif()
+
+# enable std c++11
+set(CMAKE_CXX_STANDARD 11)
+
+# --------------------------------------------------
+#                  third-party code
+# --------------------------------------------------
+
+add_subdirectory(packages)
+
+# --------------------------------------------------
+#                    setup python
+# --------------------------------------------------
+
+# Unfortunately, the python version used to run pybind c-libraries must be equivalent to
+# the version used to build the libraries. The easiest and least intrusive way of making freesurfer
+# python scripts run out-of-the-box (and to help guarantee reproducibility) requires
+# distributing a minimal, custom python installation called fspython. This fspython package
+# will get installed to "freesurfer/python", but an external python can be used instead when the
+# DISTRIBUTE_FSPYTHON option is turned off. Turning this off will create a freesurfer/bin/fspythonlink
+# symlink during install that points to the external python executable located by pybind
+option(DISTRIBUTE_FSPYTHON "Include the fspython distribution in the installation" OFF)
+
+if(DISTRIBUTE_FSPYTHON)
+  set(FSPYTHON_DIR ${FS_PACKAGES_DIR}/fspython/3.6)
+  if(EXISTS ${FSPYTHON_DIR}/bin/python3)
+    # specify the python to use
+    set(PYTHON_EXECUTABLE ${FSPYTHON_DIR}/bin/python3)
+    set(PYTHON_LIBRARY ${FSPYTHON_DIR}/lib/libpython3.6m)
+    # install the barebones python distribution
+    INSTALL(DIRECTORY ${FSPYTHON_DIR}/bin ${FSPYTHON_DIR}/lib ${FSPYTHON_DIR}/include
+      DESTINATION ${CMAKE_INSTALL_PREFIX}/python USE_SOURCE_PERMISSIONS
+    )
+  else()
+    message(FATAL_ERROR "Cannot find fspython distribution in FS_PACKAGES_DIR")
+  endif()
+endif()
+
+# initialize pybind for python wrapping
+set(PYBIND11_PYTHON_VERSION 3.5)
+add_subdirectory(packages/pybind11)
+
+if(NOT DISTRIBUTE_FSPYTHON)
+  # link to an external python binary if fspython won't be distributed
+  symlink(${PYTHON_EXECUTABLE} ${CMAKE_INSTALL_PREFIX}/python/bin/python3)
+endif()
+
+# --------------------------------------------------
+#             freesurfer build settings
+# --------------------------------------------------
+
+# warnings
+if(NOT NO_CXX_WARN)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -Wno-sign-compare -Wno-unused-result -Wno-unused-parameter")
+else ()
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error -Wno-deprecated-declarations -fpermissive") 
+endif()
+
+# clang complains about -Wno-unused-but-set-variable and says to use -Wno-unused-const-variable
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-const-variable -Wno-inconsistent-missing-override -Wno-self-assign-field")
+else()
+  if(NOT NO_CXX_WARN)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-but-set-variable")
+  endif()
+endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+
+# linker options
+if(APPLE)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -dead_strip")
+  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc")
+  endif()
+else()
+  set(STRIP_FLAGS "-fdata-sections -ffunction-sections -Wl,--gc-sections")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STRIP_FLAGS}")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${STRIP_FLAGS} -Wl,-Map,ld_map.txt -Wl,--no-demangle")
+endif()
+
+if(PROFILING)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
+endif()
+
+# --------------------------------------------------
+#                 build freesurfer
+# --------------------------------------------------
+
+# prepare the freesurfer distribution
+add_subdirectory(distribution)
+
+# the top-level include dir contain the most commonly included freesurfer header files
+set(FS_INCLUDE_DIRS
+  ${CMAKE_SOURCE_DIR}/include
+  ${CMAKE_BINARY_DIR}/include
+  ${CMAKE_SOURCE_DIR}/packages/minc
+  ${CMAKE_SOURCE_DIR}/packages/netcdf
+  ${CMAKE_SOURCE_DIR}/packages/nifti
+)
+
+# build the freesurfer static libraries
 add_subdirectory(utils)
-add_subdirectory(svm-lib)
 
-SET (FS_CORE utils rgb dicom hipsstubs log image unix utilscpp svm-lib)
-SET (FS_LIBS ${FS_AUX_LIBS} ${FS_CORE})
+# the following utility libraries are required for freeview
+add_subdirectories(vtkutils lineprof)
 
-#more libs
-IF (GRAPHIC_LIBS_DEFINED)
-add_subdirectory(qdecproject)
-add_subdirectory(vtkfsio)
-add_subdirectory(vtkutils)
-add_subdirectory(itkio)
-add_subdirectory(itkutils)
-add_subdirectory(tetgen)
-endif (GRAPHIC_LIBS_DEFINED)
+# the fem elastic subdir also builds a library, so it should be added first
+add_subdirectory(fem_elastic)
 
-IF (FSGDF_DEFINED)
-add_subdirectory(fsgdf)
-ENDIF (FSGDF_DEFINED)
+# build the gems library
+add_subdirectory(gems)
 
-IF (OPTSEQ_APPS_DEFINED)
-add_subdirectory(optseq2)
-add_subdirectory(stat_normalize)
-ENDIF (OPTSEQ_APPS_DEFINED)
+# --------------------------------------------------
+#                      programs
+# --------------------------------------------------
 
-IF (DMRI_APPS_DEFINED)
-add_subdirectory(dmri_poistats)
-add_subdirectory(dmri_tensoreig)
-ENDIF (DMRI_APPS_DEFINED)
+# the following subdirectories contain programs required for recon-all
+# and should be included during a "minimal" install. Extra programs that aren't
+# used in the standard stream should be added further down
+add_subdirectories(
+  AntsDenoiseImageFs
+  AntsN4BiasFieldCorrectionFs
+  lta_convert
+  mri_and
+  mri_add_xform_to_header
+  mri_annotation2label
+  mri_aparc2aseg
+  mri_aparc2wmseg
+  mri_binarize
+  mri_brainvol_stats
+  mri_ca_label
+  mri_ca_normalize
+  mri_ca_register
+  mri_cc
+  mri_compute_overlap
+  mri_compute_seg_overlap
+  mri_concat
+  mri_concatenate_lta
+  mri_convert
+  mri_coreg
+  mri_deface
+  mri_diff
+  mri_edit_segmentation
+  mri_edit_segmentation_with_surfaces
+  mri_edit_wm_with_aseg
+  mri_em_register
+  mri_extract_largest_CC
+  mri_fill
+  mri_fuse_segmentations
+  mri_fwhm
+  mri_gcut
+  mri_info
+  mri_label2label
+  mri_label2vol
+  mri_log_likelihood
+  mri_mask
+  mri_matrix_multiply
+  mri_mc
+  mri_normalize
+  mri_normalize_tp2
+  mri_probedicom
+  mri_refine_seg
+  mri_relabel_hypointensities
+  mri_relabel_nonwm_hypos
+  mri_remove_neck
+  mri_robust_register
+  mri_seg_overlap
+  mri_seg_diff
+  mri_segment
+  mri_segreg
+  mri_segstats
+  mri_stats2seg
+  mri_surf2surf
+  mri_surf2vol
+  mri_surfcluster
+  mri_tessellate
+  mri_vol2surf
+  mri_vol2vol
+  mri_voldiff
+  mri_watershed
+  mris_anatomical_stats
+  mris_annot_diff
+  mris_ca_label
+  mris_calc
+  mris_convert
+  mris_curvature
+  mris_curvature_stats
+  mris_defects_pointset
+  mris_diff
+  mris_divide_parcellation
+  mris_euler_number
+  mris_fix_topology
+  mris_inflate
+  mris_info
+  mris_jacobian
+  mris_label2annot
+  mris_left_right_register
+  mris_make_surfaces
+  mris_register
+  mris_smooth
+  mris_sphere
+  mris_surface_stats
+  mris_thickness
+  mris_thickness_diff
+  mris_topo_fixer
+  mris_volmask
+  mrisp_paint
+  python
+  samseg
+  scripts
+  talairach_afd
+  talairach_avi
+  tkregister2
+)
 
-IF (LABEL_DEFINED)
-add_subdirectory(label_area)
-add_subdirectory(label_create)
-add_subdirectory(label_disjoint)
-add_subdirectory(label_stats)
-add_subdirectory(label_variance)
-ENDIF (LABEL_DEFINED)
+# the following program subdirectories aren't required in the standard recon-all stream.
+# they will be built by default, but not if a minimal build is configured
+if(NOT MINIMAL)
+  add_subdirectories(
+    anatomicuts
+    attic
+    BrainstemSS
+    diffusion_tool
+    dummy
+    freeview
+    fsfast
+    fslutils
+    hiam_make_surfaces
+    hiam_make_template
+    hiam_register
+    HippoSF
+    histo_compute_joint_density
+    histo_register_block
+    histo_synthesize
+    label2flat
+    label2patch
+    mkxsubjreg
+    matlab
+    mri_average
+    mri_bias
+    mri_ca_tissue_parms
+    mri_ca_train
+    mri_cal_renormalize_gca
+    mri_cnr
+    mri_compile_edits
+    mri_compute_change_map
+    mri_compute_volume_fractions
+    mri_concatenate_gcam
+    mri_copy_values
+    mri_cor2label
+    mri_correct_segmentations
+    mri_cvs_register
+    mri_dct_align
+    mri_distance_transform
+    mri_dist_surf_label
+    mri_evaluate_morph
+    mri_extract
+    mri_extract_fcd_features
+    mri_extract_label
+    mri_fdr
+    mri_fieldsign
+    mri_fit_bias
+    mri_fslmat_to_lta
+    mri_fuse_intensity_images
+    mri_gca_ambiguous
+    mri_glmfit
+    mri_gtmpvc
+    mri_gtmseg
+    mri_hausdorff_dist
+    mri_head
+    mri_hires_register
+    mri_histo_eq
+    mri_jacobian
+    mri_joint_density
+    mri_label_histo
+    mri_label_vals
+    mri_label_volume
+    mri_linear_register
+    mri_map_cpdat
+    mri_mark_temporal_lobe
+    mri_mcsim
+    mri_mi
+    mri_modify
+    mri_morphology
+    mri_ms_fitparms
+    mri_nlfilter
+    mri_otl
+    mri_paint
+    mri_parse_sdcmdir
+    mri_path2label
+    mri_polv
+    mri_probe_ima
+    mri_reduce
+    mri_rf_label
+    mri_rf_long_train
+    mri_rf_train
+    mri_ribbon
+    mri_rigid_register
+    mri_sbbr
+    mri_segcentroids
+    mri_seghead
+    mri_segment_hypothalamic_subunits
+    mri_strip_nonwhite
+    mri_strip_subject_info
+    mri_surfacemask
+    mri_synthesize
+    mri_topologycorrection
+    mri_train
+    mri_transform
+    mri_twoclass
+    mri_volcluster
+    mri_volsynth
+    mri_warp_convert
+    mri_wbc
+    mri_xvolavg
+    mri_z2p
+    mris2rgb
+    mris_annot_to_segmentation
+    mris_apply_reg
+    mris_average_curvature
+    mris_BA_segment
+    mris_ca_train
+    mris_compute_acorr
+    mris_compute_lgi
+    mris_compute_overlap
+    mris_compute_parc_overlap
+    mris_compute_volume_fractions
+    mris_congeal
+    mris_copy_header
+    mris_deform
+    mris_distance_map
+    mris_distance_to_label
+    mris_distance_transform
+    mris_entropy
+    mris_errors
+    mris_expand
+    mris_extract_patches
+    mris_fill
+    mris_find_flat_regions
+    mris_flatten
+    mris_fwhm
+    mris_hausdorff_dist
+    mris_init_global_tractography
+    mris_interpolate_warp
+    mris_label_area
+    mris_label_calc
+    mris_label_mode
+    mris_make_average_surface
+    mris_make_face_parcellation
+    mris_make_template
+    mris_map_cuts
+    mris_merge_parcellations
+    mris_mesh_subdivide
+    mris_morph_stats
+    mris_ms_refine
+    mris_multiscale_stats
+    mris_niters2fwhm
+    mris_parcellate_connectivity
+    mris_pmake
+    mris_register_label_map
+    mris_register_to_volume
+    mris_remove_variance
+    mris_remesh
+    mris_resample
+    mris_rescale
+    mris_reverse
+    mris_rf_label
+    mris_rf_train
+    mris_rotate
+    mris_sample_label
+    mris_sample_parc
+    mris_seg2annot
+    mris_segment
+    mris_segment_vals
+    mris_segmentation_stats
+    mris_shrinkwrap
+    mris_simulate_atrophy
+    mris_smooth_intracortical
+    mris_spherical_average
+    mris_surface_to_vol_distances
+    mris_talairach
+    mris_thickness_comparison
+    mris_transform
+    mris_translate_annotation
+    mris_transmantle_dysplasia_paths
+    mris_volume
+    mris_warp
+    mris_watershed
+    mrisp_write
+    nmovie_qt
+    oct_register_mosaic
+    optseq2
+    qdecproject
+    qdec_glmfit
+    resurf
+    spline3
+    stat_normalize
+    stim_polar
+    swi_processing
+    template
+    test_makevol
+    ThalamicNuclei
+    trc
+    tridec
+  )
+endif()
 
-IF (MRI_APPS_DEFINED)
-add_subdirectory(check_siemens_dir)
-add_subdirectory(repair_siemens_file)
-add_subdirectory(mkxsubjreg)
-add_subdirectory(rbftest)
-add_subdirectory(talairach_afd)
-add_subdirectory(talairach_avi)
-add_subdirectory(mri_add_xform_to_header)
-add_subdirectory(mri_annotation2label)
-add_subdirectory(mri_aparc2aseg)
-add_subdirectory(mri_aparc2wmseg)
-add_subdirectory(mri_apply_inu_correction)
-add_subdirectory(mri_auto_fill)
-add_subdirectory(mri_average)
-add_subdirectory(mri_bc_sc_bias_correct)
-add_subdirectory(mri_bias)
-add_subdirectory(mri_binarize)
-add_subdirectory(mri_build_priors)
-add_subdirectory(mri_ca_label)
-add_subdirectory(mri_ca_normalize)
-add_subdirectory(mri_ca_register)
-add_subdirectory(mri_ca_tissue_parms)
-add_subdirectory(mri_ca_train)
-add_subdirectory(mri_cc)
-add_subdirectory(mri_cc_ma_fill)
-add_subdirectory(mri_cc_medial_axis)
-add_subdirectory(mri_cht2p)
-add_subdirectory(mri_cnr)
-add_subdirectory(mri_compute_overlap)
-add_subdirectory(mri_compute_seg_overlap)
-add_subdirectory(mri_concat)
-add_subdirectory(mri_concatenate_lta)
-add_subdirectory(mri_convert)
-add_subdirectory(mri_convert_mdh)
-add_subdirectory(mri_copy_values)
-add_subdirectory(mri_cor2label)
-add_subdirectory(mri_dct_align)
-add_subdirectory(mri_deface)
-add_subdirectory(mri_diff)
-add_subdirectory(mri_distance_transform)
-add_subdirectory(mri_edit_segmentation)
-add_subdirectory(mri_edit_segmentation_with_surfaces)
-add_subdirectory(mri_edit_wm_with_aseg)
-add_subdirectory(mri_em_register)
-add_subdirectory(mri_estimate_tissue_parms)
-add_subdirectory(mri_evaluate_morph)
-add_subdirectory(mri_extract)
-add_subdirectory(mri_extract_conditions)
-add_subdirectory(mri_extract_label)
-add_subdirectory(mri_extract_largest_CC)
-add_subdirectory(mri_extract_ma_intensity)
-add_subdirectory(mri_fill)
-add_subdirectory(mri_flip_lr)
-add_subdirectory(mri_fslmat_to_lta)
-add_subdirectory(mri_fwhm)
-add_subdirectory(mri_gca_ambiguous)
-add_subdirectory(mri_head)
-add_subdirectory(mri_hires_register)
-add_subdirectory(mri_histo_align)
-add_subdirectory(mri_histo_eq)
-add_subdirectory(mri_histogram)
-add_subdirectory(mri_info)
-add_subdirectory(mri_interpolate)
-add_subdirectory(mri_jacobian)
-add_subdirectory(mri_joint_density)
-add_subdirectory(mri_label2label)
-add_subdirectory(mri_label2vol)
-add_subdirectory(mri_label2volume)
-add_subdirectory(mri_label_accuracy)
-add_subdirectory(mri_label_histo)
-add_subdirectory(mri_label_vals)
-add_subdirectory(mri_label_volume)
-add_subdirectory(mri_linear_register)
-add_subdirectory(mri_log_likelihood)
-add_subdirectory(mri_make_bem_surfaces)
-add_subdirectory(mri_make_density_map)
-add_subdirectory(mri_make_register)
-add_subdirectory(mri_make_template)
-add_subdirectory(mri_map_atrophy)
-add_subdirectory(mri_mark_temporal_lobe)
-add_subdirectory(mri_mask)
-add_subdirectory(mri_matrix_multiply)
-add_subdirectory(mri_mc)
-add_subdirectory(mri_mcsim)
-add_subdirectory(mri_modify)
-add_subdirectory(mri_morphology)
-add_subdirectory(mri_ms_EM)
-add_subdirectory(mri_ms_EM_with_atlas)
-add_subdirectory(mri_ms_fitparms)
-add_subdirectory(mri_ms_LDA)
-add_subdirectory(mri_multispectral_segment)
-add_subdirectory(mri_nlfilter)
-add_subdirectory(mri_normalize)
-add_subdirectory(mri_normalize_tp2)
-add_subdirectory(mri_paint)
-add_subdirectory(mri_parse_sdcmdir)
-add_subdirectory(mri_parselabel)
-add_subdirectory(mri_partial_ribbon)
-add_subdirectory(mri_path2label)
-add_subdirectory(mri_polv)
-add_subdirectory(mri_probe_ima)
-add_subdirectory(mri_reduce)
-add_subdirectory(mri_register)
-add_subdirectory(mri_relabel_hypointensities)
-add_subdirectory(mri_remove_neck)
-add_subdirectory(mri_ribbon)
-add_subdirectory(mri_rigid_register)
-add_subdirectory(mri_seghead)
-add_subdirectory(mri_segment)
-add_subdirectory(mri_segment_wm_damage)
-add_subdirectory(mri_segstats)
-add_subdirectory(mri_skullsurfaces)
-add_subdirectory(mri_stats2seg)
-add_subdirectory(mri_strip_nonwhite)
-add_subdirectory(mri_strip_skull)
-add_subdirectory(mri_strip_subject_info)
-add_subdirectory(mri_subcorticalTopologyCorrection)
-add_subdirectory(mri_surf2surf)
-add_subdirectory(mri_surf2vol)
-add_subdirectory(mri_surfacemask)
-add_subdirectory(mri_surfcluster)
-add_subdirectory(mri_swap_lr)
-add_subdirectory(mri_synthesize)
-add_subdirectory(mri_tessellate)
-add_subdirectory(mri_threshold)
-add_subdirectory(mri_topologycorrection)
-add_subdirectory(mri_train)
-add_subdirectory(mri_transform)
-add_subdirectory(mri_transform_to_COR)
-add_subdirectory(mri_twoclass)
-add_subdirectory(mri_vol2roi)
-add_subdirectory(mri_vol2surf)
-add_subdirectory(mri_vol2vol)
-add_subdirectory(mri_volcluster)
-add_subdirectory(mri_voldiff)
-add_subdirectory(mri_volsynth)
-add_subdirectory(mri_watershed)
-add_subdirectory(mri_wmfilter)
-add_subdirectory(mri_xvolavg)
-add_subdirectory(mri_z2p)
-ENDIF (MRI_APPS_DEFINED)
+if(INFANT_MODULE)
+  add_subdirectory(infant)
+  add_subdirectory(sscnn_skullstripping)
+endif()
 
-IF (MRIS_APPS_DEFINED)
-add_subdirectory(label2flat)
-add_subdirectory(label2patch)
-add_subdirectory(spherical_stats)
-add_subdirectory(tridec)
-IF (NOT WIN32)
-add_subdirectory(stim) #No X on Win32
-ENDIF (NOT WIN32)
-add_subdirectory(stim_polar)
-add_subdirectory(mrisp_paint)
-add_subdirectory(mris_add_template)
-add_subdirectory(mris_anatomical_stats)
-add_subdirectory(mris_annot_to_segmentation)
-add_subdirectory(mris_aseg_distance)
-add_subdirectory(mris_average_curvature)
-add_subdirectory(mris_average_parcellation)
-add_subdirectory(mris_ca_deform)
-add_subdirectory(mris_ca_label)
-add_subdirectory(mris_ca_train)
-add_subdirectory(mris_calc)
-add_subdirectory(mris_classify_thickness)
-add_subdirectory(mris_compute_acorr)
-add_subdirectory(mris_compute_lgi)
-add_subdirectory(mris_compute_optimal_kernel)
-add_subdirectory(mris_compute_overlap)
-add_subdirectory(mris_compute_parc_overlap)
-add_subdirectory(mris_convert)
-add_subdirectory(mris_curvature)
-add_subdirectory(mris_curvature_stats)
-add_subdirectory(mris_deform)
-add_subdirectory(mris_density)
-add_subdirectory(mris_diff)
-add_subdirectory(mris_distance_map)
-add_subdirectory(mris_distance_to_label)
-add_subdirectory(mris_divide_parcellation)
-add_subdirectory(mris_entropy)
-add_subdirectory(mris_errors)
-add_subdirectory(mris_euler_number)
-add_subdirectory(mris_expand)
-add_subdirectory(mris_fbirn_annot)
-add_subdirectory(mris_fill)
-add_subdirectory(mris_find_flat_regions)
-add_subdirectory(mris_fix_topology)
-add_subdirectory(mris_flatten)
-add_subdirectory(mris_fwhm)
-add_subdirectory(mris_inflate)
-add_subdirectory(mris_info)
-add_subdirectory(mris_jacobian)
-add_subdirectory(mris_label2annot)
-add_subdirectory(mris_label_area)
-add_subdirectory(mris_label_mode)
-add_subdirectory(mris_longitudinal_surfaces)
-add_subdirectory(mris_make_average_surface)
-add_subdirectory(mris_make_shapes)
-add_subdirectory(mris_make_surfaces)
-add_subdirectory(mris_make_template)
-add_subdirectory(mris_morph_stats)
-add_subdirectory(mris_ms_refine)
-add_subdirectory(mris_ms_surface_CNR)
-add_subdirectory(mris_multiscale_stats)
-add_subdirectory(mris_niters2fwhm)
-add_subdirectory(mris_pval_fill)
-add_subdirectory(mris_register)
-add_subdirectory(mris_remove_variance)
-add_subdirectory(mris_rescale)
-add_subdirectory(mris_reverse)
-add_subdirectory(mris_rotate)
-add_subdirectory(mris_sample_label)
-add_subdirectory(mris_sample_parc)
-add_subdirectory(mris_seg2annot)
-add_subdirectory(mris_segment_vals)
-add_subdirectory(mris_shrinkwrap)
-add_subdirectory(mris_smooth)
-add_subdirectory(mris_smooth_vals)
-add_subdirectory(mris_sphere)
-add_subdirectory(mris_spherical_average)
-add_subdirectory(mris_surface_stats)
-add_subdirectory(mris_surface_to_vol_distances)
-add_subdirectory(mris_talairach)
-add_subdirectory(mris_thickness)
-add_subdirectory(mris_thickness_comparison)
-add_subdirectory(mris_thickness_diff)
-add_subdirectory(mris_topo_fixer)
-add_subdirectory(mris_transform)
-add_subdirectory(mris_translate_annotation)
-add_subdirectory(mris_twoclass)
-add_subdirectory(mris_volmask)
-add_subdirectory(mris_volume)
-add_subdirectory(mris_w_to_curv)
-add_subdirectory(mris_writeobj)
-ENDIF (MRIS_APPS_DEFINED)
+if(TKTOOLS_MODULE)
+  add_subdirectory(tktools)
+endif()
 
-IF (FSGDF_DEFINED)
-add_subdirectory(mri_gdfglm)
-add_subdirectory(mri_glmfit)
-add_subdirectory(mris_glm)
-ENDIF (FSGDF_DEFINED)
+if(QATOOLS_MODULE)
+  add_subdirectory(qatools)
+endif()
 
-IF (FSLUTILS_APPS)
-add_subdirectory(fslutils)
-ENDIF (FSLUTILS_APPS)
-
-IF (MISC_APPS_DEFINED)
-add_subdirectory(histo_compute_joint_density)
-add_subdirectory(histo_register_block)
-add_subdirectory(dummy)
-IF (NOT WIN32)
-add_subdirectory(test_window_env)
-ENDIF (NOT WIN32)
-add_subdirectory(dngtester)
-add_subdirectory(regdat2xfm)
-add_subdirectory(scripts)
-add_subdirectory(hiam_make_surfaces)
-add_subdirectory(hiam_make_template)
-add_subdirectory(hiam_register)
-add_subdirectory(test_makevol)
-add_subdirectory(matlab)
-add_subdirectory(x86cpucaps)
-add_subdirectory(fsfast)
-add_subdirectory(mris_spherical_wavelets)
-ENDIF (MISC_APPS_DEFINED)
-
-IF (GRAPHIC_APPS_DEFINED)
-IF (NOT WIN32)
-add_subdirectory(mris2rgb)
-add_subdirectory(nmovie)
-add_subdirectory(tkmedit)
-ENDIF (NOT WIN32)
-add_subdirectory(tkregister2)
-add_subdirectory(tksurfer)
-add_subdirectory(mri_probedicom)
-add_subdirectory(orient_mri)
-add_subdirectory(qdec)
-add_subdirectory(qdec_glmfit)
-add_subdirectory(scuba)
-add_subdirectory(scuba2)
-add_subdirectory(vtkkwmedit-demo)
-add_subdirectory(micro_stim)
-add_subdirectory(mris_show)
-ENDIF (GRAPHIC_APPS_DEFINED)
-
-IF (QT_APPS_DEFINED)
-add_subdirectory(plotter)
-ENDIF (QT_APPS_DEFINED)
-
-IF (RARELY_USED)
-add_subdirectory(nlfilter)
-add_subdirectory(diffdemo)
-add_subdirectory(logz)
-add_subdirectory(mapper)
-add_subdirectory(segedit)
-add_subdirectory(template)
-add_subdirectory(mric_cluster)
-add_subdirectory(mric_show)
-add_subdirectory(mrisp_info)
-add_subdirectory(meg_apply_inverse)
-add_subdirectory(paint)
-add_subdirectory(test)
-add_subdirectory(tntest)
-add_subdirectory(talairach_label)
-add_subdirectory(stat_average)
-add_subdirectory(stat_build_map_function)
-add_subdirectory(stat_paint)
-add_subdirectory(stat_w_average)
-add_subdirectory(mris_spharm)
-add_subdirectory(mri_find_seg_label)
-ENDIF (RARELY_USED)
-
-
-
+if(BUILD_DNG)
+  add_subdirectory(dngtester)
+endif()

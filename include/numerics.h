@@ -1,13 +1,8 @@
 /**
- * @file  numerics.h
  * @brief Wrappers for core math routines from open-sources: VNL and CEPHES.
  */
 /*
  * Original Author:  Dennis Jen and Silvester Czanner
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:10 $
- *    $Revision: 1.10 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -24,11 +19,6 @@
 
 #ifndef NUMERICS_H_
 #define NUMERICS_H_
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 
 #include "matrix.h"
 
@@ -47,6 +37,8 @@ extern "C"
 
   // this is only called from the matrix class
   int OpenSvdcmp( MATRIX *a, VECTOR *w, MATRIX *v );
+
+  int OpenQRdecomposition(const MATRIX *iMatrix, MATRIX *oQ, MATRIX *oR);
 
   float OpenMatrixDeterminant( MATRIX *matrix );
 
@@ -188,9 +180,5 @@ extern "C"
 
   double sc_cdf_chisq_Q(double x, double nu);
   double sc_cdf_chisq_Qinv(double Q, double nu);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /*NUMERICS_H_*/

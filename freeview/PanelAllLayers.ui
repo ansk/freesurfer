@@ -28,6 +28,12 @@
      <height>857</height>
     </rect>
    </property>
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+     <horstretch>1</horstretch>
+     <verstretch>1</verstretch>
+    </sizepolicy>
+   </property>
    <layout class="QVBoxLayout" name="verticalLayout_2">
     <property name="leftMargin">
      <number>5</number>
@@ -36,7 +42,7 @@
      <number>5</number>
     </property>
     <property name="rightMargin">
-     <number>4</number>
+     <number>0</number>
     </property>
     <property name="bottomMargin">
      <number>5</number>
@@ -68,6 +74,9 @@
        <property name="focusPolicy">
         <enum>Qt::ClickFocus</enum>
        </property>
+       <property name="editTriggers">
+        <set>QAbstractItemView::SelectedClicked</set>
+       </property>
        <property name="selectionMode">
         <enum>QAbstractItemView::ExtendedSelection</enum>
        </property>
@@ -89,7 +98,7 @@
       <widget class="QWidget" name="layoutWidget">
        <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0">
         <property name="spacing">
-         <number>1</number>
+         <number>0</number>
         </property>
         <item>
          <widget class="QStackedWidget" name="stackedWidget">
@@ -103,7 +112,7 @@
            <number>0</number>
           </property>
           <property name="currentIndex">
-           <number>6</number>
+           <number>0</number>
           </property>
           <widget class="PanelVolume" name="pageVolume"/>
           <widget class="PanelSurface" name="pageSurface"/>

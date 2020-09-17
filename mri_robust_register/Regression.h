@@ -1,5 +1,4 @@
 /**
- * @file Regression.h
  * @brief A class to solve overconstrained system A X = b
  *
  *   it uses either least squares (standard regression)
@@ -10,10 +9,6 @@
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2016/03/10 15:14:00 $
- *    $Revision: 1.18 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -34,14 +29,7 @@
 #ifndef Regression_H
 #define Regression_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "matrix.h"
-#ifdef __cplusplus
-}
-#endif
 
 #define SATr 4.685  // this is suggested for gaussian noise
 #include <utility>

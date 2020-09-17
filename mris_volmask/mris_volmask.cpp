@@ -1,5 +1,4 @@
 /**
- * @file  mris_volmask_new.cpp
  * @brief Uses the 4 surfaces of a scan to construct a mask volume
  *
  * Uses the 4 surfaces of a scan to construct a mask volume showing the
@@ -9,9 +8,6 @@
  */
 /*
  * Original Author: Krish Subramaniam
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2016/11/18 19:19:29 $
  *
  * Copyright © 2011-2014 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -38,8 +34,8 @@
 #include "cmd_line_interface.h"
 
 // FS
-extern "C"
-{
+
+
 #include "fsenv.h"
 #include "mrisurf.h"
 #include "mri.h"
@@ -50,8 +46,12 @@ extern "C"
 #include "timer.h"
 #include "gca.h"
 #include "version.h"
-};
-char *Progname;
+
+#include "romp_support.h"
+#undef private
+
+;
+const char *Progname;
 
 typedef Math::Point<int> Pointd;
 
@@ -68,6 +68,7 @@ public:
   {}
   virtual ~IoError() throw()
   {}
+  using std::exception::what;
   virtual const char* what()
   {
     return m_what.c_str();
@@ -144,6 +145,7 @@ struct IoParams
   unsigned char labelBackground;
   int DoLH, DoRH;
   bool bLHOnly, bRHOnly;
+  bool bParallel;
 
   float capValue;
 
@@ -160,10 +162,10 @@ main(int ac, char* av[])
 {
   // first, handle stuff for --version and --all-info args
   int nargs = 0, msec;
-  struct timeb then ;
+  Timer then ;
 
-  TimerStart(&then) ;
-  nargs =handle_version_option( ac, av,"$Id: mris_volmask.cpp,v 1.28 2016/11/18 19:19:29 fischl Exp $","$Name:  $");
+  then.reset() ;
+  nargs = handleVersionOption(ac, av, "mris_volmask");
   if (nargs && ac - nargs == 1)
     exit (0);
   ac -= nargs;
@@ -230,7 +232,7 @@ main(int ac, char* av[])
     printf("writing output to %s\n",
            (const_cast<char*>( pathMriOutput.c_str() )));
     MRIwrite(mriTemplate,  (const_cast<char*>( pathMriOutput.c_str() ))) ;
-    msec = TimerStop(&then) ;
+    msec = then.milliseconds() ;
     fprintf(stderr, "mris_volmask took %2.2f minutes\n", (float)msec/(1000.0f*60.0f));
     exit(0) ;
   }
@@ -238,105 +240,124 @@ main(int ac, char* av[])
   MRI* maskLeftHemi=NULL;
   MRI* maskRightHemi=NULL;
 
-  if(params.DoLH){
-    /*  Process LEFT hemisphere */
-    
-    //---------------------
-    // proces white surface - convert to voxel-space
-    //
-    // allocate distance
-    MRI* dLeftWhite = MRIalloc( mriTemplate->width,
-				mriTemplate->height,
-				mriTemplate->depth,
-				MRI_FLOAT );
-    MRIcopyHeader(mriTemplate, dLeftWhite);
-    
-    // Computes the signed distance to given surface. Sign indicates
-    // whether it is on the inside or outside. params.capValue -
-    // saturation/clip value for distance.
-    std::cout << "computing distance to left white surface \n" ;
-    ComputeSurfaceDistanceFunction(surfLeftWhite,
-				   dLeftWhite,
-				   params.capValue);
-    // if the option is there, output distance
-    if ( params.bSaveDistance )
-      MRIwrite
-	( dLeftWhite,
-	  const_cast<char*>( (outputPath / "lh.dwhite." +
-			      params.outRoot + ".mgz").c_str() )
-	  );
-    
-    //-----------------------
-    // process pial surface
-    MRI* dLeftPial = MRIalloc( mriTemplate->width,
-			       mriTemplate->height,
-			       mriTemplate->depth,
-			       MRI_FLOAT);
-    MRIcopyHeader(mriTemplate,dLeftPial);
-    std::cout << "computing distance to left pial surface \n" ;
-    ComputeSurfaceDistanceFunction(surfLeftPial,
-				   dLeftPial,
-				   params.capValue);
-    if ( params.bSaveDistance )
-      MRIwrite
-	( dLeftPial,
-	  const_cast<char*>( (outputPath / "lh.dpial." +
-			      params.outRoot + ".mgz").c_str() )
-	  );
-    
-    // combine them and create a mask for the left hemi. Must be
-    // outside of white and inside pial. Creates labels for WM and Ribbon.
-    maskLeftHemi   = CreateHemiMask(dLeftPial,dLeftWhite,
-				    params.labelLeftWhite,
-				    params.labelLeftRibbon,
-				    params.labelBackground);
-    // no need for the hemi distances anymore
-    MRIfree(&dLeftWhite);
-    MRIfree(&dLeftPial);
+#ifdef _OPENMP
+  if (params.bParallel){
+    printf("Running hemis in parallel\n");
+    omp_set_num_threads(2);
   }
+  else{
+    printf("Running hemis serially\n");
+    omp_set_num_threads(1);
+  }
+#endif
 
-  if(params.DoRH){
-    /* Process RIGHT hemi  */
-    
-    //-------------------
-    // process white
-    MRI* dRightWhite = MRIalloc( mriTemplate->width,
+  int hemi;
+  #ifdef HAVE_OPENMP
+  #pragma omp parallel for 
+  #endif
+  for(hemi=0; hemi < 2; hemi ++){
+    if(hemi == 0 && params.DoLH){
+      /*  Process LEFT hemisphere */
+      printf("Processing left hemi\n"); fflush(stdout);
+      
+      //---------------------
+      // proces white surface - convert to voxel-space
+      //
+      // allocate distance
+      MRI* dLeftWhite = MRIalloc( mriTemplate->width,
+				  mriTemplate->height,
+				  mriTemplate->depth,
+				  MRI_FLOAT );
+      MRIcopyHeader(mriTemplate, dLeftWhite);
+      
+      // Computes the signed distance to given surface. Sign indicates
+      // whether it is on the inside or outside. params.capValue -
+      // saturation/clip value for distance.
+      std::cout << "computing distance to left white surface \n" ;
+      ComputeSurfaceDistanceFunction(surfLeftWhite,
+				     dLeftWhite,
+				     params.capValue);
+      // if the option is there, output distance
+      if ( params.bSaveDistance )
+	MRIwrite
+	  ( dLeftWhite,
+	    const_cast<char*>( (outputPath / "lh.dwhite." +
+				params.outRoot + ".mgz").c_str() )
+	    );
+      
+      //-----------------------
+      // process pial surface
+      MRI* dLeftPial = MRIalloc( mriTemplate->width,
 				 mriTemplate->height,
 				 mriTemplate->depth,
 				 MRI_FLOAT);
-    MRIcopyHeader(mriTemplate, dRightWhite);
-    std::cout << "computing distance to right white surface \n" ;
-    ComputeSurfaceDistanceFunction( surfRightWhite,
-				    dRightWhite,
-				    params.capValue);
-    if ( params.bSaveDistance )
-      MRIwrite
-	( dRightWhite,
-	  const_cast<char*>( (outputPath / "rh.dwhite." +
-			      params.outRoot + ".mgz").c_str() )
-	  );
-    
-    //--------------------
-    // process pial
-    MRI* dRightPial = MRIalloc( mriTemplate->width,
-				mriTemplate->height,
-				mriTemplate->depth,
-				MRI_FLOAT);
-    MRIcopyHeader(mriTemplate, dRightPial);
-    std::cout << "computing distance to right pial surface \n" ;
-    ComputeSurfaceDistanceFunction(surfRightPial,
-				   dRightPial,
-				   params.capValue);
-    if(params.bSaveDistance )
-      MRIwrite( dRightPial,const_cast<char*>( (outputPath/"rh.dpial."+params.outRoot + ".mgz").c_str() ));
-    // compute hemi mask
-    maskRightHemi = CreateHemiMask(dRightPial, dRightWhite,
-					params.labelRightWhite,
-					params.labelRightRibbon,
-					params.labelBackground);
-    // no need for the hemi distances anymore
-    MRIfree(&dRightWhite);
-    MRIfree(&dRightPial);
+      MRIcopyHeader(mriTemplate,dLeftPial);
+      std::cout << "computing distance to left pial surface \n" ;
+      ComputeSurfaceDistanceFunction(surfLeftPial,
+				     dLeftPial,
+				     params.capValue);
+      if ( params.bSaveDistance )
+	MRIwrite
+	  ( dLeftPial,
+	    const_cast<char*>( (outputPath / "lh.dpial." +
+				params.outRoot + ".mgz").c_str() )
+	    );
+      
+      // combine them and create a mask for the left hemi. Must be
+      // outside of white and inside pial. Creates labels for WM and Ribbon.
+      maskLeftHemi   = CreateHemiMask(dLeftPial,dLeftWhite,
+				      params.labelLeftWhite,
+				      params.labelLeftRibbon,
+				      params.labelBackground);
+      // no need for the hemi distances anymore
+      MRIfree(&dLeftWhite);
+      MRIfree(&dLeftPial);
+    }
+
+    if(hemi == 1 && params.DoRH){
+      /* Process RIGHT hemi  */
+      printf("Processing right hemi\n"); fflush(stdout);
+      
+      //-------------------
+      // process white
+      MRI* dRightWhite = MRIalloc( mriTemplate->width,
+				   mriTemplate->height,
+				   mriTemplate->depth,
+				   MRI_FLOAT);
+      MRIcopyHeader(mriTemplate, dRightWhite);
+      std::cout << "computing distance to right white surface \n" ;
+      ComputeSurfaceDistanceFunction( surfRightWhite,
+				      dRightWhite,
+				      params.capValue);
+      if ( params.bSaveDistance )
+	MRIwrite
+	  ( dRightWhite,
+	    const_cast<char*>( (outputPath / "rh.dwhite." +
+				params.outRoot + ".mgz").c_str() )
+	    );
+      
+      //--------------------
+      // process pial
+      MRI* dRightPial = MRIalloc( mriTemplate->width,
+				  mriTemplate->height,
+				  mriTemplate->depth,
+				  MRI_FLOAT);
+      MRIcopyHeader(mriTemplate, dRightPial);
+      std::cout << "computing distance to right pial surface \n" ;
+      ComputeSurfaceDistanceFunction(surfRightPial,
+				     dRightPial,
+				     params.capValue);
+      if(params.bSaveDistance )
+	MRIwrite( dRightPial,const_cast<char*>( (outputPath/"rh.dpial."+params.outRoot + ".mgz").c_str() ));
+      // compute hemi mask
+      maskRightHemi = CreateHemiMask(dRightPial, dRightWhite,
+				     params.labelRightWhite,
+				     params.labelRightRibbon,
+				     params.labelBackground);
+      // no need for the hemi distances anymore
+      MRIfree(&dRightWhite);
+      MRIfree(&dRightPial);
+    }
   }
   
   /*  finally combine the two created masks -- need to resolve overlap  */
@@ -387,7 +408,7 @@ main(int ac, char* av[])
     }
   }
 
-  msec = TimerStop(&then) ;
+  msec = then.milliseconds() ;
   fprintf(stderr, "mris_volmask took %2.2f minutes\n", (float)msec/(1000.0f*60.0f));
   return 0;
 }
@@ -409,6 +430,7 @@ IoParams::IoParams()
   bSaveRibbon = false;
   bLHOnly = false;
   bRHOnly = false;
+  bParallel = false;
   DoLH = 1;
   DoRH = 1;
 
@@ -496,6 +518,7 @@ IoParams::parse(int ac, char* av[])
   );
   interface.AddOptionBool( "lh-only", &bLHOnly,"only analyze the left hemi");
   interface.AddOptionBool( "rh-only", &bRHOnly,"only analyze the right hemi");
+  interface.AddOptionBool( "parallel", &bParallel,"run hemis in parallel");
   interface.AddOptionBool
   ( "edit_aseg", &bEditAseg,
     "option to edit the aseg using the ribbons and save to "
@@ -542,7 +565,6 @@ LoadInputFiles(const IoParams& params,
                MRIS*& surfRightPial) throw(IoError)
 {
   // determine the mode of the application and infer the input file names
-  // use the BOOST filesystem library to resolve paths (system-independent)
 
   // declare path objects
   std::string pathSurfLeftWhite,

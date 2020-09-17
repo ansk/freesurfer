@@ -1,15 +1,10 @@
 /**
- * @file  dmri_group.cxx
  * @brief Combine path measures from multiple subjects
  *
  * Combine path measures from multiple subjects
  */
 /*
  * Original Author: Anastasia Yendiki
- * CVS Revision Info:
- *    $Author: ayendiki $
- *    $Date: 2016/12/19 17:09:04 $
- *    $Revision: 1.11 $
  *
  * Copyright © 2013 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -69,17 +64,16 @@ int debug = 0, checkoptsonly = 0;
 
 int main(int argc, char *argv[]);
 
-static char vcid[] = "";
 const char *Progname = "dmri_group";
 
 int nSection = 0;
 
-char *inListFile = NULL, *outRefFile = NULL, *outBase = NULL;
+std::string inListFile, outRefFile, outBase;
 
 struct utsname uts;
 char *cmdline, cwd[2000];
 
-struct timeb cputimer;
+Timer cputimer;
 
 /*--------------------------------------------------*/
 int main(int argc, char **argv) {
@@ -105,8 +99,7 @@ int main(int argc, char **argv) {
   MATRIX *outv2r;
   MRI *outref = 0;
 
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option (argc, argv, vcid, "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "dmri_group");
   if (nargs && argc - nargs == 1) exit (0);
   argc -= nargs;
   cmdline = argv2cmdline(argc,argv);
@@ -127,12 +120,12 @@ int main(int argc, char **argv) {
 
   dump_options(stdout);
 
-  TimerStart(&cputimer);
+  cputimer.reset();
 
   // Read output reference volume
-  if (outRefFile) {
+  if (!outRefFile.empty()) {
     cout << "Loading output reference volume from " << outRefFile << endl;
-    outref = MRIread(outRefFile);
+    outref = MRIread(outRefFile.c_str());
     if (!outref) {
       cout << "ERROR: Could not read " << outRefFile << endl;
       exit(1);
@@ -758,7 +751,7 @@ if (0) {
     MatrixFree(&outv2r);
   }
 
-  cputime = TimerStop(&cputimer);
+  cputime = cputimer.milliseconds();
   cout << "Done in " << cputime/1000.0 << " sec." << endl;
 
   cout << "dmri_group done" << endl;
@@ -865,17 +858,17 @@ static void usage_exit(void) {
 
 /* --------------------------------------------- */
 static void print_version(void) {
-  cout << vcid << endl;
+  cout << getVersion() << endl;
   exit(1);
 }
 
 /* --------------------------------------------- */
 static void check_options(void) {
-  if (!outBase) {
+  if (outBase.empty()) {
     cout << "ERROR: must specify base name for output files" << endl;
     exit(1);
   }
-  if (!inListFile) {
+  if (inListFile.empty()) {
     cout << "ERROR: must specify input list file" << endl;
     exit(1);
   }
@@ -884,7 +877,7 @@ static void check_options(void) {
 
 static void dump_options(FILE *fp) {
   cout << endl
-       << vcid << endl
+       << getVersion() << endl
        << "cwd " << cwd << endl
        << "cmdline " << cmdline << endl
        << "sysname  " << uts.sysname << endl

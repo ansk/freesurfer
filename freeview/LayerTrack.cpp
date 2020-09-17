@@ -1,14 +1,5 @@
-/**
- * @file  LayerTrack.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/05/10 19:17:30 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -27,6 +18,7 @@
 #include "FSVolume.h"
 #include "LayerPropertyTrack.h"
 #include <QFileInfo>
+#include <QDir>
 #include <QDebug>
 #include <vtkActor.h>
 #include <vtkPolyData.h>
@@ -42,18 +34,19 @@
 #include <vtkLODActor.h>
 #include "MyUtils.h"
 
-LayerTrack::LayerTrack(LayerMRI* ref, QObject* parent) : Layer(parent),
+LayerTrack::LayerTrack(LayerMRI* ref, QObject* parent, bool bCluster) : Layer(parent),
   m_trackData(0),
   m_layerMRIRef(ref)
 {
   this->m_strTypeNames << "Tract";
 
   mProperty = new LayerPropertyTrack( this );
-  connect(mProperty, SIGNAL(ColorCodeChanged(int)), this, SLOT(UpdateColor()));
+  connect(mProperty, SIGNAL(ColorCodeChanged(int)), this, SLOT(RebuildActors()));
   connect(mProperty, SIGNAL(DirectionSchemeChanged(int)), this, SLOT(RebuildActors()));
   connect(mProperty, SIGNAL(DirectionMappingChanged(int)), this, SLOT(RebuildActors()));
   connect(mProperty, SIGNAL(SolidColorChanged(QColor)), this, SLOT(UpdateColor()));
   connect(mProperty, SIGNAL(RenderRepChanged()), this, SLOT(RebuildActors()));
+  connect(mProperty, SIGNAL(OpacityChanged(double)), this, SLOT(UpdateOpacity(double)));
 }
 
 LayerTrack::~LayerTrack()
@@ -67,7 +60,7 @@ LayerTrack::~LayerTrack()
   m_actors.clear();
 }
 
-bool LayerTrack::LoadTrackFromFile()
+bool LayerTrack::LoadTrackFromFiles()
 {
   if (this->m_sFilename.isEmpty())
   {
@@ -80,16 +73,27 @@ bool LayerTrack::LoadTrackFromFile()
   }
   m_trackData = new FSTrack(refVol);
   connect(m_trackData, SIGNAL(Progress(int)), this, SIGNAL(Progress(int)));
-  if (!m_trackData->LoadFromFile(m_sFilename))
+  if (!m_trackData->LoadFromFiles(m_listFilenames))
   {
     delete m_trackData;
     m_trackData = 0;
-    qDebug() << "Failed to load from file " << m_sFilename << ".";
+    cerr << "Failed to load from file " << qPrintable(m_sFilename) << endl;
     return false;
   }
-  SetName(QFileInfo(m_sFilename).completeBaseName());
+  if (IsCluster())
+    SetName(QFileInfo(m_sFilename).dir().dirName());
+  else
+    SetName(QFileInfo(m_sFilename).completeBaseName());
+
+  if (m_trackData->HasEmbeddedColor())
+  {
+    GetProperty()->blockSignals(true);
+    GetProperty()->SetColorCode(LayerPropertyTrack::EmbeddedColor);
+    GetProperty()->blockSignals(false);
+  }
 
   RebuildActors();
+
   double dval[6];
   m_trackData->GetRASBounds(dval);
   m_dWorldOrigin[0] = dval[0];
@@ -146,13 +150,19 @@ void LayerTrack::RebuildActors()
   scalars->SetNumberOfComponents(4);
   int nLimit = 1000000;
   int nCount = 0;
-  float vals[4] = { 0,0,0,255 };//  qDebug() << m_actors.size();
+  float vals[4] = { 0,0,0,255 };
   LayerPropertyTrack* p = GetProperty();
   for (int i = 0; i < m_trackData->m_tracks.size(); i++)
   {
     Track& t = m_trackData->m_tracks[i];
     lines->InsertNextCell(t.nNum);
-    if (p->GetDirectionScheme() == LayerPropertyTrack::EndPoints)
+    if (p->GetColorCode() == LayerPropertyTrack::EmbeddedColor)
+    {
+      vals[0] = t.charColor[0];
+      vals[1] = t.charColor[1];
+      vals[2] = t.charColor[2];
+    }
+    else if (p->GetDirectionScheme() == LayerPropertyTrack::EndPoints)
       VectorToColor(t.fPts, t.fPts + (t.nNum-1)*3, vals, p->GetDirectionMapping());
     else if (p->GetDirectionScheme() == LayerPropertyTrack::MidSegment)
       VectorToColor(t.fPts+t.nNum/2*3, t.fPts+(t.nNum/2-1)*3, vals, p->GetDirectionMapping());
@@ -249,6 +259,9 @@ void LayerTrack::VectorToColor(float *pt1, float *pt2, float *c_out, int nMappin
 vtkActor* LayerTrack::ConstructActor(vtkPoints *points, vtkCellArray *lines, vtkUnsignedCharArray *scalars)
 {
   vtkActor* actor = vtkActor::New();
+#if VTK_MAJOR_VERSION > 5
+  actor->ForceOpaqueOn();
+#endif
   vtkSmartPointer<vtkPolyData> polydata = vtkSmartPointer<vtkPolyData>::New();
   polydata->SetPoints(points);
   polydata->SetLines(lines);
@@ -257,10 +270,14 @@ vtkActor* LayerTrack::ConstructActor(vtkPoints *points, vtkCellArray *lines, vtk
   if (GetProperty()->GetRenderRep() == LayerPropertyTrack::Tube)
   {
     vtkSmartPointer<vtkTubeFilter> tube = vtkSmartPointer<vtkTubeFilter>::New();
+#if VTK_MAJOR_VERSION > 5
+    tube->SetInputData(polydata);
+#else
     tube->SetInput(polydata);
+#endif
     tube->SetRadius(GetProperty()->GetTubeRadius());
     tube->SetNumberOfSides(GetProperty()->GetNumberOfSides());
-    mapper->SetInput(tube->GetOutput());
+    mapper->SetInputConnection(tube->GetOutputPort());
     actor->SetMapper(mapper);
     /*
     mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
@@ -270,7 +287,11 @@ vtkActor* LayerTrack::ConstructActor(vtkPoints *points, vtkCellArray *lines, vtk
   }
   else
   {
+#if VTK_MAJOR_VERSION > 5
+    mapper->SetInputData(polydata);
+#else
     mapper->SetInput(polydata);
+#endif
     actor->SetMapper(mapper);
   }
   return actor;
@@ -289,4 +310,41 @@ bool LayerTrack::IsVisible()
     return false;
   else
     return m_actors[0]->GetVisibility();
+}
+
+void LayerTrack::SetFileName(const QString &filename)
+{
+  Layer::SetFileName(filename);
+  m_listFilenames.clear();
+  m_listFilenames << filename;
+}
+
+void LayerTrack::SetFileNames(const QStringList &filenames)
+{
+  Layer::SetFileName(filenames.first());
+  m_listFilenames = filenames;
+}
+
+void LayerTrack::SetClusterData(const QVariantMap &data)
+{
+  m_mapCluster = data;
+  if (data.contains("filenames"))
+    SetFileNames(data["filenames"].toStringList());
+}
+
+bool LayerTrack::IsCluster()
+{
+  return !m_mapCluster.isEmpty();
+}
+
+bool LayerTrack::HasEmbeddedColor()
+{
+  return (m_trackData && m_trackData->HasEmbeddedColor());
+}
+
+void LayerTrack::UpdateOpacity(double val)
+{
+  foreach(vtkActor* actor, m_actors)
+    actor->GetProperty()->SetOpacity(val);
+  emit ActorUpdated();
 }

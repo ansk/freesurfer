@@ -51,10 +51,9 @@ typedef struct
 {
   DTK_HDR *hdr; // header
   DTK_TRACK     **trk; // array of tracks (n_count)
-  MRI           *template; // only need geometry
+  MRI           *mri_template; // only need geometry
 } DTK_TRACK_SET;
 
-const char *DTKFSSrcVersion(void);
 DTK_TRACK_SET *DTKloadTrackSet(char *trkfile, char *mrifile);
 DTK_TRACK *DTKreadTrack(FILE *fp, int n_scalars, int n_properties, 
 			float dc, float dr, float ds);

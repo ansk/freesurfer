@@ -1,15 +1,10 @@
 /**
- * @file  mris_mesh_subdivide.c
  * @brief
  *
  *
  */
 /*
  * Original Author: jonathan polimeni
- * CVS Revision Info:
- *    $Author: jonp $
- *    $Date: 2013/02/07 16:04:07 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011-2012 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -28,8 +23,8 @@
 #include <stdlib.h>
 
 // nint
-extern "C"
-{
+
+
 #include "macros.h"
 #include "version.h"
 
@@ -49,7 +44,7 @@ extern "C"
 #include "mri_identify.h"
 
 
-}
+
 
 #include <vtkVersion.h>
 #include <vtkSmartPointer.h>
@@ -65,7 +60,6 @@ extern "C"
 #include <vtkLoopSubdivisionFilter.h>
 #include <vtkLinearSubdivisionFilter.h>
 
-char *Progname = NULL;
 static int  parse_commandline(int argc, char **argv);
 static void print_usage(void) ;
 static void usage_exit(void);
@@ -76,8 +70,6 @@ static void argnerr(char *, int) ;
 
 static int debug = 0;
 
-static char vcid[] =
-  "$Id: mris_mesh_subdivide.cxx,v 1.5 2013/02/07 16:04:07 jonp Exp $";
 
 
 
@@ -120,24 +112,14 @@ int main(int argc, char *argv[])
 {
 
   int          nargs = 0;
-  int          err;
 
   MRI_SURFACE  *mris  = NULL;
 
   int          msec, minutes, seconds ;
-  struct timeb start ;
+  Timer start ;
 
-  char cmdline[CMD_LINE_LEN] ;
+  std::string cmdline = getAllInfo(argc, argv, "mris_mesh_subdivide");
 
-  make_cmd_version_string
-  (argc, argv,
-   "$Id: mris_mesh_subdivide.cxx,v 1.5 2013/02/07 16:04:07 jonp Exp $",
-   "$Name:  $", cmdline);
-
-
-  //nargs = handle_version_option (argc, argv,
-  //   "$Id: mris_mesh_subdivide.cxx,v 1.5 2013/02/07 16:04:07 jonp Exp $",
-  //   "$Name:  $");
   if (nargs && argc - nargs == 1)
   {
     exit (0);
@@ -148,7 +130,7 @@ int main(int argc, char *argv[])
   ErrorInit(NULL, NULL, NULL) ;
   DiagInit(NULL, NULL, NULL) ;
 
-  TimerStart(&start) ;
+  start.reset() ;
 
   argc--;
   argv++;
@@ -201,7 +183,7 @@ int main(int argc, char *argv[])
 
   if ( subdividemethod != -1 )
   {
-    err = mris_mesh_subdivide__VTK(mris, iter);
+    mris_mesh_subdivide__VTK(mris, iter);
   }
 
 
@@ -245,7 +227,7 @@ int main(int argc, char *argv[])
   MRISfree(&mris);
   MRISfree(&mris_subdivide);
 
-  msec = TimerStop(&start) ;
+  msec = start.milliseconds() ;
   seconds = nint((float)msec/1000.0f) ;
   minutes = seconds / 60 ;
   seconds = seconds % 60 ;
@@ -261,12 +243,11 @@ int main(int argc, char *argv[])
 int mris_mesh_subdivide__VTK(MRI_SURFACE *mris,
                              int iter)
 {
-  int err;
 
   vtkPolyData* inputMesh;
   inputMesh = vtkPolyData::New();
 
-  err = mris_mesh_subdivide__convert_mris_VTK(mris, inputMesh);
+  mris_mesh_subdivide__convert_mris_VTK(mris, inputMesh);
 
   // NOTE TO MYSELF [jrp, 2012/sep/29]: in some viewers like freeview
   // the interpolating subdivision does not appear to strictly
@@ -334,10 +315,10 @@ int mris_mesh_subdivide__VTK(MRI_SURFACE *mris,
 
   mris_subdivide = MRISalloc(outputMesh->GetNumberOfPoints(),
                              outputMesh->GetNumberOfPolys()) ;
-  err = mris_mesh_subdivide__mris_clone_header(mris, mris_subdivide);
-  err = mris_mesh_subdivide__convert_VTK_mris(outputMesh, mris_subdivide);
+  mris_mesh_subdivide__mris_clone_header(mris, mris_subdivide);
+  mris_mesh_subdivide__convert_VTK_mris(outputMesh, mris_subdivide);
 
-  err = mris_mesh_subdivide__VTK_delete(inputMesh);
+  mris_mesh_subdivide__VTK_delete(inputMesh);
   //  err = mris_mesh_subdivide__VTK_delete(outputMesh);
 
   return(0);
@@ -398,6 +379,8 @@ int mris_mesh_subdivide__convert_VTK_mris(vtkPolyData *mesh,
   vtkSmartPointer<vtkIdList> pointIdList =
     vtkSmartPointer<vtkIdList>::New();
 
+  // place all the vertices
+  //
   for (uvno = 0, vno = 0 ; vno < mris_dst->nvertices ; uvno++, vno++)
   {
     v = &mris_dst->vertices[vno] ;
@@ -409,15 +392,19 @@ int mris_mesh_subdivide__convert_VTK_mris(vtkPolyData *mesh,
 
   }
 
+  // attach all the faces
+  //
+  setFaceAttachmentDeferred(mris_dst, true);
+    // for performance reasons, defer doing work that would change if another attached to the same vertex
+
   for (fno = 0; fno < mris_dst->nfaces; fno++)
   {
     mesh->GetCellPoints(fno, pointIdList);
-
-    mris_dst->faces[fno].v[0] = pointIdList->GetId(0);
-    mris_dst->faces[fno].v[1] = pointIdList->GetId(1);
-    mris_dst->faces[fno].v[2] = pointIdList->GetId(2);
+    mrisAttachFaceToVertices(mris_dst, fno, pointIdList->GetId(0), pointIdList->GetId(1), pointIdList->GetId(2));
   }
 
+  setFaceAttachmentDeferred(mris_dst, false);
+    // finish all the work needed to have the topology of the surface fully defined
 
   return 0;
 }
@@ -636,7 +623,7 @@ static void print_usage(void)
   printf("   --help        print out information on how to use this program\n");
   printf("   --version     print out version and exit\n");
   printf("\n");
-  printf("%s\n", vcid) ;
+  std::cout << getVersion() << std::endl;
   printf("\n");
 }
 
@@ -666,7 +653,7 @@ static void print_help(void)
 /* --------------------------------------------------------------------------- */
 static void print_version(void)
 {
-  printf("%s\n", vcid) ;
+  std::cout << getVersion() << std::endl;
   exit(1) ;
 }
 

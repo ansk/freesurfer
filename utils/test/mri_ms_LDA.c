@@ -1,15 +1,4 @@
-/**
- * @file  mri_ms_LDA.c
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:55 $
- *    $Revision: 1.11 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -30,9 +19,6 @@
 // original author: Xiao Han
 //
 // Warning: Do not edit the following four lines.  CVS maintains them.
-// Revision Author: $Author: nicks $
-// Revision Date  : $Date: 2011/03/02 00:04:55 $
-// Revision       : $Revision: 1.11 $
 //
 ////////////////////////////////////////////////////////////////////
 
@@ -79,7 +65,7 @@ MRI *MRInormalizeXH(MRI *mri_src, MRI *mri_dst, MRI *mri_mask);
 int main(int argc, char *argv[]) ;
 static int get_option(int argc, char *argv[]) ;
 
-char *Progname ;
+const char *Progname ;
 
 /* Compute LDA only in a local neighborhood of the
  * specified debug voxel
@@ -137,17 +123,14 @@ main(int argc, char *argv[])
   int    ac, nargs, i, j,  x, y, z, width, height, depth;
   MRI    *mri_flash[MAX_IMAGES], *mri_label, *mri_mask, *mri_tmp;
   int    msec, minutes, seconds, nvolumes, nvolumes_total ;
-  struct timeb start ;
+  Timer start ;
   float max_val, min_val, value;
   float *LDAmean1, *LDAmean2, *LDAweight;
   int label;
   double sum_white, sum_gray;
   int count_white, count_gray;
 
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option
-          (argc, argv,
-           "$Id: mri_ms_LDA.c,v 1.11 2011/03/02 00:04:55 nicks Exp $", "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "mri_ms_LDA");
   if (nargs && argc - nargs == 1)
     exit (0);
   argc -= nargs;
@@ -156,7 +139,7 @@ main(int argc, char *argv[])
   ErrorInit(NULL, NULL, NULL) ;
   DiagInit(NULL, NULL, NULL) ;
 
-  TimerStart(&start) ;
+  start.reset() ;
 
   ac = argc ;
   av = argv ;
@@ -526,7 +509,7 @@ main(int argc, char *argv[])
   free(LDAmean2);
   free(LDAweight);
 
-  msec = TimerStop(&start) ;
+  msec = start.milliseconds() ;
   seconds = nint((float)msec/1000.0f) ;
   minutes = seconds / 60 ;
   seconds = seconds % 60 ;

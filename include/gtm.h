@@ -1,15 +1,9 @@
 /**
- * @file  gtm.h
  * @brief Routines to create and analyze the Geometric Transfer Matrix (GTM)
  *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
  */
 /*
  * Original Author: Douglas N. Greve
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2016/04/30 15:10:57 $
- *    $Revision: 1.31 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -41,14 +35,14 @@ typedef struct
   char *subject;
   int USF; // used internally
   int OutputUSF; 
-  char *apasfile;
-  char *ctxannotfile;
+  const char *apasfile;
+  const char *ctxannotfile;
   int ctxlhbase,ctxrhbase;
   MRIS *lhw, *lhp, *rhw, *rhp;
   int KeepHypo;
   int KeepCC;
   int SubSegWM;
-  char *wmannotfile;
+  const char *wmannotfile;
   int wmlhbase,wmrhbase;
   float dmax;
   int nlist,srclist[300],targlist[300];
@@ -154,7 +148,6 @@ typedef struct
   MRI *gmpvfpsf; // GM PVF smoothed by PSF
   int DoMGXPVC; // Muller-Gartner X 
   double mgx_gmthresh; // GM PVF threshold
-  MRI *mgx_ctx, *mgx_subctx, *mgx_gm; // MG output volume
 
   int DoMeltzerPVC; // Meltzer method
   MRI *meltzer; // MG output volume
@@ -188,6 +181,7 @@ typedef struct
 int MRIgtmSeg(GTMSEG *gtmseg);
 int GTMSEGprint(GTMSEG *gtmseg, FILE *fp);
 int GTMdefaultSegReplacmentList(int *nReplace, int *ReplaceThis, int *WithThat);
+int GTMoptSegReplacmentList(int *nReplace, int *ReplaceThis, int *WithThat);
 COLOR_TABLE *GTMSEGctab(GTMSEG *gtmseg, COLOR_TABLE *ctSubCort);
 
 GTM *GTMalloc();
@@ -207,7 +201,7 @@ int GTMrbvseg(GTM *gtm);
 int GTMrbv(GTM *gtm);
 int GTMmgRefTAC(GTM *gtm);
 int GTMmgpvc(GTM *gtm);
-int GTMmgxpvc(GTM *gtm, int Target);
+MRI *GTMmgxpvc(GTM *gtm, int Target);
 int GTMmeltzerpvc(GTM *gtm);
 MATRIX *GTMvol2mat(GTM *gtm, MRI *vol, MATRIX *m);
 MRI *GTMmat2vol(GTM *gtm, MATRIX *m, MRI *vol);
@@ -234,5 +228,6 @@ MRI **GTMlocal(GTM *gtm, MRI **pvc);
 int GTMttPercent(GTM *gtm);
 int GTMsom(GTM *gtm);
 int GTMsegid2nthseg(GTM *gtm, int segid);
+int GTMwriteText(GTM *gtm, char *OutDir, int DeMean);
 
 #endif

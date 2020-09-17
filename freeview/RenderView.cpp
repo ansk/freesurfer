@@ -1,14 +1,9 @@
 /**
- * @file  RenderView.cpp
  * @brief View class for rendering 2D and 3D actors
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/12/19 16:19:32 $
- *    $Revision: 1.53 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -46,11 +41,14 @@
 #include "vtkScalarBarActor.h"
 #include "vtkLookupTable.h"
 #include "vtkRGBAColorTransferFunction.h"
+#include "vtkRenderWindowInteractor.h"
 #include <QPainter>
 #include <QAction>
 #include <vtkCellPicker.h>
 #include <vtkRenderWindow.h>
 #include "MyUtils.h"
+#include <QDir>
+#include <QFileInfo>
 
 #define SCALE_FACTOR  200
 
@@ -96,12 +94,20 @@ RenderView::RenderView( QWidget* parent ) : GenericRenderView( parent),
   normCoords->SetCoordinateSystemToNormalizedDisplay();
 
   vtkSmartPointer<vtkPolyDataMapper2D> pMapper = vtkSmartPointer<vtkPolyDataMapper2D>::New();
+#if VTK_MAJOR_VERSION > 5
+  pMapper->SetInputData(Grid);
+#else
   pMapper->SetInput(Grid);
+#endif
   pMapper->SetTransformCoordinate(normCoords);
 
   m_actorFocusFrame->SetMapper(pMapper);
   m_actorFocusFrame->GetProperty()->SetColor( 0.9, 0.9, 0);
-  m_actorFocusFrame->GetProperty()->SetLineWidth( 5 );
+  double ratio = 1;
+#if VTK_MAJOR_VERSION > 7
+  ratio = devicePixelRatio();
+#endif
+  m_actorFocusFrame->GetProperty()->SetLineWidth( 5*ratio );
 
   m_actorScalarBar = vtkSmartPointer<vtkScalarBarActor>::New();
   m_actorScalarBar->SetOrientationToVertical();
@@ -111,6 +117,7 @@ RenderView::RenderView( QWidget* parent ) : GenericRenderView( parent),
   m_actorScalarBar->SetWidth(0.09);
   m_actorScalarBar->VisibilityOff();
   m_actorScalarBar->SetLookupTable(vtkSmartPointer<vtkLookupTable>::New());
+  m_actorScalarBar->SetUseOpacity(1);
 
   this->setMouseTracking( true );
   connect( this, SIGNAL(BackgroundColorChanged(QColor)), this, SLOT(RequestRedraw()));
@@ -244,6 +251,8 @@ void RenderView::enterEvent( QEvent* event )
     this->setFocus();
   }
 
+  emit MouseIn();
+
   if ( m_interactor->ProcessMouseEnterEvent( event, this ) )
   {
     GenericRenderView::enterEvent( event );
@@ -252,6 +261,8 @@ void RenderView::enterEvent( QEvent* event )
 
 void RenderView::leaveEvent( QEvent* event )
 {
+  emit MouseOut();
+
   if ( m_interactor->ProcessMouseLeaveEvent( event, this ) )
   {
     GenericRenderView::leaveEvent( event );
@@ -304,13 +315,28 @@ void RenderView::WorldToScreen( double world_x, double world_y, double world_z, 
 {
   double dx, dy, dz;
   MyVTKUtils::WorldToViewport( m_renderer, world_x, world_y, world_z, dx, dy, dz );
+#if VTK_MAJOR_VERSION > 7
+  if (devicePixelRatio() > 1)
+  {
+      dx /= devicePixelRatio();
+      dy /= devicePixelRatio();
+  }
+#endif
   x = (int)dx;
   y = (int)( this->rect().height()-dy );
 }
 
 void RenderView::ScreenToWorld( int x, int y, int z, double& world_x, double& world_y, double& world_z )
 {
-  MyVTKUtils::ViewportToWorld( m_renderer, x, rect().height()-y, z, world_x, world_y, world_z );
+  y = rect().height()-y;
+#if VTK_MAJOR_VERSION > 7
+  if (devicePixelRatio() > 1)
+  {
+      x *= devicePixelRatio();
+      y *= devicePixelRatio();
+  }
+#endif
+  MyVTKUtils::ViewportToWorld( m_renderer, x, y, z, world_x, world_y, world_z );
 }
 
 void RenderView::MoveLeft()
@@ -556,12 +582,22 @@ void RenderView::SetScalarBarLayer(QAction *act)
   }
 }
 
-bool RenderView::SaveScreenShot(const QString& filename, bool bAntiAliasing, int nMag)
+bool RenderView::SaveScreenShot(const QString& filename, bool bAntiAliasing, int nMag, bool bAutoTrim)
 {
   blockSignals(true);
   RefreshAllActors(true);
   blockSignals(false);
-  bool ret = SaveImage(filename, bAntiAliasing, nMag);
+  QString fn = filename;
+//  if (bAutoTrim)
+//  {
+//    fn = QFileInfo(QDir::temp(), QString::number(qrand()) + "." + QFileInfo(filename).suffix()).absoluteFilePath();
+//  }
+  bool ret = SaveImage(fn, bAntiAliasing, nMag);
+  if (bAutoTrim)
+  {
+//    system(QString("convert -trim %1 %2").arg(fn).arg(filename).toLatin1().data());
+    TrimImageFiles(QStringList(fn));
+  }
   RefreshAllActors(false);
   return ret;
 }
@@ -576,7 +612,15 @@ int RenderView::PickCell( vtkProp* prop, int posX, int posY, double* pos_out )
 
   picker->InitializePickList();
   picker->AddPickList( prop );
-  picker->Pick( posX, this->rect().height() - posY, 0, GetRenderer() );
+  posY = this->rect().height() - posY;
+#if VTK_MAJOR_VERSION > 7
+  if (devicePixelRatio() > 1)
+  {
+      posX *= devicePixelRatio();
+      posY *= devicePixelRatio();
+  }
+#endif
+  picker->Pick( posX, posY, 0, GetRenderer() );
   if ( pos_out )
   {
     picker->GetPickPosition( pos_out );
@@ -584,3 +628,80 @@ int RenderView::PickCell( vtkProp* prop, int posX, int posY, double* pos_out )
   return picker->GetCellId();
 }
 
+void RenderView::mouseDoubleClickEvent(QMouseEvent *e)
+{
+  emit DoubleClicked();
+  e->accept();
+}
+
+void RenderView::TrimImageFiles(const QStringList &files)
+{
+  if (files.isEmpty())
+      return;
+
+  int x0 = 1e6, y0 = 1e6, x1 = 0, y1 = 0;
+  foreach (QString fn, files)
+  {
+    QImage image(fn);
+    QRgb* rgb = (QRgb*)image.constBits();
+    QRgb bg_val = rgb[0];
+    for (int i = 0; i < image.height(); i++)
+    {
+        for (int j = 0; j < image.width(); j++)
+        {
+            if (i >= y0 || rgb[i*image.width()+j] != bg_val)
+            {
+                if (i < y0)
+                    y0 = i;
+                break;
+            }
+        }
+    }
+
+    for (int i = image.height()-1; i >= 0; i--)
+    {
+        for (int j = 0; j < image.width(); j++)
+        {
+            if (i <= y1 || rgb[i*image.width()+j] != bg_val)
+            {
+                if (i > y1)
+                    y1 = i;
+                break;
+            }
+        }
+    }
+
+    for (int i = 0; i < image.width(); i++)
+    {
+        for (int j = 0; j < image.height(); j++)
+        {
+            if (i >= x0 || rgb[j*image.width()+i] != bg_val)
+            {
+                if (i < x0)
+                    x0 = i;
+                break;
+            }
+        }
+    }
+
+    for (int i = image.width()-1; i >= 0; i--)
+    {
+        for (int j = 0; j < image.height(); j++)
+        {
+            if (i <= x1 || rgb[j*image.width()+i] != bg_val)
+            {
+                if (i > x1)
+                    x1 = i;
+                break;
+            }
+        }
+    }
+  }
+
+  QRect rc(x0, y0, x1-x0+1, y1-y0+1);
+  foreach (QString fn, files)
+  {
+    QImage image = QImage(fn).copy(rc);
+    image.save(fn);
+  }
+}

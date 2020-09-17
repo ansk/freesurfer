@@ -1,14 +1,9 @@
 /**
- * @file  transform.h
  * @brief linear transform array utilities
  *
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2015/08/19 16:34:29 $
- *    $Revision: 1.83 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -26,12 +21,6 @@
 #define MGH_TRANSFORM_H
 
 #include "matrix.h"
-
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
-
 #include "const.h"
 #include "float.h"
 
@@ -64,7 +53,7 @@ typedef struct
   MATRIX     *m_L ;          /* transform matrix */
   MATRIX     *m_dL ;         /* gradient of fuctional wrt transform matrix */
   MATRIX     *m_last_dL ;    /* last time step for momentum */
-  TransformType type;        /* record transform type       */
+  int        type;           /* record transform type       */
   VOL_GEOM   src;            /* src for the transform       */
   VOL_GEOM   dst;            /* dst for the transform       */
   int        label ;         // if this xform only applies to a specific label
@@ -103,8 +92,8 @@ void mincGetVolInfo(const char *infoline, const char *infoline2,
                     VOL_GEOM *vgSrc, VOL_GEOM *vgDst);
 
 int      LTAfree(LTA **plta) ;
-LTA      *LTAcopy(LTA *lta, LTA *ltacp);
-LINEAR_TRANSFORM *LTcopy(LT *lt, LT *ltcp);
+LTA      *LTAcopy(const LTA *lta, LTA *ltacp);
+LINEAR_TRANSFORM *LTcopy(const LT *lt, LT *ltcp);
 int      LTAdiff(LTA *lta1, LTA *lta2, double thresh);
 LTA      *LTAreadInVoxelCoords(const char *fname, MRI *mri) ;
 LTA      *LTAread(const char *fname) ;
@@ -139,7 +128,7 @@ int      LTAtoVoxelCoords(LTA *lta, MRI *mri) ; // don't use this
 MRI *MRITransformedCentered(MRI *src, MRI *orig_dst, LTA *lta);
 
 LTA *LTAinvert(LTA *lta, LTA *ltainv); // now actually computes the inverse 
-LTA *LTAreduce(LTA *lta0);
+LTA *LTAreduce(const LTA *lta0);
 LTA *LTAconcat(LTA **ltaArray, int nLTAs, int Reduce);
 LTA *LTAconcat2(LTA *lta1, LTA *lta2, int Reduce);
 LTA *LTAfillInverse(LTA *lta); // fill inverse part of LTA
@@ -195,16 +184,17 @@ int       TransformSample(TRANSFORM *transform,
                           float *px, float *py, float *pz) ;
 int       TransformSampleInverse(TRANSFORM *transform, int xv, int yv, int zv,
                                  float *px, float *py, float *pz) ;
-int       TransformSampleInverseFloat(TRANSFORM *transform, float xv, float yv, float zv,
-				      float *px, float *py, float *pz) ;
+int       TransformSampleInverseFloat(const TRANSFORM *transform, float xv,
+            float yv, float zv, float *px, float *py, float *pz) ;
 int       TransformSampleInverseVoxel(TRANSFORM *transform,
                                       int width, int height, int depth,
                                       int xv, int yv, int zv,
                                       int *px, int *py, int *pz) ;
 TRANSFORM *TransformAlloc(int type, MRI *mri) ;
-TRANSFORM *TransformCopy(TRANSFORM *tsrc, TRANSFORM *tdst) ;
-
+TRANSFORM *TransformCopy(const TRANSFORM *tsrc, TRANSFORM *tdst) ;
+TRANSFORM *TransformConcat(TRANSFORM** trxArray, unsigned numTrx);
 int       TransformInvert(TRANSFORM *transform, MRI *mri) ;
+void      TransformInvertReplace(TRANSFORM *transform, const MRI *mri) ;
 int       TransformSwapInverse(TRANSFORM *transform) ;
 MRI       *TransformApply(TRANSFORM *transform, MRI *mri_src, MRI *mri_dst) ;
 MRI       *TransformCreateDensityMap(TRANSFORM *transform,
@@ -219,11 +209,10 @@ MRI       *TransformApplyInverse(TRANSFORM *transform,
 TRANSFORM *TransformCompose(TRANSFORM *t_src, MATRIX *m_left, MATRIX *m_right, TRANSFORM *t_dst);
 LTA       *LTAcompose(LTA *lta_src, MATRIX *m_left, MATRIX *m_right, LTA *lta_dst) ;
 
-int     TransformGetSrcVolGeom(TRANSFORM *transform, VOL_GEOM *vg) ;
-int     TransformGetDstVolGeom(TRANSFORM *transform, VOL_GEOM *vg) ;
-int     TransformSetMRIVolGeomToSrc(TRANSFORM *transform, MRI *mri) ;
-int     TransformSetMRIVolGeomToDst(TRANSFORM *transform, MRI *mri) ;
-
+int     TransformGetSrcVolGeom(const TRANSFORM *transform, VOL_GEOM *vg) ;
+int     TransformGetDstVolGeom(const TRANSFORM *transform, VOL_GEOM *vg) ;
+int     TransformSetMRIVolGeomToSrc(const TRANSFORM *transform, MRI *mri) ;
+int     TransformSetMRIVolGeomToDst(const TRANSFORM *transform, MRI *mri) ;
 
 // VOL_GEOM utilities
 void initVolGeom(VOL_GEOM *vg);
@@ -283,12 +272,15 @@ MRI *MRIaffineDisplacment(MRI *mri, MATRIX *R);
 int LTAmriIsSource(const LTA *lta, const MRI *mri);
 int LTAmriIsTarget(const LTA *lta, const MRI *mri);
 LTA *LTAcreate(MRI *src, MRI *dst, MATRIX *T, int type);
+int LTAmat2RotMat(LTA *lta);
 double RMSregDiffMJ(MATRIX *T1, MATRIX *T2, double radius);
+int LTAinversionNeeded(const MRI *src, const MRI *dst, const LTA *lta);
+int LTAinvertIfNeeded(const MRI *src, const MRI *dst, LTA *lta);
+int TransformCRS2MNI305(const MRI *mri, const double col, const double row, const double slice, 
+			const LTA *talxfm, double *R, double *A, double *S);
 
-#if defined(__cplusplus)
-};
-#endif
-
-
+MATRIX *TranformAffineParams2Matrix(double *p, MATRIX *M);
+double *TranformExtractAffineParams(MATRIX *M, double *p);
+double TransformAffineParamTest(int niters, double thresh);
 
 #endif

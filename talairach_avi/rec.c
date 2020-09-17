@@ -1,14 +1,6 @@
-/**
- * @file  rec.c
- *
- */
 /*
  * Original Author: Avi Z. Snyder, Washington University
  * 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2007/05/05 00:00:07 $
- *    $Revision: 1.2 $
  *
  * Copyright 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
  * Washington University, Mallinckrodt Institute of Radiology.
@@ -32,15 +24,26 @@
 #include <sys/utsname.h>
 #include <endianio.h>
 
+#include "rec.h"
+
+
 #define  MAXL	1024		/* accommodate very long commands */
 
 /********************/
 /* global variables */
 /********************/
 static char recfile[MAXL] = "";
-static char rcsid[] = "$Id: rec.c,v 1.2 2007/05/05 00:00:07 nicks Exp $";
 
-void rec_rcsid (void) {printf ("%s\n", rcsid);}
+void rec_rcsid (void) {printf ("%s\n", "freesurfer rec.c");}
+
+const char* current_date_time() {
+  time_t tt = time(&tt);
+  const char* time_str = ctime(&tt);
+  const char* override_time_str =
+    getenv("FREESURFER_REPLACEMENT_FOR_CREATION_TIME_STRING");
+  if (override_time_str) time_str = override_time_str;
+  return time_str;
+}
 
 int get_machine_info (char *string) {
 	struct utsname u_name;
@@ -243,11 +246,10 @@ int endrec (void) {
 }
 
 void get_time_usr (char *string) {
-	time_t		time_sec;
+
 	struct passwd	*pw;
 
-	time (&time_sec);
-	strcpy (string, ctime (&time_sec));
+	strcpy (string, current_date_time());
 	string[24] = '\0';
 	strcat (string, "  ");
 	pw = getpwuid(geteuid());

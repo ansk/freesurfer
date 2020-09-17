@@ -1,5 +1,4 @@
 /**
- * @file  mris_indirect_morph.cpp
  * @brief register surface2 to surface1 
  *
  * This function will register surface2 to surface1 using ICP or input linear
@@ -8,10 +7,6 @@
  */
 /*
  * Original Author: X. Han
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:55 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -73,8 +68,6 @@ void lubksb(double** a,int n,int* indx,double* b);
 
 void MRISsampleTemplateMappingToSource(MRI_SURFACE *mris, MRI_SURFACE *mris_template);
 
-static char vcid[] = 
-  "$Id: mris_indirect_morph.cpp,v 1.7 2011/03/02 00:04:55 nicks Exp $";
 
 int main(int argc, char *argv[]) ;
 
@@ -122,7 +115,7 @@ int main(int argc, char *argv[])
   char **av, *in_surf_fname, *out_fname;
   int fno, vno0, vno1, vno2;
   int nargs, ac, msec;
-  struct timeb then;
+  Timer then;
 
   MRI_SURFACE *mris, *mris_template, *mris_template_map;
   FACE *face;
@@ -130,13 +123,12 @@ int main(int argc, char *argv[])
   LTA          *lta = 0;
   int          transform_type;
 
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option (argc, argv, "$Id: mris_indirect_morph.cpp,v 1.7 2011/03/02 00:04:55 nicks Exp $", "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "mris_indirect_morph");
   if (nargs && argc - nargs == 1)
     exit (0);
   argc -= nargs;
 
-  TimerStart(&then) ;
+  then.reset() ;
   Progname = argv[0] ;
   ErrorInit(NULL, NULL, NULL) ;
   DiagInit(NULL, NULL, NULL) ;
@@ -341,7 +333,7 @@ int main(int argc, char *argv[])
   MRISfree(&mris);
   MRISfree(&mris_template);
 
-  msec = TimerStop(&then) ;
+  msec = then.milliseconds() ;
   fprintf(stderr, "indirect spherical mapping or morphing took %2.2f hours\n",
           (float)msec/(1000.0f*60.0f*60.0f));
 
@@ -369,7 +361,7 @@ static void print_usage(void)
   fprintf(stdout, "   -src %%s  source volume for -xform \n");
   fprintf(stdout, "   -dst %%s  target volume for -xform \n");
   fprintf(stdout, "\n");
-  printf("%s\n", vcid) ;
+  std::cout << getVersion() << std::endl;
   printf("\n");
 
 }
@@ -423,7 +415,7 @@ static void print_help(void)
 /* --------------------------------------------- */
 static void print_version(void)
 {
-  fprintf(stdout, "%s\n", vcid) ;
+  fprintf(stdout, "%s\n", getVersion().c_str()) ;
   exit(1) ;
 }
 

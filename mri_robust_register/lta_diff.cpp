@@ -1,15 +1,10 @@
 /**
- * @file  lta_diff.cpp
  * @brief A programm to compute differences of lta files (transforms)
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2016/03/10 16:57:29 $
- *    $Revision: 1.27 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -30,18 +25,16 @@
 #include <cassert>
 #include <limits>
 #include <vcl_iostream.h>
+
+#define export // obsolete feature 'export template' used in these headers 
 #include <vnl/vnl_matrix.h>
 #include <vnl/algo/vnl_determinant.h>
 #include <vnl/vnl_matlab_print.h>
+#undef export
 
 #include "Registration.h"
 #include "MyMatrix.h"
 
-// all other software are all in "C"
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "error.h"
 #include "macros.h"
 #include "mri.h"
@@ -52,14 +45,7 @@ extern "C"
 #include "version.h"
 #include "transform.h"
 
-#ifdef __cplusplus
-}
-#endif
-
 using namespace std;
-
-static char vcid[] =
-    "$Id: lta_diff.cpp,v 1.77 2016/01/20 23:36:17 greve Exp $";
 
 struct Parameters
 {
@@ -174,7 +160,7 @@ static int parseNextCommand(int argc, char *argv[], Parameters & P)
 static bool parseCommandLine(int argc, char *argv[], Parameters & P)
 {
   // Check for version flag and exit if nothing else is passed:
-  int nargs = handle_version_option(argc, argv, vcid, "$Name:  $");
+  int nargs = handleVersionOption(argc, argv, "lta_diff");
   if (nargs && argc - nargs == 1)
   {
     exit(0);
@@ -646,7 +632,7 @@ double interpolationError2D(double angle)
   VECTOR * v_X = VectorAlloc(3, MATRIX_REAL);  // input (src) coordinates
   VECTOR * v_Y = VectorAlloc(3, MATRIX_REAL);  // transformed (dst) coordinates
   double errorsum = 0, x, y;
-  int xm, xp, ym, yp;
+  int xm, ym;
   double val, xmd, ymd, xpd, ypd;  // d's are distances
   V3_Z(v_Y)= 0;
   for (int y1 = 0; y1 < side; y1++)
@@ -664,9 +650,7 @@ double interpolationError2D(double angle)
 //         ym = MAX((int)y, 0) ;
 //         yp = MIN(side-1, ym+1) ;
       xm = (int)floor(x);
-      xp = xm+1;
       ym = (int)floor(y);
-      yp = ym+1;
 
       xmd = x - (float)xm;
       ymd = y - (float)ym;
@@ -709,7 +693,7 @@ double interpolationError(LTA* lta)
   VECTOR * v_Y = VectorAlloc(4, MATRIX_REAL);  // transformed (dst) coordinates
   int y3, y2, y1;
   double x, y, z;
-  int xm, xp, ym, yp, zm, zp;
+  int xm, ym, zm;
   double val, xmd, ymd, zmd, xpd, ypd, zpd;  // d's are distances
 
   MRI* mri_error = MRIalloc(width, height, depth, MRI_FLOAT);
@@ -732,11 +716,8 @@ double interpolationError(LTA* lta)
         z = V3_Z(v_X);
 
         xm = MAX((int)x, 0);
-        xp = MIN(width-1, xm+1);
         ym = MAX((int)y, 0);
-        yp = MIN(height-1, ym+1);
         zm = MAX((int)z, 0);
-        zp = MIN(depth-1, zm+1);
 
         xmd = x - (float)xm;
         ymd = y - (float)ym;
@@ -799,86 +780,7 @@ MATRIX* getIsoVOX(LTA *lta)
 
 int main(int argc, char *argv[])
 {
-
-//testSphereDiff();
-
-//   // Default initialization
-//   int nargs = handle_version_option (argc, argv, vcid, "$Name:  $");
-//   if (nargs && argc - nargs == 1) exit (0);
-//   argc -= nargs;
-//  Progname = argv[0];
-//   argc --;
-//   argv++;
-//  if (vcid)
-//  {};
-
-/*  if (argc < 3)
-  {
-    cout << endl;
-    cout << argv[0] << " file1.lta file2.lta [dist-type] [norm-div] [invert]"
-        << endl;
-    cout << endl;
-    cout << "    dist-type " << endl;
-    cout << "       1            Rigid Transform Distance (||log(R)|| + ||T||)"
-        << endl;
-    cout << "       2  (default) Affine Transform Distance (RMS) " << endl;
-    cout << "       3            8-corners mean distance after transform "
-        << endl;
-    cout << "       4            Max Displacement on Sphere " << endl;
-    cout << "       5            Determinant (scaling) M1*M2" << endl;
-    cout
-        << "       6            Interpolation Smoothing (only for first transform)"
-        << endl;
-    cout << "       7            Decomposition RAS M1*M2 = Rot*Shear*Scaling"
-        << endl;
-    cout << "       8            Decomposition VOX M1*M2 = Rot*Shear*Scaling"
-        << endl;
-    cout << "                       pass 'identity.nofile' for second lta "
-        << endl;
-    cout
-        << "    norm-div  (=1)  divide final distance by this (e.g. step adjustment)"
-        << endl;
-    cout
-        << "    invert          invert LTA: 0 false (default), 1 invert first, 2 second"
-        << endl;
-    cout << endl;
-    cout
-        << " For the RMS and Sphere we use a ball with radius 10cm at the RAS center."
-        << endl;
-    cout << " Instead of 'file2.lta' you can specify 'identity.nofile'."
-        << endl;
-    cout << endl;
-    exit(1);
-  }
-  string lta1f = argv[1];
-  string lta2f = argv[2];
-
-  double d = 1.0;
-  int disttype = 2;
-  if (argc > 3)
-  {
-    disttype = atoi(argv[3]);
-    assert(double(disttype) == atof(argv[3]));
-    if (disttype == 0) 
-    {
-      cerr << "ERROR: dist-type: \"" << argv[3] << "\" not valid, expecting <int>!" << endl;
-      exit(1);
-    }
-  }
-  if (argc > 4)
-    d = atof(argv[4]);
-
-  int invert = 0;
-  if (argc > 5)
-    invert = atoi(argv[5]);
-*/
-
-  if (!parseCommandLine(argc, argv, P))
-  {
-      //printUsage();
-      exit(1);
-  }
-
+  if (!parseCommandLine(argc, argv, P)) exit(1);
 
   if (P.disttype == 100)
   {

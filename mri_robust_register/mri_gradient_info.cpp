@@ -1,15 +1,10 @@
 /**
- * @file  mri_gradient_info.cpp
  * @brief A programm to compute gradient information
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2012/09/21 23:05:17 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,11 +24,6 @@
 #include <vector>
 #include <cassert>
 
-// all other software are all in "C"
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "error.h"
 #include "macros.h"
 #include "mri.h"
@@ -45,14 +35,8 @@ extern "C"
 #include "version.h"
 #include "transform.h"
 
-#ifdef __cplusplus
-}
-#endif
-
 using namespace std;
-
-//static char vcid[] = "$Id: mri_gradient_info.cpp,v 1.5 2012/09/21 23:05:17 mreuter Exp $";
-char *Progname = NULL;
+const char *Progname = NULL;
 
 double scanX(MRI* mri_grad, MRI* mri_mask)
 {
@@ -499,15 +483,7 @@ double scanXold(MRI * mri_in, MRI* mri_grad, MRI* mri_mask)
 int main(int argc, char *argv[])
 {
 
-//   // Default initialization
-//   int nargs = handle_version_option (argc, argv, vcid, "$Name:  $");
-//   if (nargs && argc - nargs == 1) exit (0);
-//   argc -= nargs;
   Progname = argv[0];
-//   argc --;
-//   argv++;
-//  if (vcid)
-//  {};
 
   if (argc < 2)
   {
@@ -527,9 +503,6 @@ int main(int argc, char *argv[])
 
   MRI* mri_in = MRIread(mrif.c_str());
 
-  MRI* mri_mask = NULL;
-  if (argc >= 3)
-    mri_mask = MRIread(argv[2]);
 
   MRI* mri_mag = MRIalloc(mri_in->width, mri_in->height, mri_in->depth,
       MRI_FLOAT);

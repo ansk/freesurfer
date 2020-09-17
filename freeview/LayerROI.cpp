@@ -1,14 +1,9 @@
 /**
- * @file  LayerROI.cpp
  * @brief Layer data object for MRI volume.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/08 21:01:00 $
- *    $Revision: 1.52 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -43,6 +38,9 @@
 #include "vtkProperty.h"
 #include "vtkFreesurferLookupTable.h"
 #include "vtkImageChangeInformation.h"
+#include "vtkImageMapper3D.h"
+#include "vtkImageDilateErode3D.h"
+#include "vtkImageOpenClose3D.h"
 #include "LayerPropertyROI.h"
 #include "MyUtils.h"
 #include "LayerMRI.h"
@@ -52,10 +50,12 @@
 #include <QDebug>
 #include "LayerSurface.h"
 #include "FSVolume.h"
+#include "vtkImageThreshold.h"
+#include "MyVTKUtils.h"
 
 LayerROI::LayerROI( LayerMRI* layerMRI, QObject* parent ) : LayerVolumeBase( parent )
 {
-  m_strTypeNames.push_back( "ROI" );
+  m_strTypeNames << "Supplement" << "ROI";
   m_sPrimaryType = "ROI";
   m_nVertexCache = NULL;
 
@@ -67,6 +67,10 @@ LayerROI::LayerROI( LayerMRI* layerMRI, QObject* parent ) : LayerVolumeBase( par
     m_sliceActor3D[i] = vtkImageActor::New();
     m_sliceActor2D[i]->InterpolateOff();
     m_sliceActor3D[i]->InterpolateOff();
+#if VTK_MAJOR_VERSION > 5
+    m_sliceActor2D[i]->ForceOpaqueOn();
+    m_sliceActor3D[i]->ForceOpaqueOn();
+#endif
   }
 
   mProperty = new LayerPropertyROI( this );
@@ -83,14 +87,18 @@ LayerROI::LayerROI( LayerMRI* layerMRI, QObject* parent ) : LayerVolumeBase( par
     m_imageData = vtkSmartPointer<vtkImageData>::New();
     // m_imageData->DeepCopy( m_layerSource->GetRASVolume() );
 
-    m_imageData->SetNumberOfScalarComponents( 1 );
-    m_imageData->SetScalarTypeToFloat();
     m_imageData->SetOrigin( GetWorldOrigin() );
     m_imageData->SetSpacing( GetWorldVoxelSize() );
     m_imageData->SetDimensions( ( int )( m_dWorldSize[0] / m_dWorldVoxelSize[0] + 0.5 ),
         ( int )( m_dWorldSize[1] / m_dWorldVoxelSize[1] + 0.5 ),
         ( int )( m_dWorldSize[2] / m_dWorldVoxelSize[2] + 0.5 ) );
+#if VTK_MAJOR_VERSION > 5
+    m_imageData->AllocateScalars(VTK_FLOAT, 1);
+#else
+    m_imageData->SetScalarTypeToFloat();
+    m_imageData->SetNumberOfScalarComponents(1);
     m_imageData->AllocateScalars();
+#endif
     float* ptr = (float*)m_imageData->GetScalarPointer();
     int* dim = m_imageData->GetDimensions();
     size_t nsize = ((size_t)dim[0])*dim[1]*dim[2];
@@ -106,7 +114,7 @@ LayerROI::LayerROI( LayerMRI* layerMRI, QObject* parent ) : LayerVolumeBase( par
   connect( mProperty, SIGNAL(OpacityChanged(double)), this, SLOT(UpdateOpacity()) );
   connect( mProperty, SIGNAL(ThresholdChanged(double)), this, SLOT(UpdateThreshold()));
 
-  connect(this, SIGNAL(BaseVoxelEdited(QList<int>,bool)), SLOT(OnBaseVoxelEdited(QList<int>,bool)));
+  connect(this, SIGNAL(BaseVoxelEdited(QVector<int>,bool)), SLOT(OnBaseVoxelEdited(QVector<int>,bool)));
   UpdateProperties();
 }
 
@@ -160,7 +168,11 @@ void LayerROI::InitializeActors()
     // The reslice object just takes a slice out of the volume.
     //
     mReslice[i] = vtkSmartPointer<vtkImageReslice>::New();
+#if VTK_MAJOR_VERSION > 5
+    mReslice[i]->SetInputData( m_imageData );
+#else
     mReslice[i]->SetInput( m_imageData );
+#endif
     //  mReslice[i]->SetOutputSpacing( sizeX, sizeY, sizeZ );
     mReslice[i]->BorderOff();
 
@@ -186,8 +198,8 @@ void LayerROI::InitializeActors()
     //
     // Prop in scene with plane mesh and texture.
     //
-    m_sliceActor2D[i]->SetInput( mColorMap[i]->GetOutput() );
-    m_sliceActor3D[i]->SetInput( mColorMap[i]->GetOutput() );
+    m_sliceActor2D[i]->GetMapper()->SetInputConnection( mColorMap[i]->GetOutputPort() );
+    m_sliceActor3D[i]->GetMapper()->SetInputConnection( mColorMap[i]->GetOutputPort() );
 
     // Set ourselves up.
     this->OnSlicePositionChanged( i );
@@ -375,7 +387,7 @@ void LayerROI::DoRestore()
   m_label->UpdateRASImage( m_imageData, m_layerSource->GetSourceVolume() );
 }
 
-void LayerROI::UpdateLabelData( )
+void LayerROI::UpdateLabelData()
 {
   if ( IsModified() )
   {
@@ -410,15 +422,17 @@ void LayerROI::GetStats(int nPlane, int *count_out, float *area_out,
   float* ptr = (float*)m_imageData->GetScalarPointer();
 
   int cnt = 0;
-  //  QList<int> indices;
-  QList<float> coords;
+  //  QVector<int> indices;
+  double val_range[2];
+  GetProperty()->GetValueRange(val_range);
+  QVector<float> coords;
   for ( int i = 0; i < dim[0]; i++ )
   {
     for ( int j = 0; j < dim[1]; j++ )
     {
       for ( int k = 0; k < dim[2]; k++ )
       {
-        if ( ptr[k*dim[0]*dim[1]+j*dim[0]+i] > GetProperty()->GetThreshold() )
+        if ( ptr[k*dim[0]*dim[1]+j*dim[0]+i] >= val_range[0] )
         {
           cnt++;
           //          indices << i << j << k;
@@ -427,7 +441,7 @@ void LayerROI::GetStats(int nPlane, int *count_out, float *area_out,
       }
     }
   }
-  vs[nPlane] = 1.0;
+  //  vs[nPlane] = 1.0;
 
   *count_out = cnt;
   *area_out = cnt*vs[0]*vs[1]*vs[2];
@@ -450,6 +464,15 @@ void LayerROI::SetMappedSurface(LayerSurface *s)
   }
   else
   {
+    m_label->Initialize(m_layerSource->GetSourceVolume(), NULL, 0);
+  }
+}
+
+void LayerROI::OnSurfaceDestroyed(QObject *obj)
+{
+  if (m_layerMappedSurface == obj)
+  {
+    m_layerMappedSurface = NULL;
     m_label->Initialize(m_layerSource->GetSourceVolume(), NULL, 0);
   }
 }
@@ -483,10 +506,10 @@ void LayerROI::MapLabelColorData( unsigned char* colordata, int nVertexCount )
       else
         opacity = 0;
       double rgb[4] = { rgbColor[0], rgbColor[1], rgbColor[2], 1 };
-      //      if (m_nColorCode == Heatscale)
-      //      {
-      //        m_lut->GetColor(m_label->lv[i].stat, rgb);
-      //      }
+      if (GetProperty()->GetColorCode() == LayerPropertyROI::Heatscale)
+      {
+        GetProperty()->GetLookupTable()->GetColor(label->lv[i].stat, rgb);
+      }
       colordata[vno*4]    = ( int )( colordata[vno*4]   * ( 1 - opacity ) + rgb[0] * 255 * opacity );
       colordata[vno*4+1]  = ( int )( colordata[vno*4+1] * ( 1 - opacity ) + rgb[1] * 255 * opacity );
       colordata[vno*4+2]  = ( int )( colordata[vno*4+2] * ( 1 - opacity ) + rgb[2] * 255 * opacity );
@@ -494,7 +517,7 @@ void LayerROI::MapLabelColorData( unsigned char* colordata, int nVertexCount )
   }
 }
 
-void LayerROI::OnBaseVoxelEdited(const QList<int> voxel_list, bool bAdd)
+void LayerROI::OnBaseVoxelEdited(const QVector<int>& voxel_list, bool bAdd)
 {
   if (true)
   {
@@ -507,7 +530,11 @@ void LayerROI::OnBaseVoxelEdited(const QList<int> voxel_list, bool bAdd)
         m_nVertexCache = new int[m_layerMappedSurface->GetNumberOfVertices()];
 
       int cnt = 0;
-      m_label->EditVoxel(n[0], n[1], n[2], bAdd, m_nVertexCache, m_nVertexCache?(&cnt):NULL);
+      int coords = 0;
+      if (m_layerMappedSurface)
+        coords = m_layerMappedSurface->IsInflated()?WHITE_VERTICES:CURRENT_VERTICES;
+      m_label->EditVoxel(n[0], n[1], n[2], coords, bAdd, m_nVertexCache, m_nVertexCache?(&cnt):NULL);
+
       total_cnt += cnt;
     }
     if (total_cnt > 0 && m_layerMappedSurface)
@@ -520,25 +547,33 @@ void LayerROI::OnBaseVoxelEdited(const QList<int> voxel_list, bool bAdd)
 
 void LayerROI::EditVertex(int nvo, bool bAdd)
 {
-  QList<int> list;
+  QVector<int> list;
   list << nvo;
   EditVertex(list, bAdd);
 }
 
 void LayerROI::OnLabelDataUpdated()
 {
-  if (m_label->UpdateStatsRange(0))
-    UpdateProperties();
-  m_label->UpdateRASImage( m_imageData, m_layerSource->GetSourceVolume());
-  m_layerMappedSurface->UpdateOverlay(true, true);
+  if (m_layerMappedSurface)
+  {
+    if (m_label->UpdateStatsRange(0))
+      UpdateProperties();
+    m_label->UpdateRASImage( m_imageData, m_layerSource->GetSourceVolume(), GetProperty()->GetThreshold());
+    m_layerMappedSurface->UpdateOverlay(true, true);
+  }
+  else
+  {
+    //  m_label->UpdateLabelFromImage(m_imageData, m_layerSource->GetSourceVolume());
+  }
   SetModified();
+  emit ActorUpdated();
 }
 
-void LayerROI::EditVertex(const QList<int> list_nvo_in, bool bAdd)
+void LayerROI::EditVertex(const QVector<int> list_nvo_in, bool bAdd)
 {
   if (m_layerMappedSurface)
   {
-    QList<int> list_nvo;
+    QVector<int> list_nvo;
     if (m_nBrushRadius == 1)
       list_nvo = list_nvo_in;
     else
@@ -558,7 +593,6 @@ void LayerROI::EditVertex(const QList<int> list_nvo_in, bool bAdd)
       else
         ret = qMax(ret, ::LabelDeleteVertex(m_label->GetRawLabel(), nvo, coords));
     }
-
     if (ret >= 0)
     {
       OnLabelDataUpdated();
@@ -566,56 +600,193 @@ void LayerROI::EditVertex(const QList<int> list_nvo_in, bool bAdd)
   }
 }
 
+void LayerROI::UpdateFilteredImage(vtkImageData* mask_before, vtkImageData* mask_after)
+{
+  int scalar_type = m_imageData->GetScalarType();
+  char* ptr1 = (char*)mask_before->GetScalarPointer();
+  char* ptr2 = (char*)mask_after->GetScalarPointer();
+  char* ptr_img = (char*)m_imageData->GetScalarPointer();
+  QVector<int> listAdd, listRemove;
+  int* dim = m_imageData->GetDimensions();
+  for (size_t i = 0; i < dim[0]; i++)
+  {
+    for (size_t j = 0; j < dim[1]; j++)
+    {
+      for (size_t k = 0; k < dim[2]; k++)
+      {
+        double val1 = MyVTKUtils::GetImageDataComponent(ptr1, dim, 1, i, j, k, 0, scalar_type);
+        double val2 = MyVTKUtils::GetImageDataComponent(ptr2, dim, 1, i, j, k, 0, scalar_type);
+        if (val1 == 0 && val2 >= 1)
+        {
+          listAdd << i << j << k;
+          MyVTKUtils::SetImageDataComponent(ptr_img, dim, 1, i, j, k, 0, scalar_type, m_fFillValue);
+        }
+        else if (val1 == 2 && val2 <= 1)
+        {
+          listRemove << i << j << k;
+          MyVTKUtils::SetImageDataComponent(ptr_img, dim, 1, i, j, k, 0, scalar_type, m_fBlankValue);
+        }
+      }
+    }
+  }
+  if (!listAdd.isEmpty())
+    OnBaseVoxelEdited(listAdd, true);
+  if (!listRemove.isEmpty())
+    OnBaseVoxelEdited(listRemove, true);
+  m_imageData->Modified();
+}
+
+vtkSmartPointer<vtkImageData> LayerROI::GetThresholdedMaskImage()
+{
+  double range[2];
+  m_label->GetStatsRange(range);
+  vtkSmartPointer<vtkImageThreshold> threshold = vtkSmartPointer<vtkImageThreshold>::New();
+  threshold->ThresholdByUpper(range[0]);
+  threshold->SetInValue(2);
+  threshold->SetOutValue(0);
+  threshold->ReplaceInOn();
+  threshold->ReplaceOutOn();
+  threshold->SetOutputScalarType(m_imageData->GetScalarType());
+#if VTK_MAJOR_VERSION > 5
+  threshold->SetInputData(m_imageData);
+#else
+  threshold->SetInput(m_imageData);
+#endif
+  threshold->Update();
+  vtkSmartPointer<vtkImageData> out = threshold->GetOutput();
+  return out;
+}
+
 void LayerROI::Dilate(int nTimes)
 {
+  SaveForUndo();
   if (m_layerMappedSurface)
   {
-    SaveForUndo();
     ::LabelDilate(m_label->GetRawLabel(), m_layerMappedSurface->GetSourceSurface()->GetMRIS(), nTimes,
                   m_layerMappedSurface->IsInflated()?WHITE_VERTICES:CURRENT_VERTICES);
-    OnLabelDataUpdated();
   }
+  else
+  {
+    vtkSmartPointer<vtkImageData> data1 = GetThresholdedMaskImage();
+    vtkSmartPointer<vtkImageData> data2 = data1;
+    for (int i = 0; i < nTimes; i++)
+    {
+      vtkSmartPointer<vtkImageDilateErode3D> filter = vtkSmartPointer<vtkImageDilateErode3D>::New();
+      filter->SetKernelSize(2,2,2);
+      filter->SetDilateValue(2);
+      filter->SetErodeValue(0);
+#if VTK_MAJOR_VERSION > 5
+      filter->SetInputData(data2);
+#else
+      filter->SetInput(data2);
+#endif
+      filter->Update();
+      data2 = filter->GetOutput();
+    }
+    UpdateFilteredImage(data1, data2);
+  }
+  OnLabelDataUpdated();
 }
 
 void LayerROI::Erode(int nTimes)
 {
+  SaveForUndo();
   if (m_layerMappedSurface)
   {
-    SaveForUndo();
     ::LabelErode(m_label->GetRawLabel(), m_layerMappedSurface->GetSourceSurface()->GetMRIS(), nTimes);
-    OnLabelDataUpdated();
   }
+  else
+  {
+    vtkSmartPointer<vtkImageData> data1 = GetThresholdedMaskImage();
+    vtkSmartPointer<vtkImageData> data2 = data1;
+    for (int i = 0; i < nTimes; i++)
+    {
+      vtkSmartPointer<vtkImageDilateErode3D> filter = vtkSmartPointer<vtkImageDilateErode3D>::New();
+      filter->SetKernelSize(2,2,2);
+      filter->SetErodeValue(2);
+      filter->SetDilateValue(0);
+#if VTK_MAJOR_VERSION > 5
+      filter->SetInputData(data2);
+#else
+      filter->SetInput(data2);
+#endif
+      filter->Update();
+      data2 = filter->GetOutput();
+    }
+    UpdateFilteredImage(data1, data2);
+  }
+  OnLabelDataUpdated();
 }
 
 void LayerROI::Open(int nTimes)
 {
+  SaveForUndo();
   if (m_layerMappedSurface)
   {
-    SaveForUndo();
     ::LabelErode(m_label->GetRawLabel(), m_layerMappedSurface->GetSourceSurface()->GetMRIS(), nTimes);
     ::LabelDilate(m_label->GetRawLabel(), m_layerMappedSurface->GetSourceSurface()->GetMRIS(), nTimes,
                   m_layerMappedSurface->IsInflated()?WHITE_VERTICES:CURRENT_VERTICES);
-    OnLabelDataUpdated();
   }
+  else
+  {
+    vtkSmartPointer<vtkImageData> data1 = GetThresholdedMaskImage();
+    vtkSmartPointer<vtkImageData> data2 = data1;
+    for (int i = 0; i < nTimes; i++)
+    {
+      vtkSmartPointer<vtkImageOpenClose3D> filter = vtkSmartPointer<vtkImageOpenClose3D>::New();
+      filter->SetKernelSize(2,2,2);
+      filter->SetOpenValue(2);
+      filter->SetCloseValue(0);
+  #if VTK_MAJOR_VERSION > 5
+      filter->SetInputData(data2);
+  #else
+      filter->SetInput(data2);
+  #endif
+      filter->Update();
+      data2 = filter->GetOutput();
+    }
+    UpdateFilteredImage(data1, data2);
+  }
+  OnLabelDataUpdated();
 }
 
 void LayerROI::Close(int nTimes)
 {
+  SaveForUndo();
   if (m_layerMappedSurface)
   {
-    SaveForUndo();
     ::LabelDilate(m_label->GetRawLabel(), m_layerMappedSurface->GetSourceSurface()->GetMRIS(), nTimes,
                   m_layerMappedSurface->IsInflated()?WHITE_VERTICES:CURRENT_VERTICES);
     ::LabelErode(m_label->GetRawLabel(), m_layerMappedSurface->GetSourceSurface()->GetMRIS(), nTimes);
-    OnLabelDataUpdated();
   }
+  else
+  {
+    vtkSmartPointer<vtkImageData> data1 = GetThresholdedMaskImage();
+    vtkSmartPointer<vtkImageData> data2 = data1;
+    for (int i = 0; i < nTimes; i++)
+    {
+      vtkSmartPointer<vtkImageOpenClose3D> filter = vtkSmartPointer<vtkImageOpenClose3D>::New();
+      filter->SetKernelSize(2,2,2);
+      filter->SetCloseValue(2);
+      filter->SetOpenValue(0);
+  #if VTK_MAJOR_VERSION > 5
+      filter->SetInputData(data2);
+  #else
+      filter->SetInput(data2);
+  #endif
+      filter->Update();
+      data2 = filter->GetOutput();
+    }
+    UpdateFilteredImage(data1, data2);
+  }
+  OnLabelDataUpdated();
 }
 
 void LayerROI::Resample()
 {
+  SaveForUndo();
   if (m_layerMappedSurface)
   {
-    SaveForUndo();
     LABEL* old_label = m_label->GetRawLabel();
     ::LabelUnassign(old_label);
     LABEL* label = ::LabelSampleToSurface(m_layerMappedSurface->GetSourceSurface()->GetMRIS(), old_label,
@@ -623,12 +794,11 @@ void LayerROI::Resample()
                                           m_layerMappedSurface->IsInflated()?WHITE_VERTICES:CURRENT_VERTICES);
     if (label)
     {
-      old_label->n_points = label->n_points ;
-      memmove(old_label->lv, label->lv, label->n_points*sizeof(LABEL_VERTEX));
+      LabelCopy(label, old_label) ;
       LabelFree(&label);
     }
-    OnLabelDataUpdated();
   }
+  OnLabelDataUpdated();
 }
 
 bool LayerROI::HasUndo()
@@ -671,8 +841,29 @@ void LayerROI::Redo()
   emit Modified();
 }
 
-void LayerROI::SaveForUndo(int nPlane)
+void LayerROI::SaveForUndo(int nPlane, bool bAllFrame)
 {
   Q_UNUSED(nPlane);
+  Q_UNUSED(bAllFrame);
   m_label->SaveForUndo();
+}
+
+void LayerROI::Clear()
+{
+  m_label->Clear();
+  m_label->UpdateRASImage( m_imageData, m_layerSource->GetSourceVolume() );
+  SetModified();
+  if (m_layerMappedSurface)
+  {
+    m_label->Initialize(m_layerSource->GetSourceVolume(), m_layerMappedSurface->GetSourceSurface(),
+                        m_layerMappedSurface->IsInflated()?WHITE_VERTICES:CURRENT_VERTICES);
+    m_layerMappedSurface->UpdateOverlay(true, true);
+  }
+  emit ActorUpdated();
+  emit Modified();
+}
+
+LABEL* LayerROI::GetRawLabel()
+{
+  return m_label->GetRawLabel();
 }

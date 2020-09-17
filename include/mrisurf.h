@@ -1,5 +1,5 @@
+#pragma once
 /**
- * @file  mrisurf.h
  * @brief MRI_SURFACE utilities.
  *
  * Utilities, constants and structure definitions for manipulation
@@ -7,10 +7,6 @@
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2017/02/16 19:42:54 $
- *    $Revision: 1.391 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -25,286 +21,115 @@
  */
 
 
-#ifndef MRISURF_H
-#define MRISURF_H
+
+#include "mrisurf_aaa.h"
 
 #include "minc_volume_io.h"
-#include "const.h"
+#include "label.h"
+#include "mrishash.h"
 
-#define MAX_SURFACES 20
-#define TALAIRACH_COORDS     0
-#define SPHERICAL_COORDS     1
-#define ELLIPSOID_COORDS     2
+#define CONTRAST_T1    0
+#define CONTRAST_T2    1
+#define CONTRAST_FLAIR 2
 
-#define VERTICES_PER_FACE    3
-#define ANGLES_PER_TRIANGLE  3
+typedef const MRIS MRIS_const;
+    // Ideally the MRIS and all the things it points to would be unchangeable via this object but C can't express this concept easily.
 
-#define INFLATED_NAME        "inflated"
-#define SMOOTH_NAME          "smoothwm"
-#define SPHERE_NAME          "sphere"
-#define ORIG_NAME            "orig"
-#define WHITE_MATTER_NAME    "white"
-#define GRAY_MATTER_NAME     "gray"
-#define LAYERIV_NAME         "graymid"
-#define GRAYMID_NAME         LAYERIV_NAME
-#define MAX_CMDS 1000
 
-#define NEW_VERSION_MAGIC_NUMBER  16777215 // was in mrisurf.c
-#define WHICH_FACE_SPLIT(vno0, vno1) (1*nint(sqrt(1.9*vno0) + sqrt(3.5*vno1)));
 
-typedef struct _area_label
-{
-  char     name[STRLEN] ;     /* name of region */
-  float    cx ;               /* centroid x */
-  float    cy ;               /* centroid y */
-  float    cz ;               /* centroid z */
-  int      label ;            /* an identifier (used as an index) */
-}
-MRIS_AREA_LABEL ;
+void MRISctr(MRIS *mris, int max_vertices, int max_faces, int nvertices, int nfaces);
+void MRISdtr(MRIS *mris);
+    //
+    // These are only way to create a surface and destroy a surface.
+    // The destruction frees any child structures.
+    //
+    // There are functions below for editing the surface by adding vertex positions, edges, face information, etc.
+    // There is even one for creating one similar to a subset of another's vertices and faces - MRIScreateWithSimilarTopologyAsSubset
 
-/*
-  the vertices in the face structure are arranged in
-  counter-clockwise fashion when viewed from the outside.
-*/
-typedef struct face_type_
-{
-  int    v[VERTICES_PER_FACE];           /* vertex numbers of this face */
-  float  nx ;
-  float  ny ;
-  float  nz ;
-  float  area ;
-  float  orig_area ;
-  float  angle[ANGLES_PER_TRIANGLE] ;
-  float  orig_angle[ANGLES_PER_TRIANGLE]  ;
-  char   ripflag;                        /* ripped face */
-  char   oripflag;                       /* stored version */
-  int    marked;                         /* marked face */
-#if 0
-  float logshear,shearx,sheary;  /* compute_shear */
-#endif
-  float  cx, cy, cz ;         // coordinates of centroid
-}
-face_type, FACE ;
+MRI_SURFACE* MRISoverAlloc              (                   int max_vertices, int max_faces, int nvertices, int nfaces) ;
+MRI_SURFACE* MRISalloc                  (                                                    int nvertices, int nfaces) ;
+    //
+    // Allocates an MRIS then calls MRISctr
 
-#ifndef uchar
-#define uchar  unsigned char
-#endif
+void MRISfree(MRIS **pmris) ;
+    //
+    // The only way to delete a surface.  All the substructures are also freed, and the *pmris set to nullptr
+    
+void MRISreallocVerticesAndFaces(MRIS *mris, int nvertices, int nfaces) ;
+    //
+    // Used by code that is deforming the surface
 
-#include "colortab.h" // 'COLOR_TABLE'
+void MRISacquireNverticesFrozen(MRIS *mris);
+void MRISreleaseNverticesFrozen(MRIS *mris);
+    //
+    // Used by some code that depends on this number not changing
+    // but lots of such dependent code have not been changed to use this
+    
+// Make and free temp properties for all the vertices
+// whilest making sure they are the right size by stopping the nvertices changing when any such exist
+//
+float* MRISmakeFloatPerVertex(MRIS *mris);
+void   MRISfreeFloatPerVertex(MRIS *mris, float** pp);
 
-typedef struct vertex_type_
-{
-  float x,y,z;           /* curr position */
-  float nx,ny,nz;        /* curr normal */
-  float pnx,pny,pnz;     /* pial normal */
-  float wnx,wny,wnz;     /* white normal */
-  float onx,ony,onz;     /* original normal */
-  float dx, dy, dz ;     /* current change in position */
-  float odx, ody, odz ;  /* last change of position (for momentum) */
-  float tdx, tdy, tdz ;  /* temporary storage for averaging gradient */
-  float curv;            /* curr curvature */
-  float curvbak ;
-  float val;             /* scalar data value (file: rh.val, sig2-rh.w) */
-  float imag_val ;       /* imaginary part of complex data value */
-  float cx, cy, cz ;     /* coordinates in canonical coordinate system */
-  float tx, ty, tz ;     /* tmp coordinate storage */
-  float tx2, ty2, tz2 ;  /* tmp coordinate storage */
-  float origx, origy, origz ;   /* original coordinates */
-  float targx, targy, targz ;   // target coordinates
-  float pialx, pialy, pialz ;   /* pial surface coordinates */
-  float whitex, whitey, whitez ;/* white surface coordinates */
-  float l4x, l4y, l4z ;   /* layerIV surface coordinates */
-  float infx, infy, infz; /* inflated coordinates */
-  float fx, fy, fz ;      /* flattened coordinates */
-  int   px,qx, py,qy, pz,qz; /* rational coordinates for exact calculations */
-  float e1x, e1y, e1z ;  /* 1st basis vector for the local tangent plane */
-  float e2x, e2y, e2z ;  /* 2nd basis vector for the local tangent plane */
-  float pe1x, pe1y, pe1z ;  /* 1st basis vector for the local tangent plane */
-  float pe2x, pe2y, pe2z ;  /* 2nd basis vector for the local tangent plane */
-#if 0
-  float dipx,dipy,dipz;  /* dipole position */
-  float dipnx,dipny,dipnz; /* dipole orientation */
-#endif
-  float nc;              /* curr length normal comp */
-  float val2;            /* complex comp data value (file: sig3-rh.w) */
-  float valbak;          /* scalar data stack */
-  float val2bak;         /* complex comp data stack */
-  float stat;            /* statistic */
-#if 1
-  int undefval;          /* [previously dist=0] */
-  int old_undefval;      /* for smooth_val_sparse */
-  int fixedval;          /* [previously val=0] */
-#endif
-  float fieldsign;       /* fieldsign--final: -1,0,1 (file: rh.fs) */
-  float fsmask;          /* significance mask (file: rh.fm) */
-  uchar num;             /* number neighboring faces */
-  int   *f;              /* array neighboring face numbers */
-  uchar *n;              /* [0-3, num long] */
-  uchar vnum;            /* number neighboring vertices */
-  int   *v;              /* array neighboring vertex numbers, vnum long */
-  int   *e;              /* edge state for neighboring vertices */
-  int    v2num ;         /* number of 2-connected neighbors */
-  int    v3num ;         /* number of 3-connected neighbors */
-  short  vtotal ;        /* total # of neighbors,
-                                    will be same as one of above*/
-  float d ;              /* for distance calculations */
-  uchar nsize ;          /* size of neighborhood (e.g. 1, 2, 3) */
-#if 0
-  float *tri_area ;      /* array of triangle areas - num long */
-  float *orig_tri_area ; /* array of original triangle areas - num long */
-  float dist;            /* dist from sampled point [defunct: or 1-cos(a)] */
-  float ox,oy,oz;        /* last position (for undoing time steps) */
-  float mx,my,mz;        /* last movement */
-  float onc;             /* last length normal comp */
-  float oval;            /* last scalar data (for smooth_val) */
-  float *fnx ;           /* face normal - x component */
-  float *fny ;           /* face normal - y component */
-  float *fnz ;           /* face normal - z component */
-  float bnx,bny,obnx,obny; /* boundary normal */
-  float *tri_angle ;     /* angles of each triangle this vertex belongs to */
-  float *orig_tri_angle ;/* original values of above */
-  float stress;          /* explosion */
-  float logshear,shearx,sheary,oshearx,osheary;  /* for shear term */
-  float ftmp ;           /* temporary floating pt. storage */
-  float logarat,ologarat,sqrtarat; /* for area term */
-  float smx,smy,smz,osmx,osmy,osmz;/* smoothed curr,last move */
-#endif
-  int   annotation;      /* area label (defunct--now from label file name!) */
-  char   oripflag,origripflag;  /* cuts flags */
-#if 0
-  float coords[3];
-#endif
-  float theta, phi ;     /* parameterization */
-  short  marked;         /* for a variety of uses */
-  short  marked2 ;
-  short  marked3 ;
-  char   ripflag ;
-  char   border;         /* flag */
-  float area, origarea, group_avg_area ;
-  float K ;              /* Gaussian curvature */
-  float H ;              /* mean curvature */
-  float k1, k2 ;         /* the principal curvatures */
-  float *dist ;          /* original distance to neighboring vertices */
-  float *dist_orig ;     /* original distance to neighboring vertices */
-  char   neg ;           /* 1 if the normal vector is inverted */
-  float mean ;
-  float mean_imag ;      /* imaginary part of complex statistic */
-  float std_error ;
-  unsigned int flags ;
-  void *vp; /* to store user's information */
-  int   linked ;         // is this vertex linked to some others?
-  int   fno ;            // face that this vertex is in
-  int   cropped ;
-}
-vertex_type, VERTEX ;
+// The following create a copy of a surface, whilest deleteing some vertices and some faces
+// The faces that are kept must not reference any vertices which are not kept.
+// There is a function to help generate such a mapping...
+//
+MRIS* MRIScreateWithSimilarTopologyAsSubset(
+    MRIS_const * src,
+    size_t       nvertices,     // the mapToDstVno entries must each be less than this
+    int const*   mapToDstVno,   // src->nvertices entries, with the entries being -1 (vertex should be ignored) or the vno within the dst surface the face maps to
+    size_t       nfaces,        // the mapToDstFno entries must each be less than this
+    int const*   mapToDstFno);  // src->nfaces entries, with the entries being -1 (face should be ignored) or the fno within the dst surface the face maps to
+    //
+    // Used to extract some of the vertices, some of the faces, and to renumber them.
+    // mrisurf_deform uses this for several purposes.
 
-#define VERTEX_SULCAL  0x00000001L
+MRIS* MRIScreateWithSimilarXYZAsSubset(
+    MRIS_const * src,
+    size_t       nvertices,     // the mapToDstVno entries must each be less than this
+    int const*   mapToDstVno,   // src->nvertices entries, with the entries being -1 (vertex should be ignored) or the vno within the dst surface the face maps to
+    size_t       nfaces,        // the mapToDstFno entries must each be less than this
+    int const*   mapToDstFno);  // src->nfaces entries, with the entries being -1 (face should be ignored) or the fno within the dst surface the face maps to
 
-typedef struct
-{
-  int nvertices;
-  unsigned int *vertex_indices;
-}
-STRIP;
+MRIS* MRIScreateWithSimilarPropertiesAsSubset(
+    MRIS_const * src,
+    size_t       nvertices,     // the mapToDstVno entries must each be less than this
+    int const*   mapToDstVno,   // src->nvertices entries, with the entries being -1 (vertex should be ignored) or the vno within the dst surface the face maps to
+    size_t       nfaces,        // the mapToDstFno entries must each be less than this
+    int const*   mapToDstFno);  // src->nfaces entries, with the entries being -1 (face should be ignored) or the fno within the dst surface the face maps to
 
-#include "transform.h" // TRANSFORM, LTA
+void MRIScreateSimilarTopologyMapsForNonripped(
+    MRIS_const * src,
+    size_t     * pnvertices,     // the mapToDstVno entries must each be less than this
+    int const* * pmapToDstVno,   // src->nvertices entries, with the entries being -1 (vertex should be ignored) or the vno within the dst surface the face maps to
+    size_t     * pnfaces,        // the mapToDstFno entries must each be less than this
+    int const* * pmapToDstFno);  // src->nfaces entries, with the entries being -1 (face should be ignored) or the fno within the dst surface the face maps to
+    // The caller should free the * pmapToDstVno and * pmapToDstFno
 
-typedef struct
-{
-  int          nvertices ;      /* # of vertices on surface */
-  int          nfaces ;         /* # of faces on surface */
-  int          nstrips;
-  VERTEX       *vertices ;
-  FACE         *faces ;
-  STRIP        *strips;
-  float        xctr ;
-  float        yctr ;
-  float        zctr ;
-  float        xlo ;
-  float        ylo ;
-  float        zlo ;
-  float        xhi ;
-  float        yhi ;
-  float        zhi ;
-  float        x0 ;   // center of spherical expansion
-  float        y0 ;
-  float        z0 ;
-  VERTEX       *v_temporal_pole ;
-  VERTEX       *v_frontal_pole ;
-  VERTEX       *v_occipital_pole ;
-  float        max_curv ;
-  float        min_curv ;
-  float        total_area ;
-  double       avg_vertex_area;
-  double       avg_vertex_dist;
-  double       std_vertex_dist;
-  float        orig_area ;
-  float        neg_area ;
-  float        neg_orig_area ;   /* amount of original surface in folds */
-  int          zeros ;
-  int          hemisphere ;      /* which hemisphere */
-  int          initialized ;
-#if 0
-  General_transform transform ;   /* the next two are from
-                                             this struct (MNI transform) */
-  Transform         *linear_transform ;
-  Transform         *inverse_linear_transform ;
-#endif
-  LTA         *lta;
-  MATRIX      *SRASToTalSRAS_;
-  MATRIX      *TalSRASToSRAS_;
-  int          free_transform ;
-  double       radius ;           /* radius (if status==MRIS_SPHERE) */
-  float        a, b, c ;          /* ellipsoid parameters */
-  char         fname[STRLEN] ;    /* file it was originally loaded from */
-  float        Hmin ;             /* min mean curvature */
-  float        Hmax ;             /* max mean curvature */
-  float        Kmin ;             /* min Gaussian curvature */
-  float        Kmax ;             /* max Gaussian curvature */
-  double       Ktotal ;           /* total Gaussian curvature */
-  int          status ;           /* type of surface (e.g. sphere, plane) */
-  int          patch ;            /* if a patch of the surface */
-  int          nlabels ;
-  MRIS_AREA_LABEL *labels ;       /* nlabels of these (may be null) */
-  int          nsize ;            /* size of neighborhoods */
-  int          max_nsize ;      // max the neighborhood size has been set to (typically 3)
-  float        avg_nbrs ;         /* mean # of vertex neighbors */
-  void         *vp ;              /* for misc. use */
-  float        alpha ;            /* rotation around z-axis */
-  float        beta ;             /* rotation around y-axis */
-  float        gamma ;            /* rotation around x-axis */
-  float        da, db, dg ;       /* old deltas */
-  int          type ;             /* what type of surface was this initially*/
-  int          max_vertices ;     /* may be bigger than nvertices */
-  int          max_faces ;        /* may be bigger than nfaces */
-  char         subject_name[STRLEN] ;/* name of the subject */
-  float        canon_area ;
-  int          noscale ;          /* don't scale by surface area if true */
-  float        *dx2 ;             /* an extra set of gradient
-                                     (not always alloced) */
-  float        *dy2 ;
-  float        *dz2 ;
-  COLOR_TABLE  *ct ;
-  int          useRealRAS;        /* if 0, vertex position is a
-                                     conformed volume RAS with c_(r,a,s)=0 */
-  /* if 1, verteix position is a
-     real RAS (volume stored RAS)         */
-  /* The default is 0.        */
-  VOL_GEOM     vg;                /* volume information from which
-                                     this surface is created.
-                                     check validity by vg.valid = 1 or not */
-  char   *cmdlines[MAX_CMDS] ;
-  int    ncmds;
-  float  group_avg_surface_area ;  // average of total surface area for group
-  int    group_avg_vtxarea_loaded; /* average vertex area for group
-                                              at each vertex */
-  int    triangle_links_removed ;  // for quad surfaces
-  void   *user_parms ;             // for whatever the user wants to hang here 
-  MATRIX *m_sras2vox ;             // for converting surface ras to voxel 
-  MRI    *mri_sras2vox ;           // volume that the above matrix is for
-  void   *mht ;
-}
-MRI_SURFACE, MRIS ;
+// There are various fields in the VERTEX and FACE and others that are used for many purposes at different
+// times, and clashing uses could cause a big problem.  Start working towards a reservation system.
+//
+typedef enum MRIS_TempAssigned {
+    MRIS_TempAssigned_Vertex_marked,
+    MRIS_TempAssigned_Vertex_marked2,
+    MRIS_TempAssigned__end
+} MRIS_TempAssigned;
+
+int  MRIS_acquireTemp      (MRIS* mris, MRIS_TempAssigned temp);                               // save the result to use later to ...
+void MRIS_checkAcquiredTemp(MRIS* mris, MRIS_TempAssigned temp, int MRIS_acquireTemp_result);  // ... check that you own it
+void MRIS_releaseTemp      (MRIS* mris, MRIS_TempAssigned temp, int MRIS_acquireTemp_result);  // ... be allowed to release it
+
+
+// Support for writing traces that can be compared across test runs to help find where differences got introduced  
+//
+void mrisVertexHash(MRIS_HASH* hash, MRIS const * mris, int vno);
+
+void mris_hash_init (MRIS_HASH* hash, MRIS const * mris);
+void mris_hash_add  (MRIS_HASH* hash, MRIS const * mris);
+void mris_hash_print(MRIS_HASH const* hash, FILE* file);
+void mris_print_hash(FILE* file, MRIS const * mris, const char* prefix, const char* suffix);
+void mris_print_diff(FILE* file, MRIS const * lhs, MRIS const * rhs);
 
 // This structs are used with the TESS functions
 typedef struct tface_type_
@@ -360,24 +185,11 @@ positive areas */
 #define IPFLAG_NOSCALE_TOL            0x8000   // don't scale tol with navgs
 #define IPFLAG_FORCE_GRADIENT_OUT    0x10000
 #define IPFLAG_FORCE_GRADIENT_IN     0x20000
-#define IPFLAG_FIND_FIRST_WM_PEAK    0x40000  // for Matt Glasser/David Van Essen
 
 #define INTEGRATE_LINE_MINIMIZE    0  /* use quadratic fit */
 #define INTEGRATE_MOMENTUM         1
 #define INTEGRATE_ADAPTIVE         2
 #define INTEGRATE_LM_SEARCH        3  /* binary search for minimum */
-
-#define MRIS_SURFACE               0
-#define MRIS_PATCH                 1
-#define MRIS_CUT                   MRIS_PATCH
-#define MRIS_PLANE                 2
-#define MRIS_ELLIPSOID             3
-#define MRIS_SPHERE                4
-#define MRIS_PARAMETERIZED_SPHERE  5
-#define MRIS_RIGID_BODY            6
-#define MRIS_SPHERICAL_PATCH       7
-#define MRIS_UNORIENTED_SPHERE     8
-#define MRIS_PIAL_SURFACE          9
 
 // different Hausdorff distance modes
 #define HDIST_MODE_SYMMETRIC_MEAN 0
@@ -424,6 +236,7 @@ typedef struct
 #endif
   float        sigma ;                    /* blurring scale */
   float        radius ;
+  float        scale ;
 }
 MRI_SURFACE_PARAMETERIZATION, MRI_SP ;
 
@@ -448,7 +261,7 @@ MRI_SURFACE_PARAMETERIZATION, MRI_SP ;
 /* VECTORIAL_REGISTRATION */
 #include "field_code.h"
 
-typedef struct
+typedef struct INTEGRATION_PARMS
 {
   double  tol ;               /* tolerance for terminating a step */
   float   l_angle ;           /* coefficient of angle term */
@@ -478,6 +291,9 @@ typedef struct
   float   l_tspring ;         /* coefficient of tangential spring term */
   float   l_nltspring ;       /* coefficient of nonlinear tangential spring term */
   float   l_nspring ;         /* coefficient of normal spring term */
+  float   l_spring_nzr;       /* coefficient of spring term with non-zero resting length*/
+  float   l_spring_nzr_len;   /* resting length of spring term with non-zero resting length*/
+  float   l_hinge;            /* coefficient of hinge angle term */
   float   l_repulse ;         /* repulsize force on tessellation */
   float   l_repulse_ratio ;   /* repulsize force on tessellation */
   float   l_boundary ;        /* coefficient of boundary term */
@@ -519,7 +335,9 @@ typedef struct
   float   c ;                 /* ellipsoid parameters */
   int     start_t ;           /* starting time step */
   int     t ;                 /* current time */
-  FILE    *fp ;               /* for logging results */
+  
+  FILE    * const fp ;        /* for logging results, write by calling INTEGRATION_PARMS_<various> functions */
+  
   float   Hdesired ;          /* desired (mean) curvature */
   int     integration_type ;  /* line minimation or momentum */
   double  momentum ;
@@ -608,6 +426,7 @@ typedef struct
   MRI          *mri_template ;
   int          which_surface ;
   float        trinarize_thresh;   // for trinarizing curvature in registration
+  int          nonmax ;  // apply nonmax suppression in reg
   int          smooth_intersections ;  // run soap bubble smoothing during surface positioning
   int          uncompress ;            // run code to remove compressions in tessellation
   double       min_dist ;
@@ -629,26 +448,34 @@ typedef struct
   MRI          *mri_dtrans ;   // distance to surface
   float        resolution ;  // at which to compute distance transforms and such
   double       target_intensity ;
+  double       stressthresh ;
+  int          explode_flag ;
+  
+  INTEGRATION_PARMS() : fp(NULL) {}
+  INTEGRATION_PARMS(FILE* file) : fp(file) {}
+  
 }
 INTEGRATION_PARMS ;
 
-extern double (*gMRISexternalGradient)(MRI_SURFACE *mris,
-                                         INTEGRATION_PARMS *parms) ;
-extern double (*gMRISexternalSSE)(MRI_SURFACE *mris,
-                                    INTEGRATION_PARMS *parms) ;
-extern double (*gMRISexternalRMS)(MRI_SURFACE *mris,
-                                    INTEGRATION_PARMS *parms) ;
-extern int (*gMRISexternalTimestep)(MRI_SURFACE *mris,
-                                      INTEGRATION_PARMS *parms) ;
-extern int (*gMRISexternalRipVertices)(MRI_SURFACE *mris,
-                                         INTEGRATION_PARMS *parms);
-extern int (*gMRISexternalClearSSEStatus)(MRI_SURFACE *mris) ;
-extern int (*gMRISexternalReduceSSEIncreasedGradients)(MRI_SURFACE *mris,
-      double pct) ;
+void INTEGRATION_PARMS_copy   (INTEGRATION_PARMS* dst, INTEGRATION_PARMS const * src);
+
+void INTEGRATION_PARMS_setFp  (INTEGRATION_PARMS* parms, FILE* file);
+void INTEGRATION_PARMS_openFp (INTEGRATION_PARMS* parms, const char* name, const char* mode);
+void INTEGRATION_PARMS_closeFp(INTEGRATION_PARMS* parms);
+void INTEGRATION_PARMS_copyFp (INTEGRATION_PARMS* dst, INTEGRATION_PARMS const * src);
+
+
+extern double (*gMRISexternalGradient)                   (MRI_SURFACE *mris, INTEGRATION_PARMS *parms) ;
+extern double (*gMRISexternalSSE)                        (MRI_SURFACE *mris, INTEGRATION_PARMS *parms) ;
+extern double (*gMRISexternalRMS)                        (MRI_SURFACE *mris, INTEGRATION_PARMS *parms) ;
+extern int    (*gMRISexternalTimestep)                   (MRI_SURFACE *mris, INTEGRATION_PARMS *parms) ;
+extern int    (*gMRISexternalRipVertices)                (MRI_SURFACE *mris, INTEGRATION_PARMS *parms);
+extern int    (*gMRISexternalClearSSEStatus)             (MRI_SURFACE *mris) ;
+extern int    (*gMRISexternalReduceSSEIncreasedGradients)(MRI_SURFACE *mris, double pct) ;
 
 // These are for backwards compatibility for when we don't want to fix
-// the vertex area. Default is to fix, but this can be changed
-// by setting to 0.
+// the vertex area. Default is to fix, but this can be changed by setting to 0.
+//
 int MRISsetFixVertexAreaValue(int value);
 int MRISgetFixVertexAreaValue(void);
 
@@ -664,7 +491,6 @@ typedef struct
 }
 VALS_VP;
 
-const char *MRISurfSrcVersion(void);
 
 /* new functions */
 int MRISvectorRegister(MRI_SURFACE *mris,
@@ -706,15 +532,15 @@ int MRISfindClosestWhiteVertex(MRI_SURFACE *mris, float x, float y,
                                float z) ;
 int MRISfindClosestVertex(MRI_SURFACE *mris,
                           float x, float y, float z,
-                          float *dmin);
-double MRIScomputeSSE(MRI_SURFACE *mris, INTEGRATION_PARMS *parms) ;
-double MRIScomputeSSEExternal(MRI_SURFACE *mris, INTEGRATION_PARMS *parms,
-                              double *ext_sse) ;
-double       MRIScomputeCorrelationError(MRI_SURFACE *mris,
-    MRI_SP *mrisp_template, int fno) ;
+                          float *dmin, int which_vertices);
+double MRISfindMinDistanceVertexWithDotCheckXYZ(MRI_SURFACE *mris, double xs, double ys, double zs, 
+						MRI *mri, double dot_dir, int *pvtxno);
+double MRISfindMinDistanceVertexWithDotCheck(MRI_SURFACE *mris, int c, int r, int s, 
+					     MRI *mri, double dot_dir, int *pvtxno);                              
+double       MRIScomputeCorrelationError(MRI_SURFACE *mris, MRI_SP *mrisp_template, int fno) ;
 int          MRISallocExtraGradients(MRI_SURFACE *mris) ;
 MRI_SURFACE  *MRISread(const char *fname) ;
-MRI_SURFACE  *MRISreadOverAlloc(const char *fname, double pct_over) ;
+MRI_SURFACE  *MRISreadOverAlloc(const char *fname, double nVFMultiplier) ;
 MRI_SURFACE  *MRISfastRead(const char *fname) ;
 int          MRISreadOriginalProperties(MRI_SURFACE *mris,const  char *sname) ;
 int          MRISreadCanonicalCoordinates(MRI_SURFACE *mris,
@@ -774,12 +600,13 @@ int          MRIScopyMarksToAnnotation(MRI_SURFACE *mris) ;
 int          MRIScopyValsToAnnotations(MRI_SURFACE *mris) ;
 int          MRIScopyValuesToImagValues(MRI_SURFACE *mris) ;
 int          MRIScopyStatsToValues(MRI_SURFACE *mris) ;
+int          MRIScopyStatsFromValues(MRI_SURFACE *mris) ;
 
 
 int MRISsetCroppedToZero(MRI_SURFACE *mris) ;
 int MRIScopyFromCropped(MRI_SURFACE *mris, int which) ;
 int MRIScopyToCropped(MRI_SURFACE *mris, int which) ;
-int MRISwriteCropped(MRI_SURFACE *mris, char *fname) ;
+int MRISwriteCropped(MRI_SURFACE *mris, const char *fname) ;
 
 int          MRIScopyValToVal2(MRI_SURFACE *mris) ;
 int          MRIScopyValToVal2Bak(MRI_SURFACE *mris) ;
@@ -793,6 +620,7 @@ int          MRISwriteWhiteNormals(MRI_SURFACE *mris, const char *fname) ;
 int          MRISwriteNormalsAscii(MRI_SURFACE *mris,const  char *fname) ;
 int          MRISreadNormals(MRI_SURFACE *mris, const char *fname) ;
 int          MRISwriteNormals(MRI_SURFACE *mris,const  char *fname) ;
+int mrisNormalFace(MRIS *mris, int fac, int n, float norm[]);
 int          MRISwritePrincipalDirection(MRI_SURFACE *mris, int dir_index, const  char *fname) ;
 int          MRISwriteVTK(MRI_SURFACE *mris,const  char *fname);
 int          MRISwriteCurvVTK(MRI_SURFACE *mris, const char *fname);
@@ -832,21 +660,10 @@ int          MRISaverageVertexPositions(MRI_SURFACE *mris, int navgs) ;
 int          MRIScomputeNormal(MRIS *mris, int which, int vno,
                                double *pnx, double *pny, double *pnz) ;
 
-MRI_SURFACE  *MRISoverAlloc(int max_vertices, int max_faces,
-                            int nvertices, int nfaces) ;
-MRI_SURFACE  *MRISalloc(int nvertices, int nfaces) ;
-int          MRISfreeDists(MRI_SURFACE *mris) ;
-int          MRISfree(MRI_SURFACE **pmris) ;
 int   MRISintegrate(MRI_SURFACE *mris, INTEGRATION_PARMS *parms, int n_avgs);
 int   mrisLogIntegrationParms(FILE *fp, MRI_SURFACE *mris,
 			      INTEGRATION_PARMS *parms) ;
-MRI_SURFACE  *MRISprojectOntoSphere(MRI_SURFACE *mris_src,
-                                    MRI_SURFACE *mris_dst, double r) ;
-MRI_SURFACE  *MRISprojectOntoEllipsoid(MRI_SURFACE *mris_src,
-                                       MRI_SURFACE *mris_dst,
-                                       float a, float b, float c) ;
-int          MRISsetNeighborhoodSize(MRI_SURFACE *mris, int nsize) ;
-int          MRISresetNeighborhoodSize(MRI_SURFACE *mris, int nsize) ;
+
 int          MRISsampleDistances(MRI_SURFACE *mris, int *nbr_count,int n_nbrs);
 int          MRISsampleAtEachDistance(MRI_SURFACE *mris, int nbhd_size,
                                       int nbrs_per_distance) ;
@@ -854,8 +671,7 @@ int          MRISscaleDistances(MRI_SURFACE *mris, float scale) ;
 MRI_SURFACE  *MRISradialProjectOntoEllipsoid(MRI_SURFACE *mris_src,
     MRI_SURFACE *mris_dst,
     float a, float b, float c);
-MRI_SURFACE  *MRISclone(MRI_SURFACE *mris_src) ;
-MRI_SURFACE  *MRIScenter(MRI_SURFACE *mris_src, MRI_SURFACE *mris_dst) ;
+    
 int MRISorigVertexToVoxel(MRI_SURFACE *,
                           VERTEX *v,
                           MRI *mri,
@@ -876,13 +692,36 @@ int          MRISworldToTalairachVoxel(MRI_SURFACE *mris, MRI *mri,
                                        double xw, double yw, double zw,
                                        double *pxv, double *pyv, double *pzv) ;
 #endif
+
 int          MRISsurfaceRASToVoxel(MRI_SURFACE *mris, MRI *mri, double r, 
                                    double a, double s, 
                                    double *px, double *py, double *pz) ;
+                                   
+// THE FOLLOWING IS NOT THREAD SAFE!
 int          MRISsurfaceRASToVoxelCached(MRI_SURFACE *mris,
                                          MRI *mri,
                                          double r, double a, double s, 
                                          double *px, double *py, double *pz) ;
+
+
+typedef struct MRIS_SurfRAS2VoxelMap {
+    MRI*    mri;                            // was held in mris->mri_sras2vox
+    MATRIX* sras2vox;                       // was held in mris->m_sras2vox
+    VECTOR * volatile v1[_MAX_FS_THREADS];  // used to avoid repeated allocations
+    VECTOR * volatile v2[_MAX_FS_THREADS];  // used to avoid repeated allocations
+} MRIS_SurfRAS2VoxelMap;
+
+void MRIS_useRAS2VoxelMap(MRIS_SurfRAS2VoxelMap * cache_nonconst,   // accesses cache thread safely
+        MRI const * const mri,
+        double r, double a, double s, double *px, double *py, double *pz);
+    
+void MRIS_loadRAS2VoxelMap(MRIS_SurfRAS2VoxelMap* cache,            // not thread safe
+        MRI const * const mri, MRI_SURFACE const * const mris);
+void MRIS_unloadRAS2VoxelMap(MRIS_SurfRAS2VoxelMap* cache);         // not thread safe
+
+MRIS_SurfRAS2VoxelMap* MRIS_makeRAS2VoxelMap(                       // not thread safe
+        MRI const * const mri, MRI_SURFACE const * const mris);
+void MRIS_freeRAS2VoxelMap(MRIS_SurfRAS2VoxelMap** const cachePtr); // not thread safe
 
 // these are the inverse of the previous two
 int          MRISsurfaceRASFromVoxel(MRI_SURFACE *mris, MRI *mri, 
@@ -930,8 +769,6 @@ MRI_SURFACE  *MRISremoveNegativeVertices(MRI_SURFACE *mris,
     int min_neg, float min_neg_pct) ;
 int          MRIScomputeFaceAreas(MRI_SURFACE *mris) ;
 int          MRISupdateEllipsoidSurface(MRI_SURFACE *mris) ;
-MRI_SURFACE  *MRISrotate(MRI_SURFACE *mris_src, MRI_SURFACE *mris_dst,
-                         float alpha, float beta, float gamma) ;
 
 MRI          *MRISwriteIntoVolume(MRI_SURFACE *mris, MRI *mri, int which) ;
 MRI_SURFACE  *MRISreadFromVolume(MRI *mri, MRI_SURFACE *mris, int which) ;
@@ -968,7 +805,8 @@ int          MRISuseNegCurvature(MRI_SURFACE *mris) ;
 int          MRISuseAreaErrors(MRI_SURFACE *mris) ;
 int          MRISuseGaussianCurvature(MRI_SURFACE *mris) ;
 int          MRISclearCurvature(MRI_SURFACE *mris) ;
-int          MRISclearDistances(MRI_SURFACE *mris) ;
+void         MRISclearCurvAndVal2(MRIS *mris) ;
+void         MRISclearD(MRIS *mris) ;
 int          MRISusePrincipalCurvature(MRI_SURFACE *mris) ;
 int          MRISuseMeanCurvature(MRI_SURFACE *mris) ;
 int          MRISuseK1Curvature(MRI_SURFACE *mris);
@@ -1004,6 +842,8 @@ double       MRIScomputeAnalyticDistanceError(MRI_SURFACE *mris, int which,
 int          MRISzeroNegativeAreas(MRI_SURFACE *mris) ;
 int          MRIScountNegativeTriangles(MRI_SURFACE *mris) ;
 int          MRIScountMarked(MRI_SURFACE *mris, int mark_threshold) ;
+int MRIScountRipped(MRIS *mris);
+int MRIScountAllMarked(MRIS *mris);
 int          MRIScountTotalNeighbors(MRI_SURFACE *mris, int nsize) ;
 int          MRISstoreMeanCurvature(MRI_SURFACE *mris) ;
 int          MRISreadTetherFile(MRI_SURFACE *mris,
@@ -1019,7 +859,9 @@ double       MRISmomentumTimeStep(MRI_SURFACE *mris,
                                   float dt,
                                   float tol,
                                   float n_averages) ;
+                                  
 int          MRISapplyGradient(MRI_SURFACE *mris, double dt) ;
+
 int          MRIScomputeNormals(MRI_SURFACE *mris) ;
 int          MRIScomputeSurfaceNormals(MRI_SURFACE *mris,
                                        int which,
@@ -1038,9 +880,30 @@ MRI_SP       *MRISPcombine(MRI_SP *mrisp, MRI_SP *mrisp_template, int fno);
 MRI_SP       *MRISPaccumulate(MRI_SP *mrisp, MRI_SP *mrisp_template, int fno);
 int          MRISPcoordinate(MRI_SP *mrisp, float x, float y, float z,
                              int *pu, int *pv) ;
+
+typedef struct MRISPfunctionValResultForAlpha {
+    double curr;
+    double next;
+} MRISPfunctionValResultForAlpha;
+
+void MRISPfunctionVal_radiusR(                                                      // returns the value that would be stored in resultsForEachFno[0] for fnoLo
+                              MRI_SURFACE_PARAMETERIZATION *mrisp,  
+                              MRISPfunctionValResultForAlpha* resultsForEachAlpha,  // must be numAlphas elements
+                              float r, float x, float y, float z, 
+                              int fno, bool getNextAlso,                            // always fills in resultsForEachAlpha.curr for fno, optionally fills in .next for fno+1
+                              const float* alphas, float numAlphas,                 // rotate x,y,z by these alphas (radians) and get the values
+                              bool trace) ;                                         // note: this rotation is around the z axis, hence z does not change
+                             
+double       MRISPfunctionValTraceable(MRI_SURFACE_PARAMETERIZATION *mrisp,
+                              float desired_radius,
+                              float x, float y, float z, int fno, bool trace) ;
 double       MRISPfunctionVal(MRI_SURFACE_PARAMETERIZATION *mrisp,
-                              MRI_SURFACE *mris,
+                              float desired_radius,
                               float x, float y, float z, int fno) ;
+                              
+MRI_SP       *MRIStoParameterizationBarycentric(MRI_SURFACE *mris, MRI_SP *mrisp, float scale, int fno) ;
+MRI_SURFACE  *MRISfromParameterizationBarycentric(MRI_SP *mrisp, MRI_SURFACE *mris, int fno) ;
+
 MRI_SP       *MRIStoParameterization(MRI_SURFACE *mris, MRI_SP *mrisp,
                                      float scale, int fno) ;
 MRI_SURFACE  *MRISfromParameterization(MRI_SP *mrisp, MRI_SURFACE *mris,
@@ -1054,6 +917,7 @@ MRI_SURFACE  *MRISgradientFromParameterization(MRI_SP*mrisp,MRI_SURFACE *mris);
 MRI_SP       *MRIScoordsToParameterization(MRI_SURFACE *mris, MRI_SP *mrisp,
                                            float scale, int which_vertices) ;
 MRI_SURFACE  *MRIScoordsFromParameterization(MRI_SP *mrisp, MRI_SURFACE *mris, int which_vertices);
+int MRIScoordsFromParameterizationBarycentric(MRIS *mris, MRI_SP *mrisp, int which_vertices);
 
 
 float         MRISPsample(MRI_SP *mrisp, float x, float y, float z, int fno) ;
@@ -1069,7 +933,7 @@ MRI_SP       *MRISPclone(MRI_SP *mrisp_src) ;
 MRI_SP       *MRISPalloc(float scale, int nfuncs) ;
 int          MRISPfree(MRI_SP **pmrisp) ;
 MRI_SP       *MRISPread(char *fname) ;
-int          MRISPwrite(MRI_SP *mrisp, char *fname) ;
+int          MRISPwrite(MRI_SP *mrisp, const char *fname) ;
 
 int          MRISwriteArea(MRI_SURFACE *mris,const  char *sname) ;
 int          MRISwriteMarked(MRI_SURFACE *mris,const  char *sname) ;
@@ -1097,11 +961,21 @@ double       MRISParea(MRI_SP *mrisp) ;
 #define PIAL_NORMALS        13
 #define WHITE_NORMALS       14
 
+// Two ways of saving and restoring the VERTEX:xyz values
+//
+// The push/pop is preferable to using VERTEX members because it uses all the entries in a cache line
+//
+typedef struct MRISsavedXYZ MRISsavedXYZ;
+MRISsavedXYZ* MRISsaveXYZ(MRIS *mris);
+void          MRISloadXYZ(MRIS *mris, MRISsavedXYZ const *  pMRISsavedXYZ);  // does set
+void          MRISfreeXYZ(MRIS *mris, MRISsavedXYZ      ** ppMRISsavedXYZ);  // does not set
+void          MRISpopXYZ (MRIS *mris, MRISsavedXYZ      ** ppMRISsavedXYZ);  // set then free
 
-int MRISsaveVertexPositions(MRI_SURFACE *mris, int which) ;
-int MRISrestoreVertexPositions(MRI_SURFACE *mris, int which) ;
-int MRISrestoreNormals(MRI_SURFACE *mris, int which) ;
-int MRISsaveNormals(MRI_SURFACE *mris, int which) ;
+int MRISsaveVertexPositions   (MRIS *mris, int which) ;
+int MRISrestoreVertexPositions(MRIS *mris, int which) ;
+
+int MRISrestoreNormals(MRIS *mris, int which) ;
+int MRISsaveNormals   (MRIS *mris, int which) ;
 
 /* constants for vertex->tethered */
 #define TETHERED_NONE           0
@@ -1154,7 +1028,6 @@ int MRISsaveNormals(MRI_SURFACE *mris, int which) ;
 #define REVERSE_Y     1
 #define REVERSE_Z     2
 
-int   MRIStranslate(MRI_SURFACE *mris, float dx, float dy, float dz) ;
 int   MRISpositionSurface(MRI_SURFACE *mris, MRI *mri_brain,
                           MRI *mri_smooth, INTEGRATION_PARMS *parms);
 int   MRISpositionSurfaces(MRI_SURFACE *mris, MRI **mri_flash,
@@ -1179,9 +1052,6 @@ int   MRISaverageVal2baks(MRI_SURFACE *mris, int navgs) ;
 int   MRISaverageVal2s(MRI_SURFACE *mris, int navgs) ;
 int   MRISaverageMarkedVals(MRI_SURFACE *mris, int navgs) ;
 int   MRISaverageMarkedStats(MRI_SURFACE *mris, int navgs) ;
-int   MRISaverageEveryOtherVertexPositions(MRI_SURFACE *mris,
-                                           int navgs,
-                                           int which) ;
 int   MRISsoapBubbleVertexPositions(MRI_SURFACE *mris, int navgs) ;
 int   MRISsoapBubbleOrigVertexPositions(MRI_SURFACE *mris, int navgs) ;
 int   MRISsoapBubbleTargetVertexPositions(MRI_SURFACE *mris, int navgs) ;
@@ -1195,7 +1065,6 @@ int   MRISmeasureCorticalThickness(MRI_SURFACE *mris, int nbhd_size,
                                    float max_thickness) ;
 #endif
 
-#include "mrishash.h"
 int  MRISmeasureThicknessFromCorrespondence(MRI_SURFACE *mris, MHT *mht, float max_thick) ;
 int MRISfindClosestOrigVertices(MRI_SURFACE *mris, int nbhd_size) ;
 int MRISfindClosestPialVerticesCanonicalCoords(MRI_SURFACE *mris, int nbhd_size) ;
@@ -1211,10 +1080,8 @@ int   MRISclearFixedValFlags(MRI_SURFACE *mris) ;
 int   MRIScopyFixedValFlagsToMarks(MRI_SURFACE *mris) ;
 int   MRISclearAnnotations(MRI_SURFACE *mris) ;
 int   MRISsetMarks(MRI_SURFACE *mris, int mark) ;
-int   MRISsequentialAverageVertexPositions(MRI_SURFACE *mris, int navgs) ;
 int   MRISreverseCoords(MRI_SURFACE *mris, int which_direction, int reverse_face_order, int which_coords) ;
 int   MRISreverse(MRI_SURFACE *mris, int which, int reverse_face_order) ;
-int   MRISreverseFaceOrder(MRIS *mris);
 int   MRISdisturbOriginalDistances(MRI_SURFACE *mris, double max_pct) ;
 double MRISstoreAnalyticDistances(MRI_SURFACE *mris, int which) ;
 int   MRISnegateValues(MRI_SURFACE *mris) ;
@@ -1242,6 +1109,13 @@ int   MRISaccumulateStandardErrorsOnSurface(MRI_SURFACE *mris,
     int total_dof,int new_dof);
 #define GRAY_WHITE     1
 #define GRAY_CSF       2
+int
+MRIScomputeBorderValuesV6(MRI_SURFACE *mris,MRI *mri_brain,
+			  MRI *mri_smooth, double inside_hi, double border_hi,
+			  double border_low, double outside_low, double outside_hi,
+			  double sigma, float max_thickness, FILE *log_fp,
+			  int which, MRI *mri_mask, double thresh,
+			  int flags,  MRI *mri_aseg,int junk1, int junk2);
 int
 MRIScomputeMaxGradBorderValuesPial(MRI_SURFACE *mris,MRI *mri_brain,
                                    MRI *mri_smooth, double sigma,
@@ -1287,7 +1161,21 @@ int   MRIScomputeBorderValues(MRI_SURFACE *mris,
                               float max_dist,
                               FILE *log_fp,
                               int white,
-                              MRI *mri_mask, double thresh, int flags, MRI *mri_aseg);
+                              MRI *mri_mask, double thresh, int flags, MRI *mri_aseg,
+                              int vno_start, int vno_stop);
+int MRIScomputePialTargetLocationsMultiModal(MRI_SURFACE *mris,
+                              MRI *mri_T2,
+                              LABEL **labels,
+                              int nlabels,
+                              int contrast_type, MRI *mri_aseg, double T2_min_inside, double T2_max_inside, 
+			      double T2_min_outside, double T2_max_outside, double max_outward_dist,
+			      double left_inside_peak_pct,
+			      double right_inside_peak_pct,
+			      double left_outside_peak_pct,
+			      double right_outside_peak_pct,
+			      double wm_weight,
+ 			      double pial_sigma,
+ 			      MRI *mri_T1);
 int  MRIScomputeWhiteSurfaceValues(MRI_SURFACE *mris, MRI *mri_brain,
                                    MRI *mri_smooth);
 int  MRIScomputeGraySurfaceValues(MRI_SURFACE *mris, MRI *mri_brain,
@@ -1296,8 +1184,7 @@ int  MRIScomputeDistanceErrors(MRI_SURFACE *mris, int nbhd_size,int max_nbrs);
 int  MRISsetAllMarks(MRI_SURFACE *mris, int mark) ;
 int  MRISscaleCurvature(MRI_SURFACE *mris, float scale) ;
 int  MRISwriteTriangularSurface(MRI_SURFACE *mris,const char *fname) ;
-int  MRISripFaces(MRI_SURFACE *mris) ;
-int  MRISremoveRipped(MRI_SURFACE *mris) ;
+
 int  MRISbuildFileName(MRI_SURFACE *mris, const char *sname, char *fname) ;
 int  MRISsmoothSurfaceNormals(MRI_SURFACE *mris, int niter) ;
 int  MRISsoapBubbleD(MRI_SURFACE *mris, int niter) ;
@@ -1310,6 +1197,7 @@ int  MRISwriteAreaErrorToValFile(MRI_SURFACE *mris,const  char *name) ;
 int  MRIStransform(MRI_SURFACE *mris, MRI *mri,
                    TRANSFORM *transform, MRI *mri_dst) ;
 int  MRISmatrixMultiply(MRIS *mris, MATRIX *M);
+int MRISltaMultiply(MRIS *surf, const LTA *lta);
 
 int  MRISanisotropicScale(MRI_SURFACE *mris, float sx, float sy, float sz) ;
 double MRIScomputeVertexSpacingStats(MRI_SURFACE *mris, double *psigma,
@@ -1323,8 +1211,13 @@ double MRIScomputeFaceAreaStats(MRI_SURFACE *mris, double *psigma,
                                 double *pmin, double *pmax);
 int MRISprintTessellationStats(MRI_SURFACE *mris, FILE *fp) ;
 int MRISprintVertexStats(MRI_SURFACE *mris, int vno, FILE *fp, int which_vertices) ;
+int MRISprintVertexInfo(FILE *fp, MRIS *surf, int vertexno);
+int MRISprintSurfQualityStats(FILE *fp, MRIS *surf);
+int MRISprettyPrintSurfQualityStats(FILE *fp, MRIS *surf);
+
 int MRISmergeIcosahedrons(MRI_SURFACE *mri_src, MRI_SURFACE *mri_dst) ;
 int MRISinverseSphericalMap(MRI_SURFACE *mris, MRI_SURFACE *mris_ico) ;
+MRI *MRIScoverSeg(MRIS *mris, MRI *mri_bin, MRI *mri_cover_seg, int surftype);
 
 ////////////////////////////////////////////////////
 /* for mris_topo_fixer */
@@ -1441,7 +1334,6 @@ typedef struct
 }
 TOPOLOGY_PARMS ;
 
-int MRIScenterSphere(MRI_SURFACE *mris);
 int MRISmarkOrientationChanges(MRI_SURFACE *mris);
 MRIS* MRISextractMainComponent(MRI_SURFACE *mris,
                                int do_not_extract,
@@ -1450,30 +1342,30 @@ MRIS* MRISextractMainComponent(MRI_SURFACE *mris,
 MRIS* MRISextractMarkedVertices(MRIS *mris);
 MRIS* MRISremoveRippedSurfaceElements(MRIS *mris);
 
-MRI_SURFACE *MRIScorrectTopology(MRI_SURFACE *mris,
-                                 MRI_SURFACE *mris_corrected,
-                                 MRI *mri,
-                                 MRI *mri_wm,
-                                 int nsmooth,
-                                 TOPOLOGY_PARMS *parms) ;
+MRI_SURFACE *MRIScorrectTopology(MRI_SURFACE *mris, MRI *mri, 
+   MRI *mri_wm, int nsmooth, TOPOLOGY_PARMS *parms, const char *defectbasename);
+
 int MRISsmoothOnSphere(MRIS* mris, int niters);
 int mrisCountIntersectingFaces(MRIS *mris, int*flist , int nfaces);
 int MRIScountNegativeFaces(MRI_SURFACE *mris) ;
 int MRISevertSurface(MRI_SURFACE *mris) ;
 int MRISripDefectiveFaces(MRI_SURFACE *mris) ;
+int MRISdefects2Seg(MRIS *surf, MRI *defects, int offset, MRI *vol);
 int MRISunrip(MRI_SURFACE *mris) ;
 int MRISdivideLongEdges(MRI_SURFACE *mris, double thresh) ;
 int MRISdivideEdges(MRI_SURFACE *mris, int npoints) ;
 int MRISremoveTriangleLinks(MRI_SURFACE *mris) ;
-int MRISsetOriginalFileName(char *orig_name) ;
+int MRISsetOriginalFileName(const char *orig_name) ;
 int MRISsetSulcFileName(const char *sulc_name) ;
-int MRISsetCurvatureName(int nth, char *name);
+int MRISsetCurvatureName(int nth, const char *name);
 int MRISprintCurvatureNames(FILE *fp);
 int MRISsetInflatedFileName(char *inflated_name) ;
 int MRISsetRegistrationSigmas(float *sigmas, int nsigmas) ;
 
 int MRISextractVertexCoords(MRI_SURFACE *mris, float *locations[3], int which_vertices) ;
 int MRISimporttVertexCoords(MRI_SURFACE *mris, float *locations[3], int which_vertices) ;
+
+float* MRISexportCurv(MRIS* mris);
 int MRISextractCurvatureVector(MRI_SURFACE *mris, float *curvs) ;
 int MRISextractCurvatureDoubleVector(MRI_SURFACE *mris, double *curvs) ;
 int MRISextractCurvatureVectorDouble(MRI_SURFACE *mris, double *curvs, int offset) ;
@@ -1484,7 +1376,8 @@ int MRISimportValVector(MRI_SURFACE *mris, float *vals) ;
 int MRISexportValVector(MRI_SURFACE *mris, float *vals) ;
 int MRISexportValVectorDouble(MRI_SURFACE *mris, double *vals, int offset) ;
 int MRISimportValFromMatrixColumn(MRI_SURFACE *mris, MATRIX *m, int col) ;
-
+int MRISimportValFromMRI(MRI_SURFACE *mris, MRI *mri, int frame) ;
+MRI *MRISreadParameterizationToSurface(MRI_SURFACE *mris, char *fname) ;
 
 /* multi-timepoint (or stc) files */
 int  MRISwriteStc(char *fname, MATRIX *m_data, float epoch_begin_lat,
@@ -1499,9 +1392,6 @@ typedef struct
   HISTOGRAM *h_in ;         // inside label histogram
   HISTOGRAM *h_out ;        // inside label histogram
   double     mag ;          // directional derivative in normal dir initially
-  int        linked_vno[MAX_LINKS] ;   // is it the same as another vertex
-  int        linked_sno[MAX_LINKS] ;   // surface that it's linked to
-  int        nlinks ;
   double     p ;            // p-value for user to fill in
 }
 VERTEX_INFO ;
@@ -1539,6 +1429,7 @@ MRI   *MRISaccentuate(MRI *mri_src,
                       MRI *mri_dst,
                       int lo_thresh,
                       int hi_thresh);
+MRI *MRISmakeBoundingVolume(MRIS *mris, double resolution);
 MRI *MRISfillInterior(MRI_SURFACE *mris,
                       double resolution,
                       MRI *mri_interior) ;
@@ -1656,19 +1547,19 @@ int  MRISreadDecimation(MRI_SURFACE *mris, char *fname) ;
 #define VERTEX_MARKS       11
 
 
-int MRISclearOrigArea(MRI_SURFACE *mris) ;
-int MRISclearOrigDistances(MRI_SURFACE *mris) ;
-int MRIScombine(MRI_SURFACE *mris_src, MRI_SURFACE *mris_total,
+int MRISclearOrigArea(MRIS *mris) ;
+void MRISclearOrigAreaAndVal2(MRIS *mris);
+int MRISclearOrigDistances(MRIS *mris) ;
+int MRIScombine(MRIS *mris_src, MRIS *mris_total,
                 MRIS_HASH_TABLE *mht, int which) ;
 int MRISsphericalCopy(MRI_SURFACE *mris_src, MRI_SURFACE *mris_total,
                       MRIS_HASH_TABLE *mht, int which) ;
 int   MRISorigAreaToCurv(MRI_SURFACE *mris) ;
 int   MRISareaToCurv(MRI_SURFACE *mris) ;
-int   MRISclear(MRI_SURFACE *mris, int which) ;
 int   MRISnormalize(MRI_SURFACE *mris, int dof, int which) ;
 
-int  MRIScopyMRI(MRIS *Surf, MRI *Src, int Frame, char *Field);
-MRI *MRIcopyMRIS(MRI *mri, MRIS *surf, int Frame, char *Field);
+int  MRIScopyMRI(MRIS *Surf, MRI *Src, int Frame, const char *Field);
+MRI *MRIcopyMRIS(MRI *mri, MRIS *surf, int Frame, const char *Field);
 
 MRI *MRISsmoothMRI(MRIS *Surf, MRI *Src, int nSmoothSteps, MRI *IncMask, MRI *Targ);
 MRI *MRISsmoothMRIFast(MRIS *Surf, MRI *Src, int nSmoothSteps, MRI *IncMask,  MRI *Targ);
@@ -1720,7 +1611,7 @@ int MRISsurf2surf(MRIS *mris, MRI *dst, LTA *lta);
 // convert all vertex positions
 int MRISsurf2surfAll(MRIS *mris, MRI *dst, LTA *lta);
 void MRISsetReadFrame(int frame);
-int MRISaddCommandLine(MRI_SURFACE *mris, char *cmdline) ;
+int MRISaddCommandLine(MRI_SURFACE *mris, const std::string& cmdline);
 int MRISgetReadFrame(void);
 int MRISabsCurvature(MRI_SURFACE *mris) ;
 int MRISabsVals(MRI_SURFACE *mris) ;
@@ -1728,6 +1619,7 @@ int MRISsmoothFrames(MRI_SURFACE *mris, MRI *mri, int navgs) ;
 int MRISwriteFrameToValues(MRI_SURFACE *mris, MRI *mri, int frame) ;
 int MRISreadFrameFromValues(MRI_SURFACE *mris, MRI *mri, int frame) ;
 MRI *MRISar1(MRIS *surf, MRI *src, MRI *mask, MRI *ar1);
+MRI *MRISfwhmFromAR1Map(MRIS *surf, MRI *mask, MRI *ar1map);
 int **MRIScrsLUT(MRIS *surf, MRI *src);
 int MRIScrsLUTFree(int **crslut);
 int MRISremoveOverlapWithSmoothing(MRI_SURFACE *mris,
@@ -1747,6 +1639,7 @@ int MRIScopyMarked2ToMarked(MRI_SURFACE *mris) ;
 int MRIScopyMarkedToMarked3(MRI_SURFACE *mris) ;
 int MRIScopyMarked3ToMarked(MRI_SURFACE *mris) ;
 int MRISexpandMarked(MRI_SURFACE *mris) ;
+int MRISnotMarked(MRI_SURFACE *mri) ;
 double MRISsmoothingArea(MRIS *mris, int vtxno, int niters);
 
 int MRISopenMarked(MRI_SURFACE *mris, int order) ;
@@ -1765,6 +1658,7 @@ MRI *MRISfbirnMask_MOF_RACing(MRIS *surf);
 
 int   MRISvalidVertices(MRI_SURFACE *mris) ;
 int MRISmarkedVertices(MRI_SURFACE *mris) ;
+int MRISmarkVerticesWithValOverThresh(MRI_SURFACE *mris, float thresh) ;
 
 int MRIScomputeClassStatistics(MRI_SURFACE *mris,
                                MRI *mri,
@@ -1784,8 +1678,7 @@ int MRISrasToVoxel(MRI_SURFACE *mris,
                    MRI *mri,
                    double xs, double ys, double zs,
                    double *pxv, double *pyv, double *pzv) ;
-int MRISrestoreRipFlags(MRI_SURFACE *mris) ;
-int MRISstoreRipFlags(MRI_SURFACE *mris) ;
+
 int MRISripMedialWall(MRI_SURFACE *mris) ;
 int MRISripMarked(MRI_SURFACE *mris) ;
 int MRISripUnmarked(MRI_SURFACE *mris) ;
@@ -1795,22 +1688,30 @@ int MRISvertexNormalInVoxelCoords(MRI_SURFACE *mris,
                                   int vno,
                                   double *pnx, double *pny, double *pnz) ;
 
+float* MRISgetVertexArray(MRIS *mris);
+float* MRISgetVertexNormalArray(MRIS *mris);
+int*   MRISgetFaceArray(MRIS *mris);
+float* MRISgetFaceNormalArray(MRIS *mris);
+MRIS*  MRISfromVerticesAndFaces(const float *vertices, int nvertices, const int *faces, int nfaces);
+
 #define MRISgetCoords(v,c,vx,vy,vz) \
+ MRISvertexCoord2XYZ_float(v,c,vx,vy,vz)
+#if 0 
  switch(c) { \
    case ORIGINAL_VERTICES:  (*vx) = (v)->origx;  (*vy) = (v)->origy;  (*vz) = (v)->origz; break; \
    case TMP_VERTICES:       (*vx) = (v)->tx;     (*vy) = (v)->ty;     (*vz) = (v)->tz; break; \
    case CANONICAL_VERTICES: (*vx) = (v)->cx;     (*vy) = (v)->cy;     (*vz) = (v)->cz; break; \
    case CURRENT_VERTICES:   (*vx) = (v)->x;      (*vy) = (v)->y;      (*vz) = (v)->z; break; \
-   case TARGET_VERTICES:   (*vx) = (v)->targx;   (*vy) = (v)->targy;  (*vz) = (v)->targz; break; \
+   case TARGET_VERTICES:    (*vx) = (v)->targx;  (*vy) = (v)->targy;  (*vz) = (v)->targz; break; \
    case INFLATED_VERTICES:  (*vx) = (v)->infx;   (*vy) = (v)->infy;   (*vz) = (v)->infz; break; \
    case FLATTENED_VERTICES: (*vx) = (v)->fx;     (*vy) = (v)->fy;     (*vz) = (v)->fz; break; \
    case PIAL_VERTICES:      (*vx) = (v)->pialx;  (*vy) = (v)->pialy;  (*vz) = (v)->pialz; break; \
-   case TMP2_VERTICES:      (*vx) = (v)->tx2;    (*vy) = (v)->ty2;    (*vz) = (v)->tz2; break; \
+   case TMP2_VERTICES:      (*vx) = (v)->t2x;    (*vy) = (v)->t2y;    (*vz) = (v)->t2z; break; \
    case WHITE_VERTICES:     (*vx) = (v)->whitex; (*vy) = (v)->whitey; (*vz) = (v)->whitez; break; \
    default: break; \
  }
+#endif
 
-#include "label.h" // LABEL
 int MRISlogOdds(MRI_SURFACE *mris, LABEL *area, double slope)  ;
 MRI_SP  *MRISPorLabel(MRI_SP *mrisp, MRI_SURFACE *mris, LABEL *area) ;
 MRI_SP  *MRISPandLabel(MRI_SP *mrisp, MRI_SURFACE *mris, LABEL *area) ;
@@ -1897,24 +1798,18 @@ int		slprints(
 );
 
 void	cprintf(
-	char*		apch_left,
+	const char*		apch_left,
 	float		af_right
 );
 
 void	cprints(
-	char*		apch_left,
-	char*		apch_right
+	const char*		apch_left,
+	const char*		apch_right
 );
 
 void	cprintd(
-	char*		apch_left,
+	const char*		apch_left,
 	int		a_right
-);
-
-short	FACES_aroundVertex_reorder(
-	MRIS*			apmris,
-    	int			avertex,
-    	VECTOR*			pv_geometricOrder
 );
 
 short	FACE_vertexIndex_find(
@@ -1935,7 +1830,7 @@ short	VECTOR_elementIndex_find(
 short	MRIS_vertexProgress_print(
     	MRIS*			apmris,
     	int			avertex,
-    	char*			apch_message
+    	const char*			apch_message
 );
 
 int	FACE_vertexIndexAtMask_find(
@@ -1951,8 +1846,8 @@ short	VERTICES_commonInFaces_find(
 
 short	FACES_Hcurvature_determineSign(
     	MRIS*			apmris,
-    	FACE*			apFACE_O,
-    	FACE*			apFACE_I
+    	int			apFACE_O_fno,
+    	int			apFACE_I_fno
 );
 
 int	VERTEX_faceAngles_determine(
@@ -1974,20 +1869,10 @@ int	MRIS_facesAtVertices_reorder(
     	MRIS*			apmris
 );
 
-int	MRIScomputeGeometricProperties(
-    	MRIS*			apmris
-);
-
-short	FACES_aroundVertex_reorder(
-    	MRIS*			apmris,
-    	int			avertex,
-    	VECTOR*			pv_geometricOrder
-);
-
 float	FACES_angleNormal_find(
     	MRIS*			apmris,
-    	FACE*			apFACE_I,
-    	FACE*			apFACE_J
+    	int			apFACE_I_fno,
+    	int			apFACE_J_fno
 );
 
 float	FACES_commonEdgeLength_find(
@@ -2084,9 +1969,25 @@ int MRISmeasureDistanceBetweenSurfaces(MRI_SURFACE *mris,
 int MRISwriteCoordsToIco(MRI_SURFACE *mris,
                          MRI_SURFACE *mris_ico,
                          int which_vertices);
-int MRISvertexCoord2XYZ_float (VERTEX * v,
-                               int which,
-                               float  *x, float  *y, float  *z);
+                  
+#define MRISvertexCoord2XYZ_float  MRISvertexCoord2XYZ
+#define MRISvertexCoord2XYZ_double MRISvertexCoord2XYZ
+int MRISvertexCoord2XYZ (VERTEX const * v, int which, float  *x, float  *y, float  *z);
+int MRISvertexCoord2XYZ (VERTEX const * v, int which, double *x, double *y, double *z);
+
+int face_barycentric_coords(
+  double V0[3], double V1[3], double V2[3],
+  double  cx,
+  double  cy,
+  double  cz,
+  double *pl1,
+  double *pl2,
+  double *pl3);
+
+int face_barycentric_coords(MRIS const * mris, int fno, int which_vertices,
+                            double cx, double cy, double cz, double *pl1, double *pl2, double *pl3) ;
+
+                               
 int MRISsampleFaceNormal(MRI_SURFACE *mris, int fno, double x, double y, double z, 
                          float *px, float *py, float *pz) ;
 int
@@ -2122,9 +2023,7 @@ int MRISrepositionSurfaceToCoordinate(MRI_SURFACE *mris, MRI *mri, int target_vn
                                       float ty, 
                                       float tz, 
                                       int nsize, double sigma, int flags)  ;
-int face_barycentric_coords(MRI_SURFACE *mris, int fno, int which_vertices,
-                            double cx, double cy, double cz, double *pl1, double *pl2, double *pl3) ;
-
+                                      
 MRI *MRIScomputeFlattenedVolume(MRI_SURFACE *mris,
                                 MRI *mri,
                                 double res,
@@ -2145,8 +2044,16 @@ MRI_SURFACE *MRISconcat(MRI_SURFACE *mris1, MRI_SURFACE *mris2, MRI_SURFACE *mri
 #define TAUBIN_INVERSE_WEIGHTS   1
 #define TAUBIN_EDGE_WEIGHTS      2
 
+int MRISvertexNormalToVoxelScaled(MRI_SURFACE *mris,
+				  VERTEX *v,
+				  MRI *mri,
+				  double *pnx, double *pny, double *pnz) ;
+int
+MRISvertexNormalToVoxel(MRI_SURFACE *mris,
+			VERTEX *v,
+			MRI *mri,
+			double *pnx, double *pny, double *pnz) ;
 MRI *MRIcomputeLaminarVolumeFractions(MRI_SURFACE *mris, double res, MRI *mri_src, MRI *mri_vfracs) ;
-int mrisFindNeighbors(MRI_SURFACE *mris);
 MRIS *MRIStessellate(MRI *mri,  int value, int all_flag);
 void TESSaddFace(MRI *mri, int imnr, int i, int j, int f, int prev_flag, int *pface_index, 
 		 tface_type *face, int *face_index_table0, int *face_index_table1);
@@ -2167,5 +2074,469 @@ MRI *MRISarN(MRIS *surf, MRI *src, MRI *mask, MRI *arN, int N);
 MRI *MRISsmoothKernel(MRIS *surf, MRI *src, MRI *mask, MRI *mrikern, MATRIX *globkern, SURFHOPLIST ***pshl, MRI *out);
 int MRISmeasureLaplaceStreamlines(MRI_SURFACE *mris, MRI *mri_laplace, MRI *mri_intensity, MRI *mri_profiles) ;
 MRI *MRISsolveLaplaceEquation(MRI_SURFACE *mris, MRI *mri, double res) ;
+int MRIScountEdges(MRIS *surf);
+int MRISedges(MRIS *surf);
+int MRIScorners(MRIS *surf);
+MRIS *MRIScopyMetadata(MRIS const * source, MRIS * target);
+int MRISfixAverageSurf7(MRIS *surf7);
+double mrisRmsValError(MRI_SURFACE *mris, MRI *mri);
 
-#endif // MRISURF_H
+// for sorting vertices using qsort
+typedef struct{
+  int vtxno;
+  float x,y,z;
+} VERTEX_SORT; 
+int CompareVertexCoords(const void *v1, const void *v2);
+// for sorting faces using qsort
+typedef struct{
+  int faceno;
+  int v0, v1, v2;
+} FACE_SORT; 
+int CompareFaceVertices(const void *vf1, const void *vf2);
+// for making the surface deterministic after decimation
+MRIS *MRISsortVertices(MRIS *mris0);
+
+
+// Create a surface
+//
+MRIS *MRISclone(MRIS const * mris_src) ;
+MRIS* MRISunion(MRIS const * mris, MRIS const * mris2);
+
+// Various basic export and import
+//
+char* MRISexportVertexRipflags(MRIS* mris) ;
+void  MRISimportVertexRipflags(MRIS* mris, const char*) ;
+
+char* MRISexportFaceRipflags(MRIS* mris) ;
+void  MRISimportFaceRipflags(MRIS* mris, const char*) ;
+
+int  MRISrestoreRipFlags(MRIS *mris) ;
+int  MRISstoreRipFlags  (MRIS *mris) ;
+
+char* MRISexportVertexRipflags(MRIS* mris) ;
+
+// mrisurf_topology needed by more
+//
+//  Vertices, like Faces, come into existence when the surface is created with a vertex and face count.
+//  Edges are implicit (MRI_EDGE is more than just an edge), and are created by telling each of the end vertices that they are neighbors.
+//  Faces get associated with three edges associated with three vertices (VERTICES_PER_FACE is 3)
+//
+bool mrisCheckVertexVertexTopologyWkr(const char* file, int line, MRIS const * mris, bool always);
+bool mrisCheckVertexFaceTopologyWkr  (const char* file, int line, MRIS const * mris, bool always);
+inline static bool returnTrue() { return true; };
+#define mrisCheckVertexFaceTopology(_MRIS)   returnTrue() // mrisCheckVertexFaceTopologyWkr  (__FILE__,__LINE__,_MRIS,false)
+#define mrisCheckVertexVertexTopology(_MRIS) returnTrue() // mrisCheckVertexVertexTopologyWkr(__FILE__,__LINE__,_MRIS,false)
+
+//  Vertices
+//
+int mrisVertexVSize                 (MRIS const * mris, int vno);
+static int  mrisVertexNeighborIndex (MRIS const * mris, int vno1, int vno2);
+static bool mrisVerticesAreNeighbors(MRIS const * mris, int vno1, int vno2);
+
+void mrisAddEdge   (MRIS* mris, int vno1, int vno2);
+void mrisRemoveEdge(MRIS *mris, int vno1, int vno2);
+
+
+// Neighbourhoods
+//
+void mrisVertexReplacingNeighbors(MRIS * mris, int vno, int vnum);
+void mrisForgetNeighborhoods     (MRIS * mris);
+
+int  MRISresetNeighborhoodSize      (MRIS *mris, int nsize) ;
+void MRISsetNeighborhoodSize        (MRIS *mris, int nsize) ;   // Doesn't compute distances if not already present
+void MRISsetNeighborhoodSizeAndDist (MRIS *mris, int nsize) ;   // Always computes distances
+
+int  MRISfindNeighborsAtVertex      (MRIS *mris, int vno, int nlinks, size_t listCapacity, int* vlist, int* hops);
+    // sets vlist[*] to the neighboring vno
+    // sets hops [*] to -1 for [vno] and the number of hops for all entries returned in the vlist
+    // returns the number of neighbors
+
+
+// Inputs to the metric properties
+//
+//      It is a good idea to call MRISfreeDistsButNotOrig(MRIS *mris);
+//      before calling these, to invalidate the now-wrong distances
+//
+//      However there are places where the old consequences of xyz are used to compute the new values of xyz
+//      so this tactic isn't always usable - especially when the previous normals are being used to move the xyz
+//
+void MRISsetXYZwkr(MRIS *mris, int vno, float x, float y, float z, const char * file, int line, bool* laterTime);
+#define MRISsetXYZ(_MRIS,_VNO, _X,_Y,_Z) { \
+    static bool _laterTime; \
+    MRISsetXYZwkr((_MRIS),(_VNO),(_X),(_Y),(_Z), __FILE__, __LINE__, &_laterTime); \
+  }
+    //
+    // VERTEX:xyz can be set directly, one at a time, or via one of the following operations
+    // that iterate across many vertices.
+    //
+    // This results in all the derived properties (distances, face areas, normals, angles, ...) being invalid
+    // until recomputed.  However the use of invalid properties is not yet detected.
+
+void MRIScopyXYZ(MRIS *mris, MRIS* mris_from);
+
+void MRISmemalignNFloats(size_t n, float** ppx, float** ppy, float** ppz);
+void MRISexportXYZ(MRIS *mris,       float*       * ppx,       float*       * ppy,       float*       * ppz);
+void MRISimportXYZ(MRIS *mris, const float* const    px, const float* const    py, const float* const   ppz);
+    //
+    // By importing and exporting into three arrays, it is possible to use h/w vector instructions more effectively.
+    // 
+    // the three vectors are malloced and filled in with the xyz values
+    //       the vectors are cache-block aligned so loops processing them can be very efficient
+    //
+    // the xyz values are set from the vectors, the vectors are NOT freed by this call
+    // the mris [xyz] lo,hi,ctr are set during import
+
+
+// Deforming the MRIS
+//
+void mrisFindMiddleOfGray(MRIS *mris);
+
+
+void MRISscaleThenTranslate (MRIS *mris, double sx, double sy, double sz, double dx, double dy, double dz);   // new = old * s + d
+
+
+int  MRIStranslate (MRIS *mris, float dx, float dy, float dz);
+void MRISmoveOrigin(MRIS *mris, float x0, float y0, float z0);
+int  MRISscale     (MRIS *mris, double scale);
+
+void MRISblendXYZandTXYZ(MRIS* mris, float xyzScale, float txyzScale);          // x = x*xyzScale + tx*txyzScale  etc.
+void MRISblendXYZandNXYZ(MRIS* mris,                 float nxyzScale);          // x = x          + nx*nxyzScale  etc.
+
+
+void MRIStranslate_along_vertex_dxdydz(MRIS*    dst, MRIS*    src, double dt);  // dst.x = src.x + src.dx*dt, etc.
+void MRIStranslate_along_vertex_dxdydz(MRIS_MP* dst, MRIS_MP* src, double dt);
+
+MRIS* MRISrotate(MRIS* mris_src, MRIS* mris_dst, float alpha, float beta, float gamma) ;
+
+void mrisDisturbVertices(MRIS *mris, double amount);
+
+MRIS* MRIScenter(MRIS *mris_src, MRIS *mris_dst) ;
+void  MRIScenterSphere(MRIS *mris);
+void  MRISrecenter(MRIS *mris, int which_move, int which_target) ;
+
+MRIS* MRISprojectOntoTranslatedSphere(MRIS* mris_src, MRIS* mris_dst, 
+    double r,
+    double x0, double y0, double z0);
+
+
+// xyz's immediate consequences
+//
+int mrisComputeSurfaceDimensions(MRIS *mris);
+    // xyz lo/hi  and the cxyz
+
+// dist and dist_orig
+//      can be freed at any time
+// dist is created by calls to MRISsetNeighborhoodSizeAndDist
+// dist_orig must be explicitly created
+//
+void MRISfreeDistsButNotOrig(MRIS*    mris);
+void MRISfreeDistsButNotOrig(MRISPV*  mris);
+void MRISfreeDistsButNotOrig(MRIS_MP* mris);
+
+void MRISmakeDistOrig (MRIS *mris, int vno);                        // makes it the same size as the current VERTEX.dist
+void MRISgrowDistOrig (MRIS *mris, int vno, int minimumCapacity);   // same size as current or bigger
+void MRISfreeDistOrigs(MRIS *mris);
+
+int mrisComputeVertexDistances(MRIS *mris);
+
+//  Faces
+//
+void mrisSetVertexFaceIndex(MRIS *mris, int vno, int fno);
+    // is being used outside mrissurf_topology but shouldn't be
+    
+void setFaceAttachmentDeferred(MRIS* mris, bool to);                                // for performance reasons, defer adding them; or do all the deferred ones
+int mrisCountAttachedFaces(MRIS* mris, int vno0, int vno1);
+bool mrisCanAttachFaceToVertices(MRIS* mris, int vno1, int vno2, int vno3);         // returns whether such a face would be legal
+void mrisAttachFaceToEdges   (MRIS* mris, int fno, int vno1, int vno2, int vno3);   // edges must already exist
+void mrisAttachFaceToVertices(MRIS* mris, int fno, int vno1, int vno2, int vno3);   // adds any needed edges
+
+void  MRISflipFaceAroundV1(MRIS *mris, int fno);
+void  MRISreverseFaceOrder(MRIS *mris);
+
+
+// Adding missing parts of the topology representation
+//
+void mrisCompleteTopology(MRIS *mris);
+    //
+    // The best way to build a tesselation is to simply create all the vertices then ...
+    //      setFaceAttachmentDeferred(true)
+    //      lots of calls to mrisAttachFaceToVertices()  
+    //      setFaceAttachmentDeferred(false)
+    //
+    // However lots of existing code just adds a misc set of edges and faces by mechanisms
+    // then they call this function to add any missing edges and to calculate the mris->avg_nbrs
+
+
+// Vertices and Faces can have their ripflag set
+//
+void MRISsetRipInFacesWithRippedVertices(MRIS* mris);
+
+
+// Removing 
+//
+void MRISrenumberRemovingRippedFacesAndVertices(MRIS *mris);
+
+void MRISremoveRipped(MRIS *mris);
+    // cleans up the neighbours etc. but does not renumber
+
+
+// Marked
+//
+bool mrisAnyVertexOfFaceMarked(MRIS *mris, int fno);
+
+
+// Vals
+//
+void MRISsetOriginalXYZfromXYZ(MRIS *mris);
+    //
+    // This includes copying the MRIS::status to the MRIS::origxyz_status
+    
+void MRISsetOriginalXYZwkr(MRIS *mris, int vno, float x, float y, float z, const char* file, int line, bool* laterTime);
+#define MRISsetOriginalXYZ(_MRIS,_VNO,_X,_Y,_Z) \
+    { static bool laterTime; MRISsetOriginalXYZwkr((_MRIS),(_VNO),(_X),(_Y),(_Z),__FILE__,__LINE__, &laterTime); }
+    //
+    // The values being set need to match the MRIS::origxyz_status
+
+int mrisComputeOriginalVertexDistances(MRIS *mris);
+void mrisComputeOriginalVertexDistancesIfNecessaryWkr(MRIS *mris, bool* laterTime, const char* file, int line);
+#define mrisComputeOriginalVertexDistancesIfNecessary(_MRIS) \
+  { static bool laterTime;  \
+    mrisComputeOriginalVertexDistancesIfNecessaryWkr((_MRIS), &laterTime, __FILE__, __LINE__); \
+  }
+
+void MRIScheckForNans(MRIS *mris);
+void MRIScheckIsPolyhedron(MRIS *mris, const char* file, int line);
+
+int StuffVertexCoords(MRIS *surf, int vertexno, double p[3]);
+int StuffFaceCoords(MRIS *surf, int faceno, int cornerno, double p[3]);
+double MinDistToTriangleBF(double p1[3], double p2[3], double p3[3], double ptest[3], double pmin[3], double dL);
+int MRISdistanceBetweenSurfacesExact(MRIS *surf1, MRIS *surf2);
+int MRISnorm2Pointset(MRIS *mris, int vno, double dstart, double dend, double dstep, FILE *fp);
+MRI *MRISextractNormalMask(MRIS *surf, int vno, double dstart, double dend, double dstep, double UpsampleFactor);
+MRI *MRISsampleMRINorm(MRIS *mris, MRI *mri, double dstart, double dend, double dstep, double sigma, MRI *nsamp);
+int MatlabPlotFace(FILE *fp, MRIS *surf, int faceno, char color, double NormLen);
+int MatlabPlotVertex(FILE *fp, MRIS *surf, int vno, char color, double NormLen);
+int MatlabPlotVertexNbhd(FILE *fp, MRIS *surf, int cvno, int nhops, char color, double NormLen);
+  
+int MRISshrinkFaceCorner(MRIS *surf, int faceno, int nthv, double dist, double *vx, double *vy, double *vz);
+double MRISshrinkFace(MRIS *surf, int faceno, double newareafraction);
+int MRISshrinkFaces(MRIS *surf, double zthresh, int nmax);
+
+
+#if defined(COMPILING_MRISURF_TOPOLOGY) || defined(COMPILING_MRISURF_TOPOLOGY_FRIEND_CHECKED)
+#define CONST_EXCEPT_MRISURF_TOPOLOGY 
+#else
+#define CONST_EXCEPT_MRISURF_TOPOLOGY const
+#endif
+
+#if defined(COMPILING_MRISURF_METRIC_PROPERTIES) || defined(COMPILING_MRISURF_METRIC_PROPERTIES_FRIEND)
+#define CONST_EXCEPT_MRISURF_METRIC_PROPERTIES 
+#else
+#define CONST_EXCEPT_MRISURF_METRIC_PROPERTIES const
+#endif
+    //
+    // Used to find and control where various fields are written
+
+
+struct face_topology_type_ {    // not used much yet
+  vertices_per_face_t v;        // and being overtaken by events...
+};
+
+//  The types needed to store and describe the various properties of the mesh
+//  that are independent of the representation of the mesh are found in
+//  mrisurf_aaa.h
+//
+//  We have several ways to code against our triangular mesh, so that we can
+//  support several representations and restricted access to the properties.
+//
+//  Abstractly, each of these representations defines a Surface as a set of 
+//  Faces and Vertices, each with a set of properties that can be read and
+//  perhaps written.
+//
+//  The traditional way is to have the code fully understand the representation
+//  so the code says
+//      MRIS*   mris;
+//      VERTEX* v = &mris->vertices[vno];
+//      if (v->ripflag) ...
+//  but this style has three problems
+//      1) The data is not stored in a memory-traffic efficient manner
+//      2) The code has to know the data structures
+//      3) The code has access to all the data members at all times,
+//              rather than having read and write access only to those
+//              fields that it should currently have access to
+//
+//  This is mrisurf_FACE_VERTEX_MRIS*.h
+//
+//  Most of the code uses this representation directly
+
+#include "mrisurf_FACE_VERTEX_MRIS_generated.h"
+
+//  To provide restricted access to these structures, using code that
+//  can be redirected to other representations, we have a set of namespaces
+//  which each define Surface, Vertex, and Face classes, and which provide
+//  member functions to get and set the various properties of those
+//  entities regardless of how they are represented.  These classes are
+//  effectively pointers rather than structs - Vertex replaces VERTEX*.
+//
+//  After the includes in the .cpp file, specify the namespace that describes
+//  what it is allowed to access
+//
+//      using namespace SurfaceFromMRIS::Topology;
+//  
+//  The Surface Face Vertex classes replace the traditional pointers,
+//  so you write
+//
+//      Vertex v2 = v1.v(3);
+//      if (v2.ripflag()) continue;
+//      v2.set_marked(true);
+//
+//  instead of the traditional
+//
+//      VERTEX* v2 = &mris->vertices[v1->v[3]];
+//      if (v2->ripflag) continue;
+//      v2->marked = true;
+//
+#include "mrisurf_SurfaceFromMRIS_generated.h"
+
+
+// An alternative representation has the various fields of the VERTEX and FACE above
+// spread out into one array per field.
+//
+// This representation exploits the two facts that (a) we almost never want to
+// deal with all the fields of a VERTEX as a whole, and (b) that we tend to use
+// the vertices and faces with nearby indexs are about the same time, so that
+// the cachelines brought into and written out of the cache will now be fully
+// used.
+//
+// Almost none of the code uses this representation directly,
+// but obviously the constructors and destructors must.
+//
+//  class MRISPV is the MRIS with its Properties stored in Vectors
+//
+#include "mrisurf_MRIS_PropertiesInVectors.h"
+
+// Similar Surface Face Vertex classes and namespaces are generated to access
+// this representation, so that template classes and functions can be created
+// which can be instantiated to get high speed access to this representation
+// also, yet having common source.
+//
+#include "mrisurf_SurfaceFromMRISPV_generated.h"
+
+
+// Static function implementations
+//
+#if 0
+static CONST_EXCEPT_MRISURF_TOPOLOGY short* pVERTEXvnum(VERTEX_TOPOLOGY CONST_EXCEPT_MRISURF_TOPOLOGY * v, int i) {
+  switch (i) {
+  case 1: return &v->vnum;
+  case 2: return &v->v2num;
+  case 3: return &v->v3num;
+  default: cheapAssert(false); return NULL;
+  }    
+}
+#endif
+
+short        modVnum  (MRIS const *mris, int vno, short add, bool clearFirst = false);
+static short setVnum  (MRIS const *mris, int vno, short to)     { return modVnum(mris,vno, to,true );     }
+static short clearVnum(MRIS const *mris, int vno)               { return modVnum(mris,vno,  0,true );     }
+static short vnumAdd  (MRIS const *mris, int vno, short add=+1) { return modVnum(mris,vno,add,false)-add; }
+static short addVnum  (MRIS const *mris, int vno, short add=-1) { return modVnum(mris,vno,add,false);     }
+
+static short VERTEXvnum(VERTEX_TOPOLOGY const * v, int i) {
+  switch (i) {
+  case 1: return v->vnum;
+  case 2: return v->v2num;
+  case 3: return v->v3num;
+  default: cheapAssert(false); return 0;
+  }    
+}
+
+static int mrisVertexNeighborIndex(MRIS const *mris, int vno1, int vno2) {
+  cheapAssert(0 <= vno1 && vno1 < mris->nvertices);
+  VERTEX_TOPOLOGY const * const vt = &mris->vertices_topology[vno1];
+  if (!vt->v) return -1;    // happens in invalid surfaces 
+  int n;
+  for (n = 0; n < vt->vnum; n++) {
+    if (vt->v[n] == vno2) return n;
+  }
+  return -1;
+}
+
+
+static bool mrisVerticesAreNeighbors(MRIS const * const mris, int const vno1, int const vno2)
+{
+  return 0 <= mrisVertexNeighborIndex(mris, vno1, vno2);
+}
+
+int MRISripMidline(MRI_SURFACE *mris, MRI *mri_aseg, MRI *mri_brain, const char *hemi, int which, int fix_mtl);
+int MRIcomputeLabelNormal(MRI *mri_aseg, int x0, int y0, int z0,int label, int whalf, double *pnx, double *pny,
+			  double *pnz, int use_abs);
+int MRISfindExpansionRegions(MRI_SURFACE *mris);
+int MRISwriteField(MRIS *surf, const char **fields, int nfields, const char *outname);
+
+/**
+  class AutoDetGWStats. This class houses functions used to compute
+  intensity limits used in MRIScomputeBorderValues() when placing both
+  the white and pial surfaces on a T1w image. This is functionality
+  that used to be in mris_make_surfaces.cpp. It has mostly been copied
+  over, which is why it is not very well organized. 
+ */
+class AutoDetGWStats
+{
+public:
+  MRIS *mrisAD, *mrisADlh, *mrisADrh; // surface used to autodetect stats
+  MRI *mri_T1, *mri_wm;
+  const char *wm_name = "wm" ;
+  const char *orig_name = "orig";
+  //In mris_make_surfaces, "brain" is the default, but brain.finalsurfs is always used in recon-all
+  const char *T1_name = "brain.finalsurfs"; 
+  int hemicode = 0; //1=left, 2=right
+  int use_mode = 1;
+  float variablesigma = 3.0;
+  double std_scale = 1.0;
+  float adWHITE_MATTER_MEAN = 110;
+  float MAX_WHITE = 120;
+  float MAX_BORDER_WHITE = 105;
+  float MIN_BORDER_WHITE = 85;
+  float MIN_GRAY_AT_WHITE_BORDER = 70;
+  float MAX_GRAY = 95;
+  float MID_GRAY;
+  float MIN_GRAY_AT_CSF_BORDER = 40;
+  float MAX_GRAY_AT_CSF_BORDER = 75;
+  float MIN_CSF = 10;
+  float adMAX_CSF = 40;
+  float white_mean, white_std, gray_mean, gray_std ;
+  float white_mode, gray_mode ;
+  float lh_white_mode, lh_gray_mode, rh_white_mode, rh_gray_mode ;
+  float max_border_white = MAX_BORDER_WHITE;
+  float min_border_white = MIN_BORDER_WHITE;
+  float min_gray_at_white_border = MIN_GRAY_AT_WHITE_BORDER;
+  float max_gray = MAX_GRAY;
+  float max_gray_at_csf_border = MAX_GRAY_AT_CSF_BORDER;
+  float min_gray_at_csf_border = MIN_GRAY_AT_CSF_BORDER;
+  float min_csf = MIN_CSF;
+  float max_csf = adMAX_CSF ;
+  double max_gray_scale = 0.0 ;  
+  double max_scale_down = .2;
+  double white_inside_hi;
+  double white_border_hi;
+  double white_border_low;
+  double white_border_low_factor=1;
+  double white_outside_low;
+  double white_outside_hi;
+  double pial_inside_hi;
+  double pial_border_hi;
+  double pial_border_low;
+  double pial_outside_low;
+  double pial_outside_hi;
+  // These indicate whether there was a manual override.
+  int  max_border_white_set = 0, min_border_white_set = 0, min_gray_at_white_border_set = 0,
+    max_gray_set = 0,max_gray_at_csf_border_set = 0, min_gray_at_csf_border_set = 0,
+    min_csf_set = 0, max_csf_set = 0 ;
+  int AutoDetectStats(const char *subject, const char *hemistr);
+  int AutoDetectStats(void);
+  int Write(char *fname);
+  int Print(FILE *fp);
+  int Read(char *fname); // from file name
+  int ReadStream(FILE *fp); // read from stream
+};

@@ -18,22 +18,20 @@ As a validation, it will use the gcam to morph again the volumes
 #include <iostream>
 #include <string>
 
-// BOOST
-#include <boost/program_options.hpp>
-
-// OWN
-#include "simple_timer.h"
 #include "morph.h"
 
 // FS
-extern "C"
-{
+#include "argparse.h"
+#include "timer.h"
+
 #include "mri.h"
 #include "gcamorph.h"
-};
+
+
+#include "exportGcam.help.xml.h"
 
 // required by FS
-char* Progname;
+const char* Progname;
 
 struct IoParams
 {
@@ -48,7 +46,7 @@ struct IoParams
   unsigned int zlibBuffer;
   int doTest;
 
-  void parse(int ac, char* av[]);
+  void parse(int ac, char** av);
 };
 
 char* getChar(const std::string& str)
@@ -70,9 +68,9 @@ void initOctree2( gmp::VolumeMorph& morph)
 }
 
 int
-main(int ac, char* av[])
+main(int ac, char** av)
 {
-  SimpleTimer timer;
+  Timer timer;
 
   IoParams params;
   try
@@ -85,7 +83,7 @@ main(int ac, char* av[])
     << e.what() << "\n Type --help for command info! " << std::endl;
     exit(1);
   }
-  std::cout << " using bounding box " 
+  std::cout << " using bounding box: " 
             << (params.useBoundingBox?"yes":"no") << std::endl;
 
   // load fixed
@@ -105,7 +103,7 @@ main(int ac, char* av[])
   }
 
   // load morph
-  boost::shared_ptr<gmp::VolumeMorph> pmorph(new gmp::VolumeMorph);
+  std::shared_ptr<gmp::VolumeMorph> pmorph(new gmp::VolumeMorph);
   try
   {
     pmorph->load( params.strMorph.c_str(), params.zlibBuffer );
@@ -131,28 +129,28 @@ main(int ac, char* av[])
   if (params.doTest)
   {
     std::cout << " Writing out some tests.\n";
-    SimpleTimer t1;
+    Timer t1;
     VOL_GEOM vgLike;
     initVolGeom(&vgLike);
     getVolGeom(pmorph->m_template, &vgLike);
 
-    MRI* mriOut  = pmorph->apply_transforms(mriMoving,
-                                            true,
-                                            &vgLike);
-    std::cout << " morph completed in " << t1.elapsed_min() << " minutes\n";
-    MRIwrite(mriOut, "tmpout1.mgz");
+    MRI* mriOut  = pmorph->apply_transforms(mriMoving, true, &vgLike);
+    std::cout << " morph completed in " << t1.minutes() << " minutes\n";
+    //MRIwrite(mriOut, "tmpout1.mgz");
     MRIfree(&mriOut);
   }
   // produce the GCAM
+  printf("#VMPC# exportGcam:pre-export VmPeak  %d\n",GetVmPeak());
   GCA_MORPH* gcam = pmorph->exportGcam(mriMoving,
                                        params.useBoundingBox,
                                        params.threshold);
-
+  printf("#VMPC# exportGcam:pre-write VmPeak  %d\n",GetVmPeak());
   GCAMwrite( gcam,
              const_cast<char*>
              (params.strGcam.c_str()));
 
   // test the presence of the gc structures -- LZ: WHAT DOES THAT DO???
+  printf("#VMPC# exportGcam:pre-norm VmPeak  %d\n",GetVmPeak());
   GCAMnormalizeIntensities(gcam, mriFixed);
 
   if ( params.doTest && (!params.useBoundingBox || 1) )
@@ -170,14 +168,15 @@ main(int ac, char* av[])
     << " height = " << mriOut->height
     << " depth = " << mriOut->depth
     << " nframes = " << mriOut->nframes << std::endl;
-    MRIwrite(mriOut, "tmpout2.mgz");
+    //MRIwrite(mriOut, "tmpout2.mgz");
   }
   else
   {
     std::cout << " skipping tmpout2.mgz - using bounding box\n";
   }
 
-  std::cout << " Export performed in " << timer.elapsed_min() << " minutes \n";
+  std::cout << " Export performed in " << timer.minutes() << " minutes \n";
+  printf("#VMPC# exportGcam VmPeak  %d\n",GetVmPeak());
 
   return 0;
 }
@@ -185,43 +184,43 @@ main(int ac, char* av[])
 //---------------------------
 
 void
-IoParams::parse(int ac,
-                char* av[])
+IoParams::parse(int ac, char** av)
 {
-  zlibBuffer = 5;
+  ArgumentParser parser;
+  // required
+  parser.addArgument("--fixed", 1, String, true);
+  parser.addArgument("--moving", 1, String, true);
+  parser.addArgument("--morph", 1, String, true);
+  parser.addArgument("--out_gcam", 1, String, true);
+  // optional
+  parser.addArgument("--zlib_buffer", 1, Int);
+  parser.addArgument("--bbox_threshold", 1, Int);
+  parser.addArgument("--interp", 1, String);
+  parser.addArgument("--test");
+  // help text
+  parser.addHelp(exportGcam_help_xml, exportGcam_help_xml_len);
+  parser.parse(ac, av);
 
-  namespace po = boost::program_options;
+  strFixed = parser.retrieve<std::string>("fixed");
+  strMoving = parser.retrieve<std::string>("moving");
+  strMorph = parser.retrieve<std::string>("morph");
+  strGcam = parser.retrieve<std::string>("out_gcam");
+  strInterp = parser.retrieve<std::string>("interp");
 
-  po::options_description desc("Allowed Options");
-
-  desc.add_options()
-  ("help", " produce help message ")
-  ("test",  po::value(&doTest), " write out test files to verify the equivalence of tm3d and gcam morphs")
-  ("fixed", po::value(&strFixed), " fixed volume ")
-  ("moving", po::value(&strMoving), " moving volume ")
-  ("morph", po::value(&strMorph), " morph ")
-  ("interp", po::value(&strInterp), " interpolation (linear [default], nearest)")
-  ("zlib_buffer", po::value(&zlibBuffer), " multiplication factor for the zlib stuff")
-  ("out_gcam", po::value(&strGcam), " output gcam format")
-  ("bbox_threshold", po::value(&threshold), " threshold for bounding box (if absent, not BBox will be used")
-  ;
-
-  po::variables_map vm;
-  po::store( po::parse_command_line(ac,av,desc) , vm);
-  po::notify(vm);
-
-  if ( vm.count("help") )
-  {
-    std::cout << desc << std::endl;
-    exit(0);
+  doTest = 0;
+  if (parser.exists("test")) {
+    doTest = 1;
   }
 
-  if ( strFixed.empty() )
-    throw std::logic_error(" No fixed volume");
-  if ( strMoving.empty() )
-    throw std::logic_error(" No moving volume");
-  if ( strMorph.empty() )
-    throw std::logic_error(" No morph ");
+  zlibBuffer = 5;
+  if (parser.exists("zlib_buffer")) {
+    zlibBuffer = parser.retrieve<int>("zlib_buffer");
+  }
 
-  useBoundingBox = vm.count("bbox_threshold");
+  threshold = 0;
+  useBoundingBox = false;
+  if (parser.exists("bbox_threshold")) {
+    threshold = parser.retrieve<int>("bbox_threshold");
+    useBoundingBox = true;
+  }
 }

@@ -1,5 +1,4 @@
 /**
- * @file  mri_rbvpvc.c
  * @brief Peforms RBV Partial volume correction
  *
  * Implementation of Region-based Voxelwise (RBV) partial volume correction
@@ -8,10 +7,6 @@
  */
 /*
  * Original Author: Douglas N. Greve
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2014/08/17 17:47:57 $
- *    $Revision: 1.44 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -33,7 +28,6 @@
 */
 
 
-// $Id: mri_rbvpvc.c,v 1.44 2014/08/17 17:47:57 greve Exp $
 
 /*
   BEGINHELP
@@ -84,7 +78,7 @@
 #include "gtm.h"
 
 #ifdef _OPENMP
-#include <omp.h>
+#include "romp_support.h"
 #endif
 
 static int  parse_commandline(int argc, char **argv);
@@ -96,8 +90,7 @@ static void print_version(void) ;
 static void dump_options(FILE *fp);
 int main(int argc, char *argv[]) ;
 
-static char vcid[] = "$Id: mri_rbvpvc.c,v 1.44 2014/08/17 17:47:57 greve Exp $";
-char *Progname = NULL;
+const char *Progname = NULL;
 char *cmdline, cwd[2000];
 int debug=0;
 int checkoptsonly=0;
@@ -243,12 +236,12 @@ int main(int argc, char *argv[])
 {
   int nargs,err,c,f,nTT,n;
   double vrfmin,vrfmax,vrfmean;
-  struct timeb  mytimer, timer;
+  Timer mytimer, timer;
   MRI *gtmres;
   FILE *logfp,*fp;
   char *stem;
 
-  nargs = handle_version_option (argc, argv, vcid, "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "mri_rbvpvc");
   if (nargs && argc - nargs == 1) exit (0);
   argc -= nargs;
   cmdline = argv2cmdline(argc,argv);
@@ -300,7 +293,7 @@ int main(int argc, char *argv[])
   else logfp = stdout;
   dump_options(logfp);
 
-  TimerStart(&timer);
+  timer.reset();
 
   stem = IDstemFromName(SegVolFile);
   sprintf(tmpstr,"%s.lta",stem);
@@ -315,7 +308,7 @@ int main(int argc, char *argv[])
   }
 
   // Load seg
-  TimerStart(&mytimer);
+  mytimer.reset();
   printf("Loading seg for gtm %s\n",SegVolFile);fflush(stdout);
   fprintf(logfp,"Loading seg for gtm %s\n",SegVolFile);fflush(logfp);
   gtm->anatseg = MRIread(SegVolFile);
@@ -379,8 +372,8 @@ int main(int argc, char *argv[])
   }
   else gtm->mask=NULL; // should already be NULL
 
-  printf("Data load time %4.1f sec\n",TimerStop(&mytimer)/1000.0);
-  fprintf(logfp,"Data load time %4.1f sec\n",TimerStop(&mytimer)/1000.0);
+  printf("Data load time %4.1f sec\n",mytimer.seconds());
+  fprintf(logfp,"Data load time %4.1f sec\n",mytimer.seconds());
   fflush(stdout);fflush(logfp);
 
   GTMsetNMask(gtm);
@@ -417,11 +410,11 @@ int main(int argc, char *argv[])
 
   // Create GTM matrix
   printf("Building GTM ... ");fflush(stdout); 
-  TimerStart(&mytimer) ;
+  mytimer.reset() ;
   GTMbuildX(gtm);
-  printf(" %4.1f sec\n",TimerStop(&mytimer)/1000.0);fflush(stdout);
+  printf(" %4.1f sec\n",mytimer.seconds());fflush(stdout);
   if(gtm->X==NULL) exit(1);
-  fprintf(logfp,"GTM-Build-time %4.1f sec\n",TimerStop(&mytimer)/1000.0);fflush(logfp);
+  fprintf(logfp,"GTM-Build-time %4.1f sec\n",mytimer.seconds());fflush(logfp);
 
   // Create GTM seg in pet space (used by GTMsynth)
   gtm->gtmseg = MRIsegPVF2Seg(gtm->segpvf, gtm->segidlist, gtm->nsegs, 
@@ -438,7 +431,7 @@ int main(int argc, char *argv[])
     MRIwrite(gtm->ysynth,SynthFile);
     if(SynthOnly){
       printf("SynthOnly requested so exiting now\n");
-      printf("mri_rbvpvc-runtime %5.2f min\n",TimerStop(&timer)/60000.0);
+      printf("mri_rbvpvc-runtime %5.2f min\n",timer.minutes());
       exit(0);
     }
     MRIfree(&gtm->yvol);
@@ -451,10 +444,10 @@ int main(int argc, char *argv[])
     MatrixWriteTxt(Xfile, gtm->X);
   }
   printf("Solving ...\n");
-  TimerStart(&mytimer) ; 
+  mytimer.reset() ; 
   GTMsolve(gtm);
-  printf("Time to solve %4.1f sec\n",TimerStop(&mytimer)/1000.0);fflush(stdout);
-  fprintf(logfp,"GTM-Solve-Time %4.1f sec\n",TimerStop(&mytimer)/1000.0);fflush(logfp);
+  printf("Time to solve %4.1f sec\n",mytimer.seconds());fflush(stdout);
+  fprintf(logfp,"GTM-Solve-Time %4.1f sec\n",mytimer.seconds());fflush(logfp);
 
   sprintf(tmpstr,"%s/hrseg2pet.lta",OutDir);
   LTAwrite(gtm->seg2pet,tmpstr);
@@ -506,16 +499,16 @@ int main(int argc, char *argv[])
   fprintf(logfp,"XtX  Condition     %8.3f \n",gtm->XtXcond);
 
   if(yhat0File || yhatFile){
-    printf("Synthesizing ... ");fflush(stdout); TimerStart(&mytimer) ;
+    printf("Synthesizing ... ");fflush(stdout); mytimer.reset() ;
     GTMsynth(gtm);
-    printf(" %4.1f sec\n",TimerStop(&mytimer)/1000.0);fflush(stdout);
+    printf(" %4.1f sec\n",mytimer.seconds());fflush(stdout);
   }
   if(yhat0File) MRIwrite(gtm->ysynth,yhat0File);
 
   if(yhatFile){
-    printf("Smoothing synthesized ... ");fflush(stdout); TimerStart(&mytimer) ;
+    printf("Smoothing synthesized ... ");fflush(stdout); mytimer.reset() ;
     GTMsmoothSynth(gtm);
-    printf(" %4.1f sec\n",TimerStop(&mytimer)/1000.0);fflush(stdout);
+    printf(" %4.1f sec\n",mytimer.seconds());fflush(stdout);
     MRIwrite(gtm->ysynthsm,yhatFile);
   }
 
@@ -531,7 +524,7 @@ int main(int argc, char *argv[])
   fclose(fp);
   if(RVarOnly){
     printf("rvar-only requested so exiting now\n");
-    printf("mri_rbvpvc-runtime %5.2f min\n",TimerStop(&timer)/60000.0);
+    printf("mri_rbvpvc-runtime %5.2f min\n",timer.minutes());
     exit(0);
   }
 
@@ -627,20 +620,20 @@ int main(int argc, char *argv[])
     RBVVolFile = strcpyalloc(tmpstr);
     printf("Computing RBV\n");
     GTMrbv(gtm);
-    printf("Writing output to %s ...",RBVVolFile);fflush(stdout); TimerStart(&mytimer) ;
+    printf("Writing output to %s ...",RBVVolFile);fflush(stdout); mytimer.reset() ;
     err = MRIwrite(gtm->rbv,RBVVolFile);
     if(err){
       printf("ERROR: writing to %s\n",RBVVolFile);
       exit(1);
     }
-    printf(" %4.1f sec\n",TimerStop(&mytimer)/1000.0);fflush(stdout);
+    printf(" %4.1f sec\n",mytimer.seconds());fflush(stdout);
   }
 
 
-  fprintf(logfp,"mri_rbvpvc-runtime %5.2f min\n",TimerStop(&timer)/60000.0);
+  fprintf(logfp,"mri_rbvpvc-runtime %5.2f min\n",timer.minutes());
   fprintf(logfp,"mri_rbvpvc done\n");
   fclose(logfp);
-  printf("mri_rbvpvc-runtime %5.2f min\n",TimerStop(&timer)/60000.0);
+  printf("mri_rbvpvc-runtime %5.2f min\n",timer.minutes());
   printf("mri_rbvpvc done\n");
   return(0);
   exit(0);
@@ -889,7 +882,7 @@ static void print_usage(void) {
   printf("   --help      print out information on how to use this program\n");
   printf("   --version   print out version and exit\n");
   printf("\n");
-  printf("%s\n", vcid) ;
+  std::cout << getVersion() << std::endl;
   printf("\n");
 }
 /*---------------------------------------------------------------*/
@@ -900,7 +893,7 @@ static void print_help(void) {
 }
 /*---------------------------------------------------------------*/
 static void print_version(void) {
-  printf("%s\n", vcid) ;
+  std::cout << getVersion() << std::endl;
   exit(1) ;
 }
 /*---------------------------------------------------------------*/
@@ -975,7 +968,7 @@ static void check_options(void)
 /*---------------------------------------------------------------*/
 static void dump_options(FILE *fp) {
   fprintf(fp,"\n");
-  fprintf(fp,"%s\n",vcid);
+  fprintf(fp,"%s\n", getVersion().c_str());
   fprintf(fp,"setenv SUBJECTS_DIR %s\n",SUBJECTS_DIR);
   fprintf(fp,"cd %s\n",cwd);
   fprintf(fp,"%s\n",cmdline);
@@ -1186,8 +1179,8 @@ double GTMOPTcost(GTMOPT *gtmopt)
   MRI *hitvol;
   int nTT;
   LTA *ltaArray[2];
-  struct timeb timer;
-  TimerStart(&timer);
+  Timer timer;
+  timer.reset();
 
   //printf("GTMOPTcost() USF=%d\n",gtmopt->USF);
   nTT = gtmopt->gtm->ctGTMSeg->ctabTissueType->nentries-1;
@@ -1205,16 +1198,14 @@ double GTMOPTcost(GTMOPT *gtmopt)
   gtmopt->gtm->gtmseg = 
     MRIaseg2volMU(gtmopt->gtmsegmu, gtmopt->gtmsegmu2pet, 0.0, &hitvol, -1, gtmopt->gtm->ctGTMSeg);
   if(gtmopt->gtm->gtmseg == NULL) return(-1);
-  //printf("  aseg2vol t = %g\n",TimerStop(&timer)/1000.0);fflush(stdout);
   LTAfree(&gtmopt->gtmsegmu2pet);
 
   GTMsegidlist(gtmopt->gtm);
   GTMbuildX(gtm);
-  //printf("  buildX t = %g\n",TimerStop(&timer)/1000.0);fflush(stdout);
   if(gtm->X==NULL) return(-1);
   GTMsolve(gtm);
 
-  gtmopt->tLastEval = TimerStop(&timer)/1000.0;
+  gtmopt->tLastEval = timer.seconds();
   return(0);
 }
 /*------------------------------------------------------------------*/
@@ -1288,15 +1279,15 @@ int GTMnPad(GTM *gtm)
 /*------------------------------------------------------------------*/
 int GTMsolve(GTM *gtm)
 {
-  struct timeb timer;
+  Timer timer;
   int n,f;
   double sum;
 
   gtm->Xt = MatrixTranspose(gtm->X,gtm->Xt);
   printf("Computing  XtX ... ");fflush(stdout);
-  TimerStart(&timer);
+  timer.reset();
   gtm->XtX = MatrixMtM(gtm->X,gtm->XtX);
-  printf(" %4.1f sec\n",TimerStop(&timer)/1000.0);fflush(stdout);
+  printf(" %4.1f sec\n", timer.seconds());fflush(stdout);
 
   gtm->iXtX = MatrixInverse(gtm->XtX,gtm->iXtX);
   if(gtm->iXtX==NULL){
@@ -1427,7 +1418,7 @@ int GTMrbv(GTM *gtm)
   int c,r,s,f;
   double val,v,vhat0,vhat;
   LTA *lta;
-  struct timeb mytimer;
+  Timer mytimer;
 
 
   if(gtm->rbv)      MRIfree(&gtm->rbv);
@@ -1435,7 +1426,7 @@ int GTMrbv(GTM *gtm)
   if(gtm->yhatseg)  MRIfree(&gtm->yhatseg);
   if(gtm->yseg)     MRIfree(&gtm->yseg);
 
-  TimerStart(&mytimer) ; 
+  mytimer.reset() ; 
 
   printf("   Synthesizing in seg space... ");fflush(stdout);
   gtm->yhat0seg = GTMsegSynth(gtm);
@@ -1443,7 +1434,7 @@ int GTMrbv(GTM *gtm)
     printf("ERROR: GTMrbv() could not synthesize yhat0seg\n");
     return(1);
   }
-  printf("  t = %4.2f min\n",TimerStop(&mytimer)/60000.0);fflush(stdout);
+  printf("  t = %4.2f min\n",mytimer.minutes());fflush(stdout);
 
 
   printf("   Smoothing in seg space... ");fflush(stdout);
@@ -1452,7 +1443,7 @@ int GTMrbv(GTM *gtm)
     printf("ERROR: GTMrbv() could not smooth yhatseg\n");
     return(1);
   }
-  printf("  t = %4.2f min\n",TimerStop(&mytimer)/60000.0);fflush(stdout);
+  printf("  t = %4.2f min\n",mytimer.minutes());fflush(stdout);
 
   printf("   Sampling input to seg space... ");fflush(stdout);
   gtm->yseg = MRIallocSequence(gtm->anatseg->width, gtm->anatseg->height, gtm->anatseg->depth,
@@ -1463,7 +1454,7 @@ int GTMrbv(GTM *gtm)
   }
   MRIcopyHeader(gtm->anatseg,gtm->yseg);
   MRIcopyPulseParameters(gtm->yvol,gtm->yseg);
-  printf("  t = %4.2f min\n",TimerStop(&mytimer)/60000.0);fflush(stdout);
+  printf("  t = %4.2f min\n",mytimer.minutes());fflush(stdout);
 
   lta = LTAcopy(gtm->seg2pet,NULL);
   LTAchangeType(lta,LINEAR_VOX_TO_VOX);
@@ -1496,7 +1487,7 @@ int GTMrbv(GTM *gtm)
   MRIfree(&gtm->yseg);
   MRIfree(&gtm->yhat0seg);
   MRIfree(&gtm->yhatseg);
-  printf("  t = %4.2f min\n",TimerStop(&mytimer)/60000.0);fflush(stdout);
+  printf("  t = %4.2f min\n",mytimer.minutes());fflush(stdout);
 
   if(gtm->mask_rbv_to_brain){
     printf("   masking RBV to brain\n");
@@ -1523,7 +1514,7 @@ int GTMrbv(GTM *gtm)
     MRIfree(&gtm->rbv);
     gtm->rbv = rbvtmp;
   }
-  printf("  RBV took %4.2f min\n",TimerStop(&mytimer)/60000.0);
+  printf("  RBV took %4.2f min\n",mytimer.minutes());
 
   return(0);
 }
@@ -1612,9 +1603,9 @@ int MinPowell()
   GTMOPT *gtmopt = gtmopt_powell;
   float *pPowel, **xi;
   int    r, c, n,dof;
-  struct timeb timer;
+  Timer timer;
 
-  TimerStart(&timer);
+  timer.reset();
   dof = gtmopt->nparams;
 
   printf("Init Powel Params dof = %d\n",dof);
@@ -1637,10 +1628,10 @@ int MinPowell()
   OpenPowell2(pPowel, xi, dof, gtmopt->ftol, gtmopt->linmintol, gtmopt->nitersmax, 
 	      &gtmopt->niters, &gtmopt->fret, compute_powell_cost);
   printf("Powell done niters = %d\n",gtmopt->niters);
-  printf("OptTimeSec %4.1f sec\n",TimerStop(&timer)/1000.0);
-  printf("OptTimeMin %5.2f sec\n",(TimerStop(&timer)/1000.0)/60);
+  printf("OptTimeSec %4.1f sec\n",timer.seconds());
+  printf("OptTimeMin %5.2f min\n",timer.minutes());
   printf("nEvals %d\n",gtmopt->nCostEvaluations);
-  printf("EvalTimeSec %4.1f sec\n",(TimerStop(&timer)/1000.0)/gtmopt->nCostEvaluations);
+  printf("EvalTimeSec %4.1f sec\n", timer.seconds() / gtmopt->nCostEvaluations);
   fflush(stdout);
   for(n=0; n < dof; n++) gtmopt->params[n] = pPowel[n+1];
   gtmopt->anat2pet = LTAcopy(gtmopt->anat2pet0,gtmopt->anat2pet);
@@ -1940,7 +1931,7 @@ int dngtest(LTA *aseg2vol)
 int GTMbuildX(GTM *gtm)
 {
   int nthseg;
-  struct timeb timer;
+  Timer timer;
 
   if(gtm->X==NULL || gtm->X->rows != gtm->nmask || gtm->X->cols != gtm->nsegs){
     if(gtm->X) MatrixFree(&gtm->X);
@@ -1960,7 +1951,7 @@ int GTMbuildX(GTM *gtm)
   }
   gtm->dof = gtm->X->rows - gtm->X->cols;
 
-  TimerStart(&timer);
+  timer.reset();
   printf("computing seg pvf \n");fflush(stdout);
   gtm->segpvf = MRIseg2SegPVF(gtm->anatseg, gtm->seg2pet, 0.5, gtm->segidlist, 
 			       gtm->nsegs, gtm->mask, 0, NULL, gtm->segpvf);
@@ -1968,14 +1959,13 @@ int GTMbuildX(GTM *gtm)
 
 
   #ifdef _OPENMP
-  #pragma omp parallel for 
+  #pragma omp parallel for if_ROMP(experimental) 
   #endif
   for(nthseg = 0; nthseg < gtm->nsegs; nthseg++){
     int segid,k,c,r,s;
     MRI *nthsegpvf=NULL,*nthsegpvfbb=NULL,*nthsegpvfbbsm=NULL;
     MRI_REGION *region;
     segid = gtm->segidlist[nthseg];
-    //printf("nthseg = %d, %d %6.4f\n",nthseg,segid,TimerStop(&timer)/1000.0);fflush(stdout);
     nthsegpvf = fMRIframe(gtm->segpvf,nthseg,NULL);
     region      = REGIONgetBoundingBox(nthsegpvf,gtm->nPad);
     nthsegpvfbb = MRIextractRegion(nthsegpvf, NULL, region) ;
@@ -2003,7 +1993,7 @@ int GTMbuildX(GTM *gtm)
     MRIfree(&nthsegpvfbb);
     MRIfree(&nthsegpvfbbsm);
   }
-  printf(" Build time %6.4f\n",TimerStop(&timer)/1000.0);fflush(stdout);
+  printf(" Build time %6.4f\n", timer.seconds());fflush(stdout);
 
   return(0);
 

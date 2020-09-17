@@ -1,13 +1,15 @@
 
 // STL
-#include <cmath>
+#include <math.h>
 
 // ITK
+#define export // obsolete feature "export template" used in these header files
 #include <itkPointSetToImageFilter.h>
 #include <itkNeighborhoodConnectedImageFilter.h>
 #include <itkImageRegionIteratorWithIndex.h>
 #include <itkImageRegionIterator.h>
 #include <itkImageRegionConstIterator.h>
+#undef export
 
 // VTK
 #include <vtkPointData.h>
@@ -86,7 +88,7 @@ Preprocessor::convertInputToPointSet()
         pt[uiDim] = inputData->GetPoints()->GetPoint(*idPtr)[uiDim];
       pointSet->SetPoint(ptSetCounter++, pt);
       fBuf = (float)counter;
-      floatArray->SetTupleValue( *idPtr, &fBuf);
+      floatArray->SetTuple( *idPtr, &fBuf);
     } // next ui
     ++counter;
   }
@@ -130,7 +132,7 @@ Preprocessor::convertInputToPointSet()
         cit != distMap.end(); ++cit )
     {
       fBuf = cit->second / fLength;
-      floatArray->SetTupleValue( cit->first, &fBuf );
+      floatArray->SetTuple( cit->first, &fBuf );
     }
 
     counter++;
@@ -158,11 +160,9 @@ Preprocessor::convertPointSetToBinaryImage(PointSetPointer pointSet)
   BoundingBoxType::Pointer boundingBox = BoundingBoxType::New();
   boundingBox->SetPoints(pointSet->GetPoints());
   boundingBox->ComputeBoundingBox();
-  BoundingBoxType::BoundsArrayType bbox
-    = boundingBox->GetBounds();
+  BoundingBoxType::BoundsArrayType bbox = boundingBox->GetBounds();
 #else
-  PointSetType::BoundingBoxType::BoundsArrayType bbox
-    = pointSet->GetBoundingBox()->GetBounds();
+  PointSetType::BoundingBoxType::BoundsArrayType bbox = pointSet->GetBoundingBox()->GetBounds();
 #endif
 
   // use it to infer the resolution

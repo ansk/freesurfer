@@ -1,15 +1,4 @@
-/**
- * @file  mris_compute_thickness.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2016/02/27 20:38:29 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -67,7 +56,6 @@ double3d ;
 
 static float max_thickness = 10.0 ;
 
-static char vcid[] = "$Id: mris_compute_thickness.cpp,v 1.5 2016/02/27 20:38:29 nicks Exp $";
 
 int main(int argc, char *argv[]) ;
 
@@ -93,7 +81,7 @@ char *middle_name = NULL; /* compute a middle surface */
 
 int tflag = 0; /* if 1, using vertex-to-face distance to measure thickness */
 
-char *Progname ;
+const char *Progname ;
 
 MRI *ComputeThickness(MRI_SURFACE *Mesh1, MRI_SURFACE *Mesh2, MRI *mri_res);
 
@@ -116,8 +104,7 @@ int main(int argc, char *argv[])
   VERTEX *vertex;
   FACE *face;
 
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option (argc, argv, "$Id: mris_compute_thickness.cpp,v 1.5 2016/02/27 20:38:29 nicks Exp $", "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "mris_compute_thickness");
   if (nargs && argc - nargs == 1)
     exit (0);
   argc -= nargs;
@@ -311,7 +298,7 @@ static void print_usage(void)
   fprintf(stdout, "Options:\n");
   fprintf(stdout, "   -trg_type  %%s output format\n");
   fprintf(stdout, "\n");
-  printf("%s\n", vcid) ;
+  std::cout << getVersion() << std::endl;
   printf("\n");
 
 }
@@ -342,7 +329,7 @@ static void print_help(void)
 /* --------------------------------------------- */
 static void print_version(void)
 {
-  fprintf(stdout, "%s\n", vcid) ;
+  fprintf(stdout, "%s\n", getVersion().c_str()) ;
   exit(1) ;
 }
 

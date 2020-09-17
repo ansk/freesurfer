@@ -1,14 +1,5 @@
-/**
- * @file  LayerPropertyTrack.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2011/12/05 20:03:33 $
- *    $Revision: 1.6 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -33,7 +24,7 @@ class LayerPropertyTrack : public LayerProperty
 public:
   LayerPropertyTrack(QObject* parent = 0);
 
-  enum ColorCode { Directional = 0, SolidColor };
+  enum ColorCode { Directional = 0, SolidColor, EmbeddedColor };
   enum DirectionScheme { EndPoints = 0, MidSegment, EverySegment };
   enum DirectionMapping  { RGB = 0, RBG, GRB, GBR, BRG, BGR };
   enum RenderRep { Line = 0, Tube };
@@ -73,12 +64,18 @@ public:
     return m_nNumberOfSides;
   }
 
+  double GetOpacity()
+  {
+    return m_dOpacity;
+  }
+
 signals:
   void ColorCodeChanged(int);
   void DirectionSchemeChanged(int);
   void DirectionMappingChanged(int);
   void SolidColorChanged(const QColor& c);
   void RenderRepChanged();
+  void OpacityChanged(double);
 
 public slots:
   void SetColorCode(int nCode);
@@ -88,6 +85,7 @@ public slots:
   void SetRenderRep(int nVal);
   void SetTubeRadius(double dVal);
   void SetNumberOfSides(int nVal);
+  void SetOpacity(double val);
 
 private:
   int     m_nColorCode;
@@ -96,6 +94,7 @@ private:
   int     m_nRenderRep;
   double  m_dTubeRadius;
   int     m_nNumberOfSides;
+  double  m_dOpacity;
   QColor  m_color;
 };
 

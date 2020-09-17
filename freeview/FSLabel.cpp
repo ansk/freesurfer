@@ -1,14 +1,9 @@
 /**
- * @file  FSLabel.h
  * @brief Base label class that takes care of I/O and data conversion.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/08 21:01:00 $
- *    $Revision: 1.45 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -24,7 +19,6 @@
  */
 
 
-#include "FSLabel.h"
 #include <stdexcept>
 #include "vtkImageData.h"
 #include "FSVolume.h"
@@ -34,18 +28,22 @@
 #include <QTextStream>
 #include <vector>
 #include <QDebug>
+#include "FSLabel.h"
+#include "vtkImageThreshold.h"
 
 using namespace std;
 
 FSLabel::FSLabel( QObject* parent, FSVolume* mri_template ) : QObject( parent ),
-  m_label( NULL )
+  m_label( NULL ), m_l2s( NULL ), m_mri_template(mri_template)
 {
   m_dStatsRange[0] = 0;
   m_dStatsRange[1] = 1.0;
   m_label = ::LabelAlloc( 100, NULL, (char*)"" );
-  m_label->coords = LABEL_COORDS_TKREG_RAS;
   if (mri_template)
-    ::LabelInit(m_label, mri_template->GetMRI(), NULL, 0);
+  {
+    ::LabelInit(m_label, mri_template->GetMRI(), NULL, CURRENT_VERTICES);
+    LabelToScannerRAS(m_label, mri_template->GetMRI(), m_label);
+  }
 }
 
 FSLabel::~FSLabel()
@@ -58,6 +56,10 @@ FSLabel::~FSLabel()
     ::LabelFree(&l);
   foreach (LABEL* l, m_redoBuffer)
     ::LabelFree(&l);
+  if (m_l2s)
+  {
+    L2Sfree(&m_l2s);
+  }
 }
 
 bool FSLabel::LabelRead( const QString& filename )
@@ -72,6 +74,11 @@ bool FSLabel::LabelRead( const QString& filename )
   {
     cerr << "LabelRead failed\n";
     return false;
+  }
+  if (m_label->coords != LABEL_COORDS_SCANNER_RAS && m_mri_template)
+  {
+    LabelToScannerRAS(m_label, m_mri_template->GetMRI(), m_label);
+    cout << "Label coordinates are converted to scanner ras for " << qPrintable(filename) << endl;
   }
 
   if (m_label && m_label->n_points > 0)
@@ -139,7 +146,7 @@ void FSLabel::UpdateLabelFromImage( vtkImageData* rasImage,
         pos[2] = ( i/(dim[0]*dim[1]) ) * vs[2] + orig[2];
         ref_vol->TargetToRAS( pos, pos );
         ref_vol->RASToNativeRAS( pos, pos );
-        ref_vol->NativeRASToTkReg( pos, pos );
+//        ref_vol->NativeRASToTkReg( pos, pos );
         values.push_back( pos[0] );
         values.push_back( pos[1] );
         values.push_back( pos[2] );
@@ -162,7 +169,7 @@ void FSLabel::UpdateLabelFromImage( vtkImageData* rasImage,
         pos[2] = ( i/(dim[0]*dim[1]) ) * vs[2] + orig[2];
         ref_vol->TargetToRAS( pos, pos );
         ref_vol->RASToNativeRAS( pos, pos );
-        ref_vol->NativeRASToTkReg( pos, pos );
+//        ref_vol->NativeRASToTkReg( pos, pos );
         values.push_back( pos[0] );
         values.push_back( pos[1] );
         values.push_back( pos[2] );
@@ -185,7 +192,7 @@ void FSLabel::UpdateLabelFromImage( vtkImageData* rasImage,
         pos[2] = ( i/(dim[0]*dim[1]) ) * vs[2] + orig[2];
         ref_vol->TargetToRAS( pos, pos );
         ref_vol->RASToNativeRAS( pos, pos );
-        ref_vol->NativeRASToTkReg( pos, pos );
+//        ref_vol->NativeRASToTkReg( pos, pos );
         values.push_back( pos[0] );
         values.push_back( pos[1] );
         values.push_back( pos[2] );
@@ -208,7 +215,7 @@ void FSLabel::UpdateLabelFromImage( vtkImageData* rasImage,
         pos[2] = ( i/(dim[0]*dim[1]) ) * vs[2] + orig[2];
         ref_vol->TargetToRAS( pos, pos );
         ref_vol->RASToNativeRAS( pos, pos );
-        ref_vol->NativeRASToTkReg( pos, pos );
+//        ref_vol->NativeRASToTkReg( pos, pos );
         values.push_back( pos[0] );
         values.push_back( pos[1] );
         values.push_back( pos[2] );
@@ -231,7 +238,7 @@ void FSLabel::UpdateLabelFromImage( vtkImageData* rasImage,
         pos[2] = ( i/(dim[0]*dim[1]) ) * vs[2] + orig[2];
         ref_vol->TargetToRAS( pos, pos );
         ref_vol->RASToNativeRAS( pos, pos );
-        ref_vol->NativeRASToTkReg( pos, pos );
+//        ref_vol->NativeRASToTkReg( pos, pos );
         values.push_back( pos[0] );
         values.push_back( pos[1] );
         values.push_back( pos[2] );
@@ -245,7 +252,7 @@ void FSLabel::UpdateLabelFromImage( vtkImageData* rasImage,
 
   m_label = ::LabelAlloc( nCount, NULL, (char*)"" );
   m_label->n_points = nCount;
-  m_label->coords = LABEL_COORDS_TKREG_RAS;
+//  m_label->coords = LABEL_COORDS_TKREG_RAS;
   for ( int i = 0; i < nCount; i++ )
   {
     m_label->lv[i].x = values[i*4];
@@ -267,7 +274,24 @@ void FSLabel::FillUnassignedVertices(FSSurface* surf, FSVolume* mri_template, in
 
 void FSLabel::Initialize(FSVolume* ref_vol, FSSurface* surf, int coords)
 {
-  ::LabelInit(m_label, ref_vol->GetMRI(), surf?surf->GetMRIS():NULL, coords);
+  /*
+  if (surf)
+  {
+    if (m_l2s)
+      L2Sfree(&m_l2s);
+    m_l2s = L2Salloc(1, "n/a");
+    m_l2s->mri_template = ref_vol->GetMRI();
+    m_l2s->surfs[0] = surf->GetMRIS();
+    m_l2s->dmax = 3;
+    m_l2s->hashres = 16;
+    m_l2s->vol2surf = NULL;
+    m_l2s->nhopsmax = 10;
+    L2Sinit(m_l2s);
+    L2SimportLabel(m_l2s, m_label, 1);
+  }
+  else
+  */
+    ::LabelInit(m_label, ref_vol->GetMRI(), surf?surf->GetMRIS():NULL, coords);
 }
 
 void FSLabel::UpdateRASImage( vtkImageData* rasImage, FSVolume* ref_vol, double threshold )
@@ -296,6 +320,7 @@ void FSLabel::UpdateRASImage( vtkImageData* rasImage, FSVolume* ref_vol, double 
     }
   }
 
+  QString error_strg;
   for ( int i = 0; i < m_label->n_points; i++ )
   {
     if (!m_label->lv[i].deleted && (m_label->lv[i].stat >= threshold || m_dStatsRange[0] <= 0))
@@ -321,10 +346,13 @@ void FSLabel::UpdateRASImage( vtkImageData* rasImage, FSVolume* ref_vol, double 
       }
       else
       {
-        cerr << "Label coordinate out of bound";
+        error_strg = "Label coordinate out of bound";
       }
     }
   }
+  if (!error_strg.isEmpty())
+    cerr << qPrintable(error_strg) << endl;
+
   rasImage->Modified();
 }
 
@@ -376,12 +404,15 @@ void FSLabel::GetStatsRange(double *range)
   range[1] = m_dStatsRange[1];
 }
 
-void FSLabel::EditVoxel(int nx, int ny, int nz, bool bAdd, int* vertices, int* pnum)
+void FSLabel::EditVoxel(int nx, int ny, int nz, int coords, bool bAdd, int* vertices, int* pnum)
 {
   if (bAdd)
-    ::LabelAddVoxel(m_label, nx, ny, nz, WHITE_VERTICES, vertices, pnum);
+    ::LabelAddVoxel(m_label, nx, ny, nz, coords, vertices, pnum);
   else
     ::LabelDeleteVoxel(m_label, nx, ny, nz, vertices, pnum);
+//  Q_UNUSED(vertices);
+//  Q_UNUSED(pnum);
+//  qDebug() << L2SaddPoint(m_l2s, nx, ny, nz, bAdd?1:0);
 }
 
 bool FSLabel::HasUndo()
@@ -417,6 +448,17 @@ void FSLabel::Redo()
     ::LabelFree(&l);
     m_redoBuffer.removeLast();
     m_undoBuffer << l2;
+  }
+}
+
+void FSLabel::Clear()
+{
+  LabelFree(&m_label);
+  m_label = ::LabelAlloc( 100, NULL, (char*)"" );
+  if (m_mri_template)
+  {
+    ::LabelInit(m_label, m_mri_template->GetMRI(), NULL, CURRENT_VERTICES);
+    ::LabelToScannerRAS(m_label, m_mri_template->GetMRI(), m_label);
   }
 }
 

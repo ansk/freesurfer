@@ -1,5 +1,4 @@
 /**
- * @file MultiRegistration.h
  * @brief A class to handle registration of multiple files
  *
  * MultiRegistration is a class to compute a robust registration
@@ -12,10 +11,6 @@
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2015/12/15 21:20:46 $
- *    $Revision: 1.25 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -39,17 +34,10 @@
 
 #include "RegRobust.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "matrix.h"
 #include "mri.h"
 #include "mriBSpline.h"
 #include "transform.h"
-#ifdef __cplusplus
-}
-#endif
 
 /** \class MultiRegistration
  * \brief Class for co-registering several images (same modality)
@@ -129,6 +117,8 @@ public:
       const std::string & mean);
   //! Write all mapped movables
   bool writeWarps(const std::vector<std::string>& nwarps);
+  //! Write header-adjusted movables.
+  bool writeMapMovHdr(const std::vector<std::string>& mapmovhdr);
   //! Write all intensity scales
   bool writeIntensities(const std::vector<std::string>& nintens);
   //! Write all weights

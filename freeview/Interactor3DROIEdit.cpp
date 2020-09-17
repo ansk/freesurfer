@@ -1,14 +1,9 @@
 /**
- * @file  Interactor3DROIEdit.cpp
  * @brief Interactor for navigating in 3D render view.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/12/11 16:04:03 $
- *    $Revision: 1.2 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -78,7 +73,7 @@ bool Interactor3DROIEdit::ProcessMouseMoveEvent( QMouseEvent* event, RenderView*
           LayerSurface* surf = roi->GetMappedSurface();
           if (surf)
           {
-            QList<int> seeds;
+            QVector<int> seeds;
             seeds << m_nPrevVertex << nvo;
             roi->EditVertex(surf->FindPath(seeds), !(event->modifiers() & Qt::ShiftModifier));
           }

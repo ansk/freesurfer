@@ -1,15 +1,10 @@
 /**
- * @file  MyMRI.h
  * @brief A class for MRI utils as used for registration
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2014/11/15 04:02:30 $
- *    $Revision: 1.18 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,20 +24,16 @@
 #ifndef MyMRI_H
 #define MyMRI_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "matrix.h"
 #include "mri.h"
-#ifdef __cplusplus
-}
-#endif
 
 #include <utility>
 #include <string>
 #include <vector>
+
+#define export // obsolete feature 'export template' used in these headers 
 #include <vnl/vnl_matrix_fixed.h>
+#undef export
 
 /** \class MyMRI
  * \brief Static class for some MRI operations
@@ -104,6 +95,12 @@ public:
   
   //! Get background intensity (vox val with largest level set)
   static float getBackground(MRI * mri);
+  
+  //! Set outside value in header to the max value of image
+  static void setMaxOutsideVal(MRI * mri);
+  
+  //! Change type to UCHAR
+  static MRI* setTypeUCHAR(MRI * mri);
 
 private:
   static MRI * getPrefilter();

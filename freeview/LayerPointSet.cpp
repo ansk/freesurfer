@@ -1,14 +1,9 @@
 /**
- * @file  LayerPointSet.cpp
  * @brief Layer data object for MRI surface.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: zkaufman $
- *    $Date: 2016/07/28 14:31:41 $
- *    $Revision: 1.12 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -51,6 +46,7 @@
 #include <QDebug>
 #include <QFile>
 #include <QJsonDocument>
+#include "MyUtils.h"
 
 #define NUM_OF_SIDES  10  // must be even number!
 
@@ -84,7 +80,7 @@ LayerPointSet::LayerPointSet( LayerMRI* ref, int nType, QObject* parent ) : Laye
 
   m_mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
 
-  if ( nType == LayerPropertyPointSet::ControlPoint )
+  if ( nType == LayerPropertyPointSet::ControlPoint || nType == LayerPropertyPointSet::Enhanced)
   {
     GetProperty()->SetShowSpline( false );
     GetProperty()->SetRadius ( 0.5 );
@@ -122,6 +118,11 @@ bool LayerPointSet::LoadFromFile( const QString& filename )
       if ( !m_pointSetSource->ReadAsControlPoints( filename ) )
       {
         return false;
+      }
+      else
+      {
+        cout << "Warning: Coordinate of control points has been converted to realRAS in "
+             << qPrintable(filename) << " and will be saved in that way."<< endl << endl;
       }
     }
     else
@@ -239,7 +240,7 @@ bool LayerPointSet::SaveAsJson(const QString& filename)
     // convert to tkreg coords
     ref_vol->TargetToRAS( p.pt, pos );
     ref_vol->RASToNativeRAS( pos, pos );
-    ref_vol->NativeRASToTkReg(pos, pos);
+//    ref_vol->NativeRASToTkReg(pos, pos);
     QVariantMap coords;
     coords["x"] = pos[0];
     coords["y"] = pos[1];
@@ -252,7 +253,7 @@ bool LayerPointSet::SaveAsJson(const QString& filename)
 
   m_mapEnhancedData["points"] = list;
   m_mapEnhancedData["data_type"] = "fs_pointset";
-  m_mapEnhancedData["vox2ras"] = "tkreg";
+  m_mapEnhancedData["vox2ras"] = "scanner_ras";
 
   QFile file( filename );
   if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
@@ -403,7 +404,7 @@ void LayerPointSet::RebuildActors( bool bRebuild3D )
       sphere->SetRadius( radius * scale );
       sphere->SetThetaResolution( 10 );
       sphere->SetPhiResolution( 20 );
-      append->AddInput( sphere->GetOutput() );
+      append->AddInputConnection( sphere->GetOutputPort() );
       sphere->Delete();
     }
     pts->InsertNextPoint( m_points[i].pt );
@@ -412,11 +413,15 @@ void LayerPointSet::RebuildActors( bool bRebuild3D )
   vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
   if ( m_points.size() > 0 && radius > 0 )
   {
-    mapper->SetInput( append->GetOutput() );
+    mapper->SetInputConnection( append->GetOutputPort() );
   }
   else
   {
+#if VTK_MAJOR_VERSION > 5
+    mapper->SetInputData( vtkSmartPointer<vtkPolyData>::New() );
+#else
     mapper->SetInput( vtkSmartPointer<vtkPolyData>::New() );
+#endif
   }
   m_actorBalls->SetMapper( mapper );
   mapper->Delete();
@@ -435,9 +440,13 @@ void LayerPointSet::RebuildActors( bool bRebuild3D )
     }
     if ( m_points.size() > 1 )
     {
-      polydata->Update();
+    //  polydata->Update();
       UpdateScalars(polydata);
+#if VTK_MAJOR_VERSION > 5
+      spline->SetInputData( polydata );
+#else
       spline->SetInput( polydata );
+#endif
       vtkTubeFilter* tube = vtkTubeFilter::New();
       tube->SetNumberOfSides( NUM_OF_SIDES );
       tube->SetInputConnection( spline->GetOutputPort() );
@@ -492,10 +501,14 @@ void LayerPointSet::RebuildActors( bool bRebuild3D )
         cutpoly->SetPolys( stripper->GetOutput()->GetLines() );
 
         vtkSmartPointer<vtkTriangleFilter> triangleFilter = vtkSmartPointer<vtkTriangleFilter>::New();
+#if VTK_MAJOR_VERSION > 5
+        triangleFilter->SetInputData( cutpoly );
+#else
         triangleFilter->SetInput( cutpoly );
+#endif
 
         // append->AddInput( triangleFilter->GetOutput() );
-        append->AddInput( sphere->GetOutput() );
+        append->AddInputConnection( sphere->GetOutputPort() );
         sphere->Delete();
         n++;
       }
@@ -506,7 +519,11 @@ void LayerPointSet::RebuildActors( bool bRebuild3D )
     }
     else
     {
+#if VTK_MAJOR_VERSION > 5
+      mapper->SetInputData( vtkSmartPointer<vtkPolyData>::New() );
+#else
       mapper->SetInput( vtkSmartPointer<vtkPolyData>::New() );
+#endif
     }
     m_actorSlice[i]->SetMapper( mapper );
 
@@ -519,7 +536,11 @@ void LayerPointSet::RebuildActors( bool bRebuild3D )
 
       vtkSmartPointer<vtkCutter> cutter =
           vtkSmartPointer<vtkCutter>::New();
+#if VTK_MAJOR_VERSION > 5
+      cutter->SetInputData(polydata_tube);
+#else
       cutter->SetInput(polydata_tube);
+#endif
       cutter->SetCutFunction( plane );
 
       vtkSmartPointer<vtkStripper> stripper = vtkSmartPointer<vtkStripper>::New();
@@ -532,10 +553,14 @@ void LayerPointSet::RebuildActors( bool bRebuild3D )
       cutpoly->GetPointData()->SetScalars(stripper->GetOutput()->GetPointData()->GetScalars());
 
       vtkSmartPointer<vtkTriangleFilter> triangleFilter = vtkSmartPointer<vtkTriangleFilter>::New();
+#if VTK_MAJOR_VERSION > 5
+      triangleFilter->SetInputData( cutpoly );
+#else
       triangleFilter->SetInput( cutpoly );
+#endif
 
       mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-      mapper->SetInput(triangleFilter->GetOutput());
+      mapper->SetInputConnection(triangleFilter->GetOutputPort());
 
       m_actorSplineSlice[i]->SetMapper(mapper);
     }
@@ -632,7 +657,7 @@ int LayerPointSet::AddPoint( double* ras_in, double value )
     ras[2] = ras_in[2];
   }
 
-  if ( m_points.size() < 2 )
+  if ( m_points.size() < 2 || !GetProperty()->GetShowSpline())
   {
     ControlPoint p;
     p.pt[0] = ras[0];
@@ -891,4 +916,14 @@ bool LayerPointSet::GetCentroidPosition(double *pos)
 bool LayerPointSet::IsEnhanced()
 {
   return !m_mapEnhancedData.isEmpty();
+}
+
+double LayerPointSet::GetEndPointDistance()
+{
+  double val = 0;
+  if (m_points.size() > 1)
+  {
+    val = MyUtils::GetDistance<double>(m_points.first().pt, m_points.last().pt);
+  }
+  return val;
 }

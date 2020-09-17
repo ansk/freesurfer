@@ -1,5 +1,4 @@
 /**
- * @file  c_vertex.h
  * @brief The vertex related object API.
  *
  * Vertex type functions include conditional checks as well as functional
@@ -7,10 +6,6 @@
  */
 /*
  * Original Author: Rudolph Pienaar / Christian Haselgrove
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/02/27 21:18:07 $
- *    $Revision: 1.2 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,18 +26,10 @@
 #include "general.h"
 #include "env.h"
 
-#ifdef __cplusplus
-extern  "C" {
-#endif
-
 #include "mri.h"
 #include "mrisurf.h"
 #include "label.h"
 #include "error.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 #include <string>
 using namespace std;

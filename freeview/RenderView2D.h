@@ -1,14 +1,9 @@
 /**
- * @file  RenderView2D.h
  * @brief 2D slice view
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/02 16:40:06 $
- *    $Revision: 1.39 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -114,6 +109,16 @@ public:
 
   bool PickLineProfile(int x, int y);
 
+  bool GetAutoScaleText()
+  {
+    return m_bAutoScaleText;
+  }
+
+  int GetTextSize()
+  {
+    return m_nTextSize;
+  }
+
 public slots:
   void RefreshAllActors(bool bForScreenShot = false);
   void StopSelection();
@@ -121,6 +126,8 @@ public slots:
   void Update2DOverlay();
   void ShowCoordinateAnnotation( bool bShow );
   void CenterAtCursor();
+  void SetAutoScaleText(bool b);
+  void SetTextSize(int nsize);
 
 signals:
   void RegionSelected( Region2D* );
@@ -134,6 +141,7 @@ protected slots:
   void SyncZoomTo(RenderView2D* view);
   void OnDuplicateRegion();
   void OnInteractorError(const QString& msg);
+  void OnCopyVoxelValue();
 
 protected:
   virtual void resizeEvent(QResizeEvent *event);
@@ -154,6 +162,9 @@ private:
   Interactor2DROIEdit*    m_interactorROIEdit;
   Interactor2DPointSetEdit*   m_interactorPointSetEdit;
   Interactor2DVolumeCrop* m_interactorVolumeCrop;
+
+  bool      m_bAutoScaleText;
+  int       m_nTextSize;
 };
 
 #endif // RENDERVIEW2D_H

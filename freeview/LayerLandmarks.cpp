@@ -1,14 +1,9 @@
 /**
- * @file  LayerLandmarks.cpp
  * @brief Layer class for structural landmarks.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2011/10/12 19:53:29 $
- *    $Revision: 1.3 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -189,7 +184,7 @@ void LayerLandmarks::UpdateActors(bool bBuild3D)
       vtkSmartPointer<vtkSphereSource> ball = vtkSmartPointer<vtkSphereSource>::New();
       vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
       ball->SetRadius(m_dRadius);
-      mapper->SetInput(ball->GetOutput());
+      mapper->SetInputConnection(ball->GetOutputPort());
       m_landmarks[i].actorSphere->SetMapper(mapper);
       m_landmarks[i].actorSphere->SetPosition(m_landmarks[i].pos);
     }
@@ -226,11 +221,19 @@ void LayerLandmarks::UpdateActors(bool bBuild3D)
         cutpoly->SetPolys( stripper->GetOutput()->GetLines() );
 
         vtkSmartPointer<vtkTriangleFilter> triangleFilter = vtkSmartPointer<vtkTriangleFilter>::New();
+#if VTK_MAJOR_VERSION > 5
+        triangleFilter->SetInputData( cutpoly );
+#else
         triangleFilter->SetInput( cutpoly );
+#endif
         mapper->SetInputConnection( triangleFilter->GetOutputPort() );
       }
       else
+#if VTK_MAJOR_VERSION > 5
+        mapper->SetInputData( vtkSmartPointer<vtkPolyData>::New() );
+#else
         mapper->SetInput( vtkSmartPointer<vtkPolyData>::New() );
+#endif
 
       m_landmarks[i].actorSlice[j]->SetMapper( mapper );
     }

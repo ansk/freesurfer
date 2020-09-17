@@ -1,16 +1,10 @@
 /**
- * @file  asynch.cpp
- * @file  asyhch.h
  * @brief The asynchronous communications related object API
  *
  * This defines the asynchronous communications parser and dispatching layer.
  */
 /*
  * Original Author:  Rudolph Pienaar / Christian Haselgrove
- * CVS Revision Info:
- *    $Author: rudolph $
- *    $Date: 2012/07/05 21:21:28 $
- *    $Revision: 1.19 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -38,7 +32,7 @@
 extern  bool    	Gb_stdout;
 extern  stringstream 	Gsout;
 
-#if 0
+#if 1
 bool
 asynchEvent_processWGHT(
   s_env&    ast_env,
@@ -56,8 +50,8 @@ asynchEvent_processWGHT(
   string str_sep  = " ";
   float f_val  = 0.0;
 
-  std::_Ios_Fmtflags origFlags;
-  origFlags  = cout.flags();
+  //std::_Ios_Fmtflags origFlags;
+  //origFlags  = cout.flags();
   cout.setf(ios::left);
 
   if (!str_3parse( astr_comms, str_object, str_verb, str_modifier))
@@ -162,10 +156,12 @@ asynchEvent_processWGHT(
     }
   }
 
-  cout.flags(origFlags);
+  //cout.flags(origFlags);
   return true;
 }
+#endif
 
+#if 1
 bool
 asynchEvent_processDWGHT(
   s_env&    ast_env,
@@ -183,8 +179,8 @@ asynchEvent_processDWGHT(
   string str_sep  = " ";
   float f_val  = 0.0;
 
-  std::_Ios_Fmtflags origFlags;
-  origFlags  = cout.flags();
+  //  std::_Ios_Fmtflags origFlags;
+  //origFlags  = cout.flags();
   cout.setf(ios::left);
 
   if (!str_3parse( astr_comms, str_object, str_verb, str_modifier))
@@ -289,11 +285,12 @@ asynchEvent_processDWGHT(
     }
   }
 
-  cout.flags(origFlags);
+  //cout.flags(origFlags);
   return true;
 }
 #endif
 
+#if 1
 bool
 asynchEvent_processVERTEX(
   s_env&    st_env,
@@ -312,8 +309,8 @@ asynchEvent_processVERTEX(
   int   val  = 0;
   stringstream Gsout("");
 
-  std::_Ios_Fmtflags origFlags;
-  origFlags  = cout.flags();
+  //  std::_Ios_Fmtflags origFlags;
+  //origFlags  = cout.flags();
   cout.setf(ios::left);
 
   if (!str_3parse( astr_comms, str_object, str_verb, str_modifier))
@@ -347,7 +344,7 @@ asynchEvent_processVERTEX(
       ULOUT(Gsout.str());
     }
   }
-  cout.flags(origFlags);
+  //  cout.flags(origFlags);
   return true;
 }
 
@@ -369,8 +366,8 @@ asynchEvent_processENV(
   int     val           = 0;
   stringstream Gsout("");
 
-  std::_Ios_Fmtflags origFlags;
-  origFlags  = cout.flags();
+  //  std::_Ios_Fmtflags origFlags;
+  //origFlags  = cout.flags();
   cout.setf(ios::left);
 
   if (!str_3parse( astr_comms, str_object, str_verb, str_modifier))
@@ -573,9 +570,10 @@ asynchEvent_processENV(
     }
   }
 
-  cout.flags(origFlags);
+  //  cout.flags(origFlags);
   return true;
 }
+#endif
 
 C_mpmProg_NOP*
 pC_NOP_cast(
@@ -814,6 +812,7 @@ asynchEvent_processMPMPROG(
     return true;
 }
 
+#if 1
 bool
 asynchEvent_processLABEL(
   s_env&    st_env,
@@ -833,8 +832,8 @@ asynchEvent_processLABEL(
   void*  pv_void = NULL;
   stringstream Gsout("");
 
-  std::_Ios_Fmtflags origFlags;
-  origFlags  = cout.flags();
+  //  std::_Ios_Fmtflags origFlags;
+  //origFlags  = cout.flags();
   cout.setf(ios::left);
 
   if (!str_3parse( astr_comms, str_object, str_verb, str_modifier))
@@ -968,10 +967,12 @@ asynchEvent_processLABEL(
       s_env_costFctSetIndex(&st_env, val);
     }
   }
-  cout.flags(origFlags);
+  //  cout.flags(origFlags);
   return true;
 }
+#endif
 
+#if 1
 bool
 asynchEvent_processSURFACE(
   s_env&    st_env,
@@ -989,8 +990,8 @@ asynchEvent_processSURFACE(
   stringstream Gsout("");
 
 
-  std::_Ios_Fmtflags origFlags;
-  origFlags  = cout.flags();
+  //  std::_Ios_Fmtflags origFlags;
+  //origFlags  = cout.flags();
   cout.setf(ios::left);
 
   if (!str_3parse( astr_comms, str_object, str_verb, str_modifier))
@@ -1081,9 +1082,10 @@ asynchEvent_processSURFACE(
     }
   }
 
-  cout.flags(origFlags);
+  //  cout.flags(origFlags);
   return true;
 }
+#endif
 
 void
 asynchEvent_process(

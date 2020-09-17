@@ -26,10 +26,10 @@
 #include "stl_utils.hpp"
 
 #if 0
-extern "C"
-{
+
+
 #include "fio.h"
-};
+;
 #endif
 
 typedef std::stack<int> tStack;
@@ -418,7 +418,7 @@ TMesh<Cstr,n>::load(std::istream& is)
   bool is_active[n];
 
   typedef typename std::map<int,tNode*> NodeMapType;
-  typedef typename NodeMapType::iterator NodeMapIterator;
+//  typedef typename NodeMapType::iterator NodeMapIterator;
   typedef typename NodeMapType::const_iterator NodeMapConstIterator;
   NodeMapType node_map;
 

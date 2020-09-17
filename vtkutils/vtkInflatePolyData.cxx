@@ -1,5 +1,4 @@
 /**
- * @file  vtkInflatePolyData.h
  * @brief Inflates (or deflates) a surface by moving verts along the normals
  *
  * This VTK filter class takes vtkPolyData as in put and outputs
@@ -9,10 +8,6 @@
  */
 /*
  * Original Author: Kevin Teich
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:56 $
- *    $Revision: 1.3 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -41,7 +36,6 @@
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkTriangle.h"
 
-vtkCxxRevisionMacro(vtkInflatePolyData, "$Revision: 1.3 $");
 vtkStandardNewMacro(vtkInflatePolyData);
 
 vtkInflatePolyData::vtkInflatePolyData() :
@@ -63,7 +57,7 @@ vtkInflatePolyData::RequestInformation ( vtkInformation *vtkNotUsed(iRequest),
 
   // Just 1 piece.
   outInfo->
-    Set( vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(), 1 );
+    Set( vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(), 1 );
   
   return 1;
 }

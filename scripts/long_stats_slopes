@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: latin-1 -*-
 
 #
 # long_stats_slopes
@@ -7,10 +6,6 @@
 # script to fit within-subject slopes into longitudinal data
 #
 # Original Author: Martin Reuter
-# CVS Revision Info:
-#    $Author: zkaufman $
-#    $Date: 2015/12/08 19:06:39 $
-#    $Revision: 1.25 $
 #
 # Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 #
@@ -22,10 +17,11 @@
 #
 # Reporting: freesurfer@nmr.mgh.harvard.edu
 #
-#
 
+from __future__ import print_function
 import warnings
 warnings.filterwarnings('ignore', '.*negative int.*')
+
 import os
 import sys
 import shlex
@@ -35,8 +31,7 @@ import subprocess
 import tempfile
 import shutil
 from sys import platform as _platform
-from subject_info import *
-from LongQdecTable import *
+from freesurfer.utils.legacy import LongQdecTable, BadFileError
 
 # logging 
 ch = logging.StreamHandler()
@@ -103,10 +98,11 @@ For the output choose one or more of the following options:
    therefore we recommend pc1fit over pc1.
 *  'out-spc' for symmetrized percent change. Here we normalize by the temporal
    average instead of taking it from the first time point. The average is
-   computed from the linear fit at the middle of the time interval.
-   This is a symmetric 'percent thickening per year' and more robust, as TP1
-   can be an outlier. Note, however, that the temporal average will change
-   when adding new time points!
+   computed from the linear fit at the middle of the time interval. So
+   it is the rate normalized by the temporal average times 100. This is a
+   symmetric 'percent thickening per year' and more robust, as the value 
+   at time point 1 is more noisy than the average. Note, however, that the
+   temporal average will change when adding new time points!
 *  'out-avg' for output of the temporal average (linear fit at mid time).
 *  'out-stack' for a table with the time series (each row a time point).
 
@@ -143,7 +139,7 @@ def options_parse():
     Command Line Options Parser for long_mris_slopes
     initiate the option parser and return the parsed object
     """
-    parser = optparse.OptionParser(version='$Id: long_stats_slopes,v 1.25 2015/12/08 19:06:39 zkaufman Exp $', usage=HELPTEXT)
+    parser = optparse.OptionParser(usage=HELPTEXT)
     
     # help text
     h_qdec      = '(REQUIRED) qdec table file specifying the subjects and time points'
@@ -232,20 +228,20 @@ def options_parse():
     # extensive error checks
     if options.qdec is None:
         parser.print_help()
-        print '\nERROR: Specify --qedc (and other required arguments)\n'
+        print('\nERROR: Specify --qdec (and other required arguments)\n')
         sys.exit(1)
 
         
     if options.stats is None:
-        print 'ERROR: Specify --stats (e.g. \'aseg.stats\')\n'
+        print('ERROR: Specify --stats (e.g. \'aseg.stats\')\n')
         sys.exit(1)
 
     if options.meas is None:
-        print 'ERROR: Specify --meas (e.g. \'volume\')\n'
+        print('ERROR: Specify --meas (e.g. \'volume\')\n')
         sys.exit(1)
 
     if options.sd is None:
-        print 'ERROR: Specify the subject dir with --sd <fullpath>\n'
+        print('ERROR: Specify the subject dir with --sd <fullpath>\n')
         sys.exit(1)   
     
  
@@ -278,7 +274,7 @@ def options_parse():
     if options.resid == 0 and options.out_resid is None:
         options.out_resid = crosslong+options.stats+'.'+options.meas+'-resid-mean.dat'
     if options.resid < 0 and options.out_resid is not None:
-        print 'ERROR: Please also specify the tp number to export residuals (starting at 1, or 0 for mean) with --resid !\n'
+        print('ERROR: Please also specify the tp number to export residuals (starting at 1, or 0 for mean) with --resid !\n')
         sys.exit(1)
                 
     if options.out_stack is None:
@@ -288,7 +284,7 @@ def options_parse():
     
     do_something = options.do_avg or options.do_rate or options.do_pc1fit or options.do_pc1 or options.do_spc or (options.resid >= 0)
     if not do_something:
-        print 'ERROR: Analysis type should be specified, use one or more of --do-avg, --do-rate, --do-pc1fit, --do-pc1, --do-spc, --resid <tpid>\n'
+        print('ERROR: Analysis type should be specified, use one or more of --do-avg, --do-rate, --do-pc1fit, --do-pc1, --do-spc, --resid <tpid>\n')
         sys.exit(1)
                 
     return options
@@ -298,13 +294,13 @@ def run_cmd(cmd,err_msg):
     """
     execute the comand
     """
-    print cmd+'\n'
+    print(cmd+'\n')
     args = shlex.split(cmd)
     retcode = subprocess.call(args)
     if retcode != 0 :
-        print 'ERROR: '+err_msg
+        print('ERROR: '+err_msg)
         sys.exit(1)
-    print '\n'
+    print('\n')
 
 def create_template_table(intable,measure,rows,outtable):
     """
@@ -313,7 +309,7 @@ def create_template_table(intable,measure,rows,outtable):
     assumes white space for separator
     """
     if not os.path.exists(intable):
-        print 'ERROR: '+str(intable)+' not found!'
+        print('ERROR: '+str(intable)+' not found!')
         sys.exit(1)
 
     file = open(intable,'r')
@@ -321,7 +317,7 @@ def create_template_table(intable,measure,rows,outtable):
     file.close() 
     cols = first.split(" ",1)
     if len(cols) != 2:
-        print 'ERROR: table columns cannot be split into measure and headers?'
+        print('ERROR: table columns cannot be split into measure and headers?')
         sys.exit(1)
         
     cols[0] = 'Measure:'+measure
@@ -340,18 +336,18 @@ if __name__=="__main__":
 
     subjectsdir = ''
     # Parse the stats files 
-    print 'Parsing the qdec table: '+options.qdec
+    print('Parsing the qdec table: '+options.qdec)
     try:
         slopelogger.debug('Processing file ' + options.qdec)
         qdectable = LongQdecTable(options.qdec)
         #subjects_tp_map, variables, subjectdir = qdecparse.parse()
-    except BadFileError, e:
-        print 'ERROR: qdec table '+str(e)+' not found!'
+    except BadFileError as e:
+        print('ERROR: qdec table '+str(e)+' not found!')
         sys.exit(1)
         
     # make sure we have a long table containing the bases
     if qdectable.cross:
-        print '\nERROR: qdec table '+options.qdec+' is cross sectional\n       (2nd column not \'fsid-base\')!\n'
+        print('\nERROR: qdec table '+options.qdec+' is cross sectional\n       (2nd column not \'fsid-base\')!\n')
         sys.exit(1)
         
     # use the first column by default for time variable
@@ -362,9 +358,9 @@ if __name__=="__main__":
     if len(variables) < 1:
         varidx = -1
         if not options.generic_time:
-            print '\nERROR: qdec table '+options.qdec+' needs 3rd column with time value,'
-            print '       e.g. age or time since baseline scan ...!\n'
-            print '       Or pass --generic-time assuming tps are ordered 1,2,3...\n'
+            print('\nERROR: qdec table '+options.qdec+' needs 3rd column with time value,')
+            print('       e.g. age or time since baseline scan ...!\n')
+            print('       Or pass --generic-time assuming tps are ordered 1,2,3...\n')
             sys.exit(1)        
         
     # if time variable is passed on command line, make sure it is part of variables
@@ -372,13 +368,13 @@ if __name__=="__main__":
         defaultvar = options.time
         # compute correct index (starting with 1, 0 is the tpID)
         foundidx = False
-        for index in (i for i in xrange(len(variables)) if variables[i].upper()==defaultvar.upper()):
+        for index in (i for i in range(len(variables)) if variables[i].upper()==defaultvar.upper()):
             varidx = index
             foundidx = True
-            #print 'found: '+str(varidx)+' '+variables[varidx]
+            #print('found: '+str(varidx)+' '+variables[varidx])
             break
         if not foundidx:
-            print '\nERROR: DefaultVariable \''+str(defaultvar)+'\' not found in variables: '+str(variables)+'\n'
+            print('\nERROR: DefaultVariable \''+str(defaultvar)+'\' not found in variables: '+str(variables)+'\n')
             sys.exit(1)
         varidx = varidx +1;
         
@@ -391,9 +387,9 @@ if __name__=="__main__":
     if subjectsdir is None:
         subjectsdir = qdectable.subjectsdir
     if subjectsdir is None:
-        print'\nERROR: no subjects dir specified, use --sd <fullpath>'
+        print('\nERROR: no subjects dir specified, use --sd <fullpath>')
         sys.exit(1)
-    print '\nWorking in SUBJECTS_DIR: '+subjectsdir+'\n'
+    print('\nWorking in SUBJECTS_DIR: '+subjectsdir+'\n')
     os.environ['SUBJECTS_DIR'] =  subjectsdir
    
     if _platform == "darwin":
@@ -408,26 +404,26 @@ if __name__=="__main__":
     allrate= []
     allresid= []
     for subjectid, tplist in qdectable.subjects_tp_map.items():
-        print '\nSubject-Template: '+subjectid
+        print('\nSubject-Template: '+subjectid)
         
         # check if basedir exists
         basedir = os.path.join(subjectsdir,subjectid)
         if not os.path.exists(basedir):
-            print 'ERROR: Template dir '+str(basedir)+' does not exist!'
+            print('ERROR: Template dir '+str(basedir)+' does not exist!')
             sys.exit(1)
 
         basestatsdir=os.path.join(basedir,'stats')            
         
         # check if 2 or more time points
         if len(tplist) < 2 :
-            print 'ERROR: '+str(basedir)+' must have at least 2 time points!'
+            print('ERROR: '+str(basedir)+' must have at least 2 time points!')
             sys.exit(1)
         
         # create tmpdir:
         prefix = './tmp-'+subjectid+'_'+options.stats+'_'+options.meas+'_'
         dirname = tempfile.mkdtemp('',prefix,'')
         if not os.path.exists(dirname):
-            print 'ERROR: tmp dir '+str(dirname)+' cannot be created (write permissions?)!'
+            print('ERROR: tmp dir '+str(dirname)+' cannot be created (write permissions?)!')
             sys.exit(1)
         
         # extract ids and age data:
@@ -441,7 +437,7 @@ if __name__=="__main__":
             times = [float(x) for x in range(1,len(tplist)+1)]
         num   = len(times)
         meant = sum(times) / num
-        print '\n\nINFO: '+str(num)+' TPs in '+subjectid+' , mean age: '+str(meant)+'\n'
+        print('\n\nINFO: '+str(num)+' TPs in '+subjectid+' , mean age: '+str(meant)+'\n')
         
         # list of subjects:
         all = " ".join(tpids)
@@ -462,7 +458,7 @@ if __name__=="__main__":
 
         #write X-matrix (times):
         x_target    = os.path.join(dirname,'X-long.mat')
-        print 'Writing '+x_target+' ...\n'
+        print('Writing '+x_target+' ...\n')
         if os.path.exists(x_target):
             os.remove(x_target)
         xfp = open(x_target, 'w')
@@ -489,7 +485,7 @@ if __name__=="__main__":
         beta1  = os.path.join(dirname,'beta1.mgh') 
         betam  = os.path.join(dirname,'betam.mgh') 
         if not os.path.exists(betafn):
-            print 'ERROR: GLM results '+str(betafn)+' does not exist!'
+            print('ERROR: GLM results '+str(betafn)+' does not exist!')
             sys.exit(1)
             
         # split beta
@@ -570,13 +566,13 @@ if __name__=="__main__":
             # create tp1 table and mgh file
             tp1tab = os.path.join(dirname,'tp1.'+options.stats+'.'+options.meas+'.dat')
             cmd = 'head -n 2 '+meas_target
-            print cmd
+            print(cmd)
             args = shlex.split(cmd)
             output_f = open(tp1tab, 'w')
             p = subprocess.Popen(args,stdout=output_f)
             retcode = p.wait()
             if retcode != 0 :
-                print '\nERROR: head on first 2 lines of time series table did not work? ('+str(retcode)+')\n'
+                print('\nERROR: head on first 2 lines of time series table did not work? ('+str(retcode)+')\n')
                 sys.exit(1)
             output_f.close()
             tp1 = os.path.join(dirname,'tp1.'+options.stats+'.'+options.meas+'.mgh')
@@ -619,10 +615,9 @@ if __name__=="__main__":
         shutil.rmtree(dirname)
         
                
-        print 'You can look at the result with, e.g. (specify "Space" for separation and "Merge delimiters"):'
-        print '  ooffice -calc '+os.path.join(basestatsdir,outex)
-        print
-          
+        print('You can look at the result with, e.g. (specify "Space" for separation and "Merge delimiters"):')
+        print('  ooffice -calc '+os.path.join(basestatsdir,outex))
+        print(          )
     
     if options.stack_avg is not None:
         # out table: long.all.'+options.stats+'.'+options.meas+'-avg.dat
@@ -649,7 +644,7 @@ if __name__=="__main__":
         cmd = 'merge_stats_tables --inputs '+" ".join(allresid)+' -t '+options.stack_resid+' --meas '+options.meas+'-resid'+str(options.resid)+" --all-segs"
         run_cmd(cmd,'merge_stats_tables failed (resid)?') 
     
-    #print 'merge_stats_tables --inputs '+" ".join(allavg)+' -t long.all.'+options.stats+'.'+options.meas+'-avg.dat --meas '+options.meas+'-avg'
+    #print('merge_stats_tables --inputs '+" ".join(allavg)+' -t long.all.'+options.stats+'.'+options.meas+'-avg.dat --meas '+options.meas+'-avg')
        
     # always exit with 0 exit code
     sys.exit(0)

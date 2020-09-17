@@ -1,14 +1,9 @@
 /**
- * @file  mri_copy_params.cpp
  * @brief copy volume parameters from template and write out the volume
  *
  */
 /*
  * Original Author: Yasunari Tosa
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:23 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -25,38 +20,34 @@
 #include <iostream>
 #include <iomanip>
 
-extern "C" {
+ 
 #include "error.h"
 #include "mri.h"
 #include "version.h"
 #include "macros.h"
   const char *Progname = "mri_copy_params";
-}
+
 static int  get_option(int argc, char *argv[]) ;
 static void usage_exit(void) ;
 static void print_version(void) ;
-static char vcid[] =
-  "$Id: mri_copy_params.cpp,v 1.5 2011/03/02 00:04:23 nicks Exp $";
 
 static int copy_pulse_params_only = 0 ;
 static int copy_ras_only = 0 ;
+static int copy_voxel_size = 0 ;
 
 using namespace std;
 
 void print_usage() {
   cout << "Usage: mri_copy_params <in_vol> <template_vol> <out_vol>" << endl;
   cout << "     : where all volume parameters of in_vol are replaced with those of template_vol." << endl;
+  cout << "use --size to force copying of voxel sizes when resolutions var" << endl;
 }
 
 int main(int argc, char *argv[]) {
   bool bVolumeDifferent = false;
   bool bSizeDifferent = false;
   int  nargs;
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option 
-    (argc, argv, 
-     "$Id: mri_copy_params.cpp,v 1.5 2011/03/02 00:04:23 nicks Exp $", 
-     "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "mri_copy_params");
   if (nargs && argc - nargs == 1)
     exit (0);
   argc -= nargs;
@@ -135,11 +126,24 @@ int main(int argc, char *argv[]) {
     dst->height = in->height;
     dst->depth = in->depth;
   }
-  if (bSizeDifferent);
+  if (bSizeDifferent)
   {
-    dst->xsize = in->xsize;
-    dst->ysize = in->ysize;
-    dst->zsize = in->zsize;
+    if (copy_voxel_size)
+    {
+      printf("using template resolution\n");
+      dst->xsize = temp->xsize;
+      dst->ysize = temp->ysize;
+      dst->zsize = temp->zsize;
+    }
+    else
+    {
+      printf("retaining input resolution even though voxel sizes vary\n");
+      dst->xsize = in->xsize;
+      dst->ysize = in->ysize;
+      dst->zsize = in->zsize;
+    }
+    printf("setting destination sizes to (%2.2f, %2.2f %2.2f)\n",
+	   dst->xsize, dst->ysize, dst->zsize) ;
   }
   //
   MRIwrite(dst, argv[3]);
@@ -175,6 +179,11 @@ get_option(int argc, char *argv[]) {
     printf("only copying ras2vox matrices\n") ;
     copy_ras_only = 1 ;
   }
+  else if (!stricmp(option, "-size"))
+  {
+    printf("only copying voxel sizes\n") ;
+    copy_voxel_size = 1 ;
+  }
   else switch (toupper(*option))
   {
     
@@ -185,7 +194,7 @@ get_option(int argc, char *argv[]) {
 
 static void
 print_version(void) {
-  fprintf(stderr, "%s\n", vcid) ;
+  fprintf(stderr, "%s\n", getVersion().c_str()) ;
   exit(1) ;
 }
 static void

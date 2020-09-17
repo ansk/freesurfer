@@ -7,10 +7,9 @@
 # Note:    The csh/tcsh equivalent script is FreeSurferEnv.csh, and should
 #          be maintained to operate the same way.
 #
-# $Id: FreeSurferEnv.sh,v 1.61 2016/06/09 14:54:31 zkaufman Exp $
 #############################################################################
 
-VERSION='$Id: FreeSurferEnv.sh,v 1.61 2016/06/09 14:54:31 zkaufman Exp $'
+VERSION='FreeSurferEnv.sh @FS_VERSION@'
 
 ## Print help if --help or -help is specified
 if [ $# -gt 1 ]; then
@@ -465,6 +464,9 @@ if [ -d $FREESURFER_HOME/tktools ]; then
     PATH=$FREESURFER_HOME/tktools:$PATH
 fi
 export PATH=$FREESURFER_HOME/bin:$FSFAST_HOME/bin:$PATH
+
+# set FREESURFER to match FREESURFER_HOME
+export FREESURFER=$FREESURFER_HOME
 
 # This turns on "fixing" of group surface area. A group subject made
 # with make_average_subject will have a surface area smaller than

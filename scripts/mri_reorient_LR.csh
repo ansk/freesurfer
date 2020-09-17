@@ -8,7 +8,7 @@
 # Created: 07-16-2010
 
 set inputargs = ($argv);
-set VERSION = '$Id: mri_reorient_LR.csh,v 1.9 2016/02/16 17:17:20 zkaufman Exp $';
+set VERSION = 'mri_reorient_LR.csh @FS_VERSION@';
 
 set inputvol      = ();
 set outputvol     = ();
@@ -124,7 +124,7 @@ endif
 ### SAVE
 if ($#outreg > 0) then
   if (${outreg:e} == lta) then
-    set cmd = (tkregister2_cmdl --mov $inputvol --targ $inputvolLR --ltaout $outreg --fsl $newtransformation --reg ~lzollei/bogus.reg)
+    set cmd = (tkregister2_cmdl --mov $inputvol --targ $inputvolLR --ltaout $outreg --fsl $newtransformation --reg bogus.reg)
   else # assume fslmat
     set cmd = (cp $newtransformation $outreg)
   endif

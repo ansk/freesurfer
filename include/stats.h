@@ -1,15 +1,4 @@
-/**
- * @file  stats.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2014/09/25 21:23:01 $
- *    $Revision: 1.22 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -27,7 +16,8 @@
 #ifndef STATS_H
 #define STATS_H
 
-#include "minc_volume_io.h"
+#include "minc.h"
+
 #include "matrix.h"
 #include "mri.h"
 
@@ -51,8 +41,8 @@ typedef struct
   int IsSurf;
   int UseName;
   int DoIntensity;
-  char *InIntensityName;
-  char *InIntensityUnits;
+  const char *InIntensityName;
+  const char *InIntensityUnits;
   int DoSNR; 
 } SEGSTAT;
 
@@ -139,7 +129,7 @@ STAT_VOLUME, SV  ;
 /* This is so applications can specify different xforms */
 /* StatReadTransform() will read in this file */
 #ifdef _STATS_SRC
-char *stats_talxfm = "talairach.xfm";
+const char *stats_talxfm = "talairach.xfm";
 int  statnorm_float2int = FLT2INT_ROUND;
 int  stats_fixxfm = 0;
 #undef _STATS_SRC

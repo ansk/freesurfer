@@ -4,10 +4,6 @@
 # lpcregister
 #
 # Original Author: Doug Greve
-# CVS Revision Info:
-#    $Author: zkaufman $
-#    $Date: 2016/02/16 17:17:20 $
-#    $Revision: 1.7 $
 #
 # Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 #
@@ -22,7 +18,7 @@
 #
 
 #
-set VERSION = '$Id: lpcregister,v 1.7 2016/02/16 17:17:20 zkaufman Exp $';
+set VERSION = 'lpcregister @FS_VERSION@';
 set inputargs = ($argv);
 
 set subject = ();
@@ -293,7 +289,7 @@ if(-e $SUBJECTS_DIR/$subject/surf/lh.orig) then
 endif
 
 echo "To check results, run:"
-echo "tkregister2 --mov $movvol --reg $regfile $tmp"
+echo "tkregisterfv --mov $movvol --reg $regfile $tmp"
 echo " "
 
 

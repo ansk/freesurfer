@@ -1,14 +1,5 @@
-/**
- * @file  PanelLayer.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: zkaufman $
- *    $Date: 2016/08/05 03:02:30 $
- *    $Revision: 1.11 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -118,6 +109,10 @@ template<typename T> QList<T> PanelLayer::GetSelectedLayers()
     if (t)
       list << t;
   }
+  T tc = qobject_cast<T>(m_currentLayer);
+  if (list.isEmpty() && tc)
+    list << tc;
+
   return list;
 }
 

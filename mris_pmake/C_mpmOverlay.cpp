@@ -1,5 +1,4 @@
 /**
- * @file  C_mpmOverlay.cpp
  * @brief The internal 'program' API
  *
  *  The C_mpmOverlay class (and derivatives) presents an encapsulated
@@ -14,10 +13,6 @@
  */
 /*
  * Original Author: Rudolph Pienaar
- * CVS Revision Info:
- *    $Author: rudolph $
- *    $Date: 2013/01/30 19:52:03 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -691,7 +686,8 @@ C_mpmOverlay_distance::costEdge_calc(int i, int j) {
     // a single edge.
     //
 
-    VERTEX*     pVrtx_i         = &mps_env->pMS_active->vertices[i];
+    VERTEX_TOPOLOGY const * const pVrtx_it = &mps_env->pMS_active->vertices_topology[i];
+    VERTEX          const * const pVrtx_i  = &mps_env->pMS_active->vertices         [i];
     float       wd              = mv_costWeight[0];
     float       f_distance      = 0.;
     float       f_cost          = 0.;
@@ -700,8 +696,8 @@ C_mpmOverlay_distance::costEdge_calc(int i, int j) {
 
     debug_push ("costEdge_calc (...)");
     
-    for(jrelcount=0; jrelcount< pVrtx_i->vnum; jrelcount++) {
-        if(pVrtx_i->v[jrelcount] == j) {
+    for(jrelcount=0; jrelcount< pVrtx_it->vnum; jrelcount++) {
+        if(pVrtx_it->v[jrelcount] == j) {
             jrel = jrelcount;
             break;
         }

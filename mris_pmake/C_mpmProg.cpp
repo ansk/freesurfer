@@ -1,5 +1,4 @@
 /*
- * @file  C_mpmProg.cpp
  * @brief The internal 'program' API.
  *
  *  C_mpmProgs are overloaded classes that perform specific functions in the
@@ -11,10 +10,6 @@
  */
 /*
  * Original Author: Rudolph Pienaar
- * CVS Revision Info:
- *    $Author: rudolph $
- *    $Date: 2013/02/04 14:38:14 $
- *    $Revision: 1.30 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -802,7 +797,7 @@ void C_mpmProg_autodijk_fast::genOpenCLGraphRepresentation(GraphData *graph)
     int numEdges = 0;
     for(int i = 0; i < surf->nvertices; i++)
     {
-        numEdges += surf->vertices[i].vnum;
+        numEdges += surf->vertices_topology[i].vnum;
     }
 
     // Allocate memory for the edge and weight arrays
@@ -814,7 +809,7 @@ void C_mpmProg_autodijk_fast::genOpenCLGraphRepresentation(GraphData *graph)
     int curEdgeIndex = 0;
     for(int i = 0; i < surf->nvertices; i++)
     {
-        VERTEX *curVertex = &surf->vertices[i];
+        VERTEX_TOPOLOGY const * const curVertex = &surf->vertices_topology[i];
 
         // Assign the edge index for this vertex
         graph->vertexArray[i] = curEdgeIndex;
@@ -1042,7 +1037,6 @@ C_mpmProg_ROI::border_mark(void)
     int			neighborCount	= -1;
     int			markedCount	= 0;
     MRIS*       	mesh            = NULL;
-    VERTEX*		SVertex 	= NULL;
     bool		b_innerVertex 	= true;
 
     mesh = mps_env->pMS_primary;
@@ -1058,7 +1052,7 @@ C_mpmProg_ROI::border_mark(void)
 	if(mesh->vertices[vertex].ripflag) {
 	    markedCount++;
 	    b_innerVertex = true;
-	    SVertex = &mesh->vertices[vertex];
+	    VERTEX_TOPOLOGY const * const SVertex = &mesh->vertices_topology[vertex];
 	    for(neighborCount = 0; neighborCount < SVertex->vnum; neighborCount++) {
 		neighbor = SVertex->v[neighborCount];
 		b_innerVertex &= mesh->vertices[neighbor].ripflag;

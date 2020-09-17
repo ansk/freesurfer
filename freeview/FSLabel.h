@@ -1,14 +1,9 @@
 /**
- * @file  FSLabel.h
  * @brief Base label class that takes care of I/O and data conversion.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/08 21:01:00 $
- *    $Revision: 1.24 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,10 +26,12 @@
 #include "vtkMatrix4x4.h"
 #include <QList>
 
-extern "C"
-{
+
+
 #include "label.h"
-}
+#undef uchar  // conflicts with Qt
+#include "mrisutils.h"
+
 
 class FSVolume;
 class FSSurface;
@@ -54,7 +51,7 @@ public:
   void UpdateLabelFromImage( vtkImageData* rasImage_in, FSVolume* ref_vol );
   void UpdateRASImage( vtkImageData* rasImage_out, FSVolume* ref_vol, double threshold = -1e10 );
   void FillUnassignedVertices(FSSurface* surf, FSVolume* mri_template, int coords);
-  void EditVoxel(int nx, int ny, int nz, bool bAdd, int* vertices = NULL, int* pnum = NULL);
+  void EditVoxel(int nx, int ny, int nz, int coords, bool bAdd, int* vertices = NULL, int* pnum = NULL);
 
   bool GetCentroidRASPosition(double* pos, FSVolume* ref_vol);
 
@@ -73,12 +70,15 @@ public:
   void Undo();
   void Redo();
   void SaveForUndo();
+  void Clear();
 
 protected:
   LABEL*   m_label;
   QList<LABEL*> m_undoBuffer;
   QList<LABEL*> m_redoBuffer;
   double   m_dStatsRange[2];
+  LABEL2SURF* m_l2s;
+  FSVolume*   m_mri_template;
 };
 
 #endif

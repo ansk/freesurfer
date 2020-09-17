@@ -21,11 +21,11 @@ if( $#argv == 0 || $#argv == 2  || $#argv == 3 || $#argv > 5) then
   echo " "
   echo "Usage: "
   echo " "
-  echo "   segmentSF_T2.sh  SUBJECT_ID  FILE_ADDITIONAL_SCAN   ANALYSIS_ID  USE_T1  [SUBJECT_DIR]" 
+  echo "   segmentHA_T2.sh  SUBJECT_ID  FILE_ADDITIONAL_SCAN   ANALYSIS_ID  USE_T1  [SUBJECT_DIR]" 
   echo " "
   echo "Or, for help"
   echo " "
-  echo "   segmentSF_T2.sh --help"  
+  echo "   segmentHA_T2.sh --help"  
   echo " "
   exit 1
 endif
@@ -51,19 +51,19 @@ if( $1 == "--help") then
   echo "native resolution, they must be processed with the recon-all flag -cm. Then,"
   echo "you can run the following command to obtain the segmentation: "
   echo " "
-  echo "   segmentSF_T2.sh  SUBJECT_ID  FILE_ADDITIONAL_SCAN   ANALYSIS_ID  USE_T1  [SUBJECT_DIR]"
+  echo "   segmentHA_T2.sh  SUBJECT_ID  FILE_ADDITIONAL_SCAN   ANALYSIS_ID  USE_T1  [SUBJECT_DIR]"
   echo " "
   echo "   (the argument [SUBJECT_DIR] is only necessary if the"
   echo "    environment variable has not been set)"
   echo " "
-  echo "FILE_ADDITIONAL_SCAN is the additional scan in Nifti (.nii/.nii.gz) ot FreeSurfer"
+  echo "FILE_ADDITIONAL_SCAN is the additional scan in Nifti (.nii/.nii.gz) or FreeSurfer"
   echo "format (.mgh/.mgz)."
   echo " "
   echo "ANALYSIS_ID is a user defined identifier that makes it possible to run different"
   echo "analysis with different types of additional scans, e.g., a T2 and proton density"
   echo "weighted volume (see further information on the website below). Please note that it". 
-  echo "is not possible to two instances of run segmentSF_T2.sh in parallel with USE_T1=0 "
-  echo "and USE_T1=1  (segmentSF_T1.sh or different analysis IDs is fine)."
+  echo "is not possible to two instances of run segmentHA_T2.sh in parallel with USE_T1=0 "
+  echo "and USE_T1=1  (segmentHA_T1.sh or different analysis IDs is fine)."
   echo " "
   echo "USE_T1: set to 1 to use the main T1 from recon-all in the segmentation (multispectral "
   echo "mode). If set to 0, only the intensities of the additional scan are used".
@@ -226,16 +226,16 @@ if($?PBS_JOBID) then
 endif
 
 # Parameters
-set RUNTIME="$FREESURFER_HOME/MCRv80/";
+set RUNTIME="$FREESURFER_HOME/MCRv84/";
 set RESOLUTION="0.333333333333333333333333333333333333";
 set ATLASMESH="$FREESURFER_HOME/average/HippoSF/atlas/AtlasMesh.gz";
 set ATLASDUMP="$FREESURFER_HOME/average/HippoSF/atlas/AtlasDump.mgz";
 set LUT="$FREESURFER_HOME/average/HippoSF/atlas/compressionLookupTable.txt";
 set KT2="0.05";
 set KT1T2="0.10";
-set OPTIMIZER="ConjGrad";
+set OPTIMIZER="L-BFGS";
 set MRFCONSTANT="0";
-set SUFFIX="v20";
+set SUFFIX="v21";
 set BYPASSBF="1";
 set USEWHOLEBRAININHP="0";
 
@@ -265,20 +265,22 @@ foreach hemi ($hippohemilist)
   # command
   if ( $USET1 == "1") then
     echo "#@# Hippocampal Subfields processing (T1+T2) $hemi `date`"  |& tee -a $HSFLOG
-    set cmd="run_segmentSubjectT1T2_autoEstimateAlveusML.sh $RUNTIME $SUBJECTNAME $SUBJECTS_DIR $T2VOL $RESOLUTION $ATLASMESH $ATLASDUMP $LUT $KT1T2 $hemi $OPTIMIZER $SUFFIX $ANALYSISID ${FREESURFER_HOME}/bin/ $MRFCONSTANT $BYPASSBF $USEWHOLEBRAININHP"
+    set cmd="run_segmentSubjectT1T2_autoEstimateAlveusML.sh $RUNTIME $SUBJECTNAME $SUBJECTS_DIR $T2VOL $RESOLUTION $ATLASMESH $ATLASDUMP $LUT $KT1T2 $hemi $OPTIMIZER $SUFFIX $ANALYSISID '${FREESURFER_HOME}/bin/fs_run_from_mcr ${FREESURFER_HOME}/bin/' $MRFCONSTANT $BYPASSBF $USEWHOLEBRAININHP"
   else
     echo "#@# Hippocampal Subfields processing (T2) $hemi `date`"  |& tee -a $HSFLOG
-    set cmd="run_segmentSubjectT2_autoEstimateAlveusML.sh $RUNTIME $SUBJECTNAME $SUBJECTS_DIR $T2VOL $RESOLUTION $ATLASMESH $ATLASDUMP $LUT $KT2 $hemi $OPTIMIZER $SUFFIX $ANALYSISID  ${FREESURFER_HOME}/bin/ $MRFCONSTANT $BYPASSBF $USEWHOLEBRAININHP"
+    set cmd="run_segmentSubjectT2_autoEstimateAlveusML.sh $RUNTIME $SUBJECTNAME $SUBJECTS_DIR $T2VOL $RESOLUTION $ATLASMESH $ATLASDUMP $LUT $KT2 $hemi $OPTIMIZER $SUFFIX $ANALYSISID  '${FREESURFER_HOME}/bin/fs_run_from_mcr ${FREESURFER_HOME}/bin/' $MRFCONSTANT $BYPASSBF $USEWHOLEBRAININHP"
   endif
 
   fs_time ls >& /dev/null
   if ($status) then
     $cmd |& tee -a $HSFLOG  
+    set returnVal=$status
   else
     fs_time $cmd |& tee -a $HSFLOG
+    set returnVal=$status
   endif
 
-  if ($status) then
+  if ($returnVal) then
 
     uname -a | tee -a $HSFLOG
     echo "" |& tee -a $HSFLOG
@@ -291,7 +293,27 @@ foreach hemi ($hippohemilist)
     exit 1;
   endif
 end
- 
+
+# Convert the txt files into a stats file so that asegstats2table can
+# be run Note: the number of voxels is set to 0 and there is no info
+# about intensity. The only useful info is the volume in mm and the
+# structure name. The segmentation IDs also do not mean anything. 
+# Could run mri_segstats instead, but the volumes would not include
+# partial volume correction.
+
+
+  set suffix2 = $SUFFIX.
+foreach hemi (lh rh)
+  set txt=$SUBJECTS_DIR/$SUBJECTNAME/mri/$hemi.hippoSfVolumes-T1-$ANALYSISID.$SUFFIX.txt
+  set stats=$SUBJECTS_DIR/$SUBJECTNAME/stats/hipposubfields.$hemi.T2.$SUFFIX.$ANALYSISID.stats
+  echo "# Hippocampal subfield volumes as created by segmentHA_T2.sh" > $stats
+  cat $txt | awk '{print NR" "NR"  0 "$2" "$1}' >> $stats
+  set txt=$SUBJECTS_DIR/$SUBJECTNAME/mri/$hemi.amygNucVolumes-T1-$ANALYSISID.$SUFFIX.txt
+  set stats=$SUBJECTS_DIR/$SUBJECTNAME/stats/amygdalar-nuclei.$hemi.T2.$SUFFIX.$ANALYSISID.stats
+  echo "# Amygdala nuclei volumes as created by segmentHA_T2.sh" > $stats
+  cat $txt | awk '{print NR" "NR"  0 "$2" "$1}' >> $stats
+end
+
 # All done!
 rm -f $IsRunningFile
 

@@ -1,5 +1,4 @@
 /**
- * @file Regression.cpp
  * @brief A class to solve overconstrained system A X = B
  *
  *   it uses either least squares (standard regression)
@@ -10,10 +9,6 @@
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2016/03/10 16:19:40 $
- *    $Revision: 1.29 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -30,24 +25,20 @@
 #include "Regression.h"
 #include <iostream>
 #include <cassert>
-#include <cmath>
+#include <math.h>
 #include <limits>
 #include <vector>
 #include <fstream>
 #include "RobustGaussian.h"
+
+#define export // obsolete feature 'export template' used in these headers 
 #include <vnl/algo/vnl_svd.h>
 #include <vnl/algo/vnl_qr.h>
+#undef export
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include "error.h"
-#ifdef __cplusplus
-}
-#endif
 
 using namespace std;
 

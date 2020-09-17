@@ -1,15 +1,10 @@
 /**
- * @file Registration.cpp
  * @brief A class to compute a robust symmetric registration
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2015/09/23 20:35:57 $
- *    $Revision: 1.93 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -43,18 +38,10 @@
 #include <vnl/vnl_matlab_print.h>
 #include <vnl/algo/vnl_determinant.h>
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "limits.h"
 #include "error.h"
 #include "macros.h"
 #include "mrimorph.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 using namespace std;
 
@@ -1710,8 +1697,6 @@ void Registration::testRobust(const std::string& fname, int testno)
 
   cout << " Transformed , now registering ..." << endl;
 
-  int steps;
-  steps = 3;
 //  rtype = 2;
 
 //    transonly = true;
@@ -3410,7 +3395,7 @@ vnl_matrix_fixed<double, 4, 4> Registration::initializeTransform(MRI *mriS,
 int Registration::init_scaling(MRI *mri_in, MRI *mri_ref, MATRIX *m_L)
 {
   MATRIX *m_scaling;
-  float sx, sy, sz, dx, dy, dz;
+  float sx, sy, sz;
   MRI_REGION in_bbox, ref_bbox;
 
   m_scaling = MatrixIdentity(4, NULL);
@@ -3420,9 +3405,6 @@ int Registration::init_scaling(MRI *mri_in, MRI *mri_ref, MATRIX *m_L)
   sx = (float) ref_bbox.dx / (float) in_bbox.dx;
   sy = (float) ref_bbox.dy / (float) in_bbox.dy;
   sz = (float) ref_bbox.dz / (float) in_bbox.dz;
-  dx = (ref_bbox.x + ref_bbox.dx - 1) / 2 - (in_bbox.x + in_bbox.dx - 1) / 2;
-  dy = (ref_bbox.y + ref_bbox.dy - 1) / 2 - (in_bbox.y + in_bbox.dy - 1) / 2;
-  dz = (ref_bbox.z + ref_bbox.dz - 1) / 2 - (in_bbox.z + in_bbox.dz - 1) / 2;
 
   if (sx > MAX_DX)
     sx = MAX_DX;
@@ -3903,20 +3885,22 @@ void Registration::setSourceAndTarget(MRI * s, MRI * t, bool keeptype)
   // set outside value to background:
   float bgvals = MyMRI::getBackground(mri_source);
   float bgvalt = MyMRI::getBackground(mri_target);
-  //cout << "    - checkBackground: outside val " << mri_source->outside_val << " src, " << mri_target->outside_val << " trg" << endl;
+  //cout << "    - checkBackground: outside_val " << mri_source->outside_val << " src, " << mri_target->outside_val << " trg" << endl;
   //cout << "          suspected background val " << bgvals << " src, " << bgvalt << " trg" << endl;
   //MRIwrite(mri_source,"test.mgz");
   if (bgvals != mri_source->outside_val)
   {
-    cout << "    - warn: src mri outside_val = " << mri_source->outside_val << "  but suspected background: " << bgvals << endl;     
-    cout << "    - updating outside value..." << endl;
-    mri_source->outside_val = bgvals;
+    cout << "    - WARNING: src mri outside_val = " << mri_source->outside_val << "  but suspected background: " << bgvals << endl;     
+    cout << "               If background is black or darkgray, ignore this. If white, pass --whitebgmov" << endl;
+    //cout << "    - updating outside value..." << endl;
+    //mri_source->outside_val = bgvals;
   }
   if (bgvalt != mri_target->outside_val)
   {
-    cout << "    - warn: trg mri outside_val = " << mri_target->outside_val << "  but suspected background: " << bgvalt << endl;     
-    cout << "    - updating outside value..." << endl;
-    mri_target->outside_val = bgvalt;
+    cout << "    - WARNING: trg mri outside_val = " << mri_target->outside_val << "  but suspected background: " << bgvalt << endl;     
+    cout << "               If background is black or darkgray, ignore this. If white, pass --whitebgdst" << endl;
+    //cout << "    - updating outside value..." << endl;
+    //mri_target->outside_val = bgvalt;
   }  
 
 //  // flip and reorder axis of source based on RAS alignment or ixform:

@@ -8,10 +8,6 @@
 # --help option will show usage
 #
 # Original Author: Doug Greve
-# CVS Revision Info:
-#    $Author: greve $
-#    $Date: 2016/08/02 21:19:46 $
-#    $Revision: 1.24 $
 #
 # Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 #
@@ -28,15 +24,17 @@
 # uncomment this to increase number of allowable open files:
 #limit descriptors unlimited
 
-set VERSION = '$Id: make_average_subject,v 1.24 2016/08/02 21:19:46 greve Exp $'
+set VERSION = 'make_average_subject @FS_VERSION@';
 set PrintHelp = 0;
 set sdout = ();
-set average_subject = average;
+set average_subject = ();
 set DoLink = 0;
 set DoSurfaces = 1;
 set DoVolumes  = 1;
 set Force = 0;
 set KeepAllOrig = 0;
+set DoRibbon = 1
+set hemilist = (lh rh);
 
 set cmdargs = ($argv);
 
@@ -106,11 +104,15 @@ if($DoVolumes) then
   endif
 endif
 
-if($DoSurfaces && $DoVolumes) then
+if($DoSurfaces && $DoVolumes && $DoRibbon && $#hemilist == 2) then
+  set xopts = /tmp/make_average_subject.$$.xopts
   set cmd = (recon-all -s $average_subject -cortribbon -aparc2aseg)
+  echo "mri_aparc2aseg --no-relabel" > $xopts
+  set cmd = ($cmd -expert $xopts -xopts-overwrite)
   echo $cmd
   $cmd
   if($status) exit 1;
+  rm $xopts
 endif
 
 date | tee -a $LF
@@ -172,12 +174,24 @@ while( $#argv != 0 )
       set DoLink = 0;
       breaksw
 
+    case "--lh":
+      set hemilist = lh;
+      breaksw;
+
+    case "--rh":
+      set hemilist = rh;
+      breaksw;
+
     case "--link":
       set DoLink = 1;
       breaksw
 
     case "--no-surf":
       set DoSurfaces = 0;
+      breaksw
+
+    case "--no-ribbon":
+      set DoRibbon = 0;
       breaksw
 
     case "--no-vol":
@@ -252,6 +266,10 @@ check_params:
     echo " Nothing to do!"
     exit 1;
   endif
+  if($#average_subject == 0) then
+    echo "ERROR: must specify the output subject name with --out"
+    exit 1;
+  endif
 goto check_params_return;
 ############--------------##################
 
@@ -264,9 +282,10 @@ usage_exit:
   echo "   --subjects <subj1> <subj2> ... <subjN>"
   echo "             : or declare subjects in SUBJECTS env var"
   echo "   --fsgd fsgdfile : get subject list from fsgd"
+  echo "   --f subjectlistfile : put all subject names in a text file"
+  echo "   --out <average subject name>"
   echo ""
   echo "Optional Arguments"
-  echo "   --out <average subject name>    : default name is 'average'"
   echo "   --sd-out sdout : put output under sdout instead of SUBJECTS_DIR"
   echo "   --no-link : do not link back to the original SUBJECTS_DIR with --sd-out"
   echo "   --sdir <SUBJECTS_DIR to use instead of the one in the env>"
@@ -280,6 +299,8 @@ usage_exit:
   echo "   --force   : overwrite existing average subject data"
   echo "   --keep-all-orig : concatenate all orig vols into mri/orig.all.mgz"
   echo "   --no-symlink : do not use symbolic links with surfs (just copy files)"
+  echo "   --no-ribbon : do not create ribbon.mgz and aparc+aseg.mgz files"
+  echo "   --no-surf2surf : use old parametric surface mapping method (may give big faces at the poles)"
   echo ""
   echo "   --help    : short descriptive help"
   echo "   --version : script version info"
@@ -346,7 +367,7 @@ will do the same as Example 1.
 Example 3: check that the average subject volume aligns with the
 talairach subject:
 
-  tkregister2 --fstal --s avgsubject --mgz
+  tkregisterfv --fstal --s avgsubject --mgz
 
 Example 4: check that the average subject surfaces align with the
 volume:

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: latin-1 -*-
 
 #
 # long_qdec_table
@@ -7,10 +6,6 @@
 # script process longitudinal qdec tables
 #
 # Original Author: Martin Reuter
-# CVS Revision Info:
-#    $Author: mreuter $
-#    $Date: 2013/08/05 18:02:41 $
-#    $Revision: 1.6 $
 #
 # Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 #
@@ -22,10 +17,11 @@
 #
 # Reporting: freesurfer@nmr.mgh.harvard.edu
 #
-#
 
+from __future__ import print_function
 import warnings
 warnings.filterwarnings('ignore', '.*negative int.*')
+
 import os
 import sys
 import shlex
@@ -34,8 +30,9 @@ import logging
 import subprocess
 import tempfile
 import shutil
-from subject_info import *
-from LongQdecTable import *
+
+from freesurfer.utils.legacy import LongQdecTable, BadFileError
+
 
 # logging 
 ch = logging.StreamHandler()
@@ -97,7 +94,7 @@ def options_parse():
     Command Line Options Parser
     initiate the option parser and return the parsed object
     """
-    parser = optparse.OptionParser(version='$Id: long_qdec_table,v 1.6 2013/08/05 18:02:41 mreuter Exp $', usage=HELPTEXT)
+    parser = optparse.OptionParser(usage=HELPTEXT)
     
     # help text
     h_qdec      = '(REQUIRED) qdec table file specifying the subjects and time points'
@@ -116,11 +113,11 @@ def options_parse():
 
     if options.qdec is None:
         parser.print_help()
-        print '\nERROR: Specify --qedc'
+        print('\nERROR: Specify --qdec')
         sys.exit(1)
 
     if ( options.sort is not None or options.cross ) and options.out is None:
-        print 'ERROR: Please specify output --out <name> '
+        print('ERROR: Please specify output --out <name> ')
         sys.exit(1)
 
     return options
@@ -136,36 +133,36 @@ if __name__=="__main__":
     subjectsdir = ''
     variables   = ''
 
-    print 'Parsing the qdec table: '+options.qdec
+    print('Parsing the qdec table: '+options.qdec)
     try:
         mylogger.debug('Processing file ' + options.qdec)
         longqdec = LongQdecTable(options.qdec)
 #        subjects_tp_map, variables, subjectdir = qdecparse.parse()
-    except BadFileError, e:
-        print 'ERROR: qdec table '+str(e)+' not found or wrong format!'
+    except BadFileError as e:
+        print('ERROR: qdec table '+str(e)+' not found or wrong format!')
         sys.exit(1)
     
 
     if options.split is not None:
-        print 'Splitting the qdec table:  column '+options.split
+        print('Splitting the qdec table:  column '+options.split)
         alltables = longqdec.split(options.split)
         colname = options.split+"."
         if options.split == "fsid-base":
             colname = ""
         for table in alltables:
             outname="long.qdec."+colname+table.commonval+".dat"
-            print 'Writing the qdec table: '+outname
+            print('Writing the qdec table: '+outname)
             table.write(outname)  
 
     if options.cross:
-        print 'Collapsing the qdec table to CROSS '
+        print('Collapsing the qdec table to CROSS ')
         longqdec.make_cross()
-        print 'Writing the qdec table: '+options.out
+        print('Writing the qdec table: '+options.out)
         longqdec.write(options.out)
     
     if options.sort is not None:
-        print 'Sorting the qdec table: column '+options.sort
+        print('Sorting the qdec table: column '+options.sort)
         longqdec.sort(options.sort)
-        print 'Writing the qdec table: '+options.out
+        print('Writing the qdec table: '+options.out)
         longqdec.write(options.out)
         

@@ -1,14 +1,6 @@
-/**
- * @file  ifh2hdr.c
- *
- */
 /*
  * Original Author: Avi Z. Snyder, Washington University
  * 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2007/05/05 10:45:03 $
- *    $Revision: 1.3 $
  *
  * Copyright 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
  * Washington University, Mallinckrodt Institute of Radiology.
@@ -48,7 +40,6 @@ void getrange (char *string, float *minval, float *maxval) {
 
 extern int	Inithdr (struct dsr *phdr, int *imgdim, float *voxdim, char *proto_imgfile);
 
-static char rcsid[] = "$Id: ifh2hdr.c,v 1.3 2007/05/05 10:45:03 nicks Exp $";
 int main (int argc, char *argv[]) {
 	FILE		*fp;
 	struct dsr	hdr;
@@ -72,7 +63,7 @@ int main (int argc, char *argv[]) {
 
 	int		isbig, swab_flag, range_flag = 0;
 
-	printf ("%s\n", rcsid);
+	printf ("%s\n", "freesurfer ifh2hdr.c");
 	if (!(str = strrchr (argv[0], '/'))) str = argv[0]; else str++;
 	strcpy (program, str);
 

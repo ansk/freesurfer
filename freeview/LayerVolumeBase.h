@@ -1,14 +1,9 @@
 /**
- * @file  LayerVolumeBase.h
  * @brief Layer data object for MRI volume.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/02 18:41:17 $
- *    $Revision: 1.29 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -32,6 +27,7 @@
 #include <vector>
 #include <QFile>
 #include <QVariantMap>
+#include <QVector>
 
 class vtkImageData;
 class BrushProperty;
@@ -44,11 +40,15 @@ public:
   LayerVolumeBase( QObject* parent = NULL );
   virtual ~LayerVolumeBase();
 
-  void SetVoxelByRAS( double* ras, int nPlane, bool bAdd = true );
-  void SetVoxelByRAS( double* ras1, double* ras2, int nPlane, bool bAdd = true );
+  void SetVoxelByRAS( double* ras, int nPlane, bool bAdd = true, bool ignore_brush_size = false );
+  void SetVoxelByRAS( double* ras1, double* ras2, int nPlane, bool bAdd = true, bool ignore_brush_size = false  );
   bool FloodFillByRAS( double* ras, int nPlane, bool bAdd = true, bool b3D = false, char* mask_out = 0, bool ignore_exclusion = false );
   void CloneVoxelByRAS( double* ras, int nPlane );
   void CloneVoxelByRAS( double* ras1, double* ras2, int nPlane );
+  void ShiftVoxelsByRAS( double* ras_offset, int nPlane);
+  void ShiftVoxels(int *nOffset, int nPlane);
+
+  bool BorderFillByRAS( double* ras, int nPlane, bool b3D = false);
 
   void SetLiveWireByRAS( double* ras1, double* raw2, int nPlane );
   std::vector<double> GetLiveWirePointsByRAS( double* pt1, double* pt2, int nPlane );
@@ -63,7 +63,7 @@ public:
   void Paste( int nPlane );
   bool CopyStructure( int nPlane, double* ras );
 
-  virtual void SaveForUndo( int nPlane = 0 );
+  virtual void SaveForUndo( int nPlane = -1, bool bAllFrames = false );
 
   double GetFillValue();
 
@@ -108,17 +108,21 @@ signals:
   void FillValueChanged( double );
   void EraseValueChanged( double );
   void BrushRadiusChanged( int );
-  void BaseVoxelEdited(const QList<int>, bool bAdd);
+  void BaseVoxelEdited(const QVector<int>, bool bAdd);
 
 public slots:
   void SetFillValue( double fFill );
   void SetBlankValue( double fBlank );
   void SetBrushRadius( int nRadius );
+  void ClearVoxels();
+  void PrepareShifting(int nPlane);
+  void DoneShifting();
 
 protected:
-  QList<int> SetVoxelByIndex( int* n, int nPlane, bool bAdd = true ); // true is to add, false is to remove
-  QList<int> SetVoxelByIndex( int* n1, int* n2, int nPlane, bool bAdd = true );
-  QList<int> FloodFillByIndex( int* n, int nPlane, bool bAdd = true, bool ignore_overflow = true, char* mask_out = NULL, bool ignore_exclusion = false );
+  QVector<int> SetVoxelByIndex( int* n, int nPlane, bool bAdd = true, bool ignore_brush_size = false ); // true is to add, false is to remove
+  QVector<int> SetVoxelByIndex( int* n1, int* n2, int nPlane, bool bAdd = true, bool ignore_brush_size = false  );
+  QVector<int> FloodFillByIndex( int* n, int nPlane, bool bAdd = true, bool ignore_overflow = true, char* mask_out = NULL, bool ignore_exclusion = false );
+  QVector<int> BorderFillByRAS(int *n, int nPlane);
   bool SetLiveWireByIndex( int* n1, int* n2, int nPlane );
   bool CloneVoxelByIndex( int* n, int nPlane );
   bool CloneVoxelByIndex( int* n1, int* n2, int nPlane );
@@ -177,6 +181,9 @@ protected:
   LivewireTool*  m_livewire;
 
   int     m_nActiveFrame;
+
+  char*   m_shiftBackgroundData;
+  char*   m_shiftForegroundData;
 };
 
 #endif

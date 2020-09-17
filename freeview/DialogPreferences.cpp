@@ -1,14 +1,5 @@
-/**
- * @file  DialogPreferences.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/02 18:41:17 $
- *    $Revision: 1.23 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -24,12 +15,14 @@
 #include "DialogPreferences.h"
 #include "ui_DialogPreferences.h"
 #include "MainWindow.h"
+#include "ui_MainWindow.h"
 #include "RenderView2D.h"
 #include "RenderView3D.h"
 #include "Cursor2D.h"
 #include "Cursor3D.h"
 #include "Annotation2D.h"
 #include "TermWidget.h"
+#include <QMessageBox>
 
 DialogPreferences::DialogPreferences(QWidget *parent) :
   QDialog(parent),
@@ -38,7 +31,13 @@ DialogPreferences::DialogPreferences(QWidget *parent) :
 {
   ui->setupUi(this);
   ui->buttonBox->button(QDialogButtonBox::Close)->setDefault(true);
+  ui->groupBoxCommandConsole->hide();
+
   MainWindow* mainwnd = MainWindow::GetMainWindow();
+  ui->comboBoxShortcutCycleLayer->setProperty("action", QVariant::fromValue<QObject*>(mainwnd->ui->actionCycleLayer));
+  ui->comboBoxShortcutToggleSurface->setProperty("action", QVariant::fromValue<QObject*>(mainwnd->ui->actionToggleSurfaceVisibility));
+  ui->comboBoxShortcutToggleVolume->setProperty("action", QVariant::fromValue<QObject*>(mainwnd->ui->actionToggleVolumeVisibility));
+
   for (int i = 0; i < 4; i++)
   {
     connect(ui->colorPickerBackground, SIGNAL(colorChanged(QColor)),
@@ -54,6 +53,10 @@ DialogPreferences::DialogPreferences(QWidget *parent) :
             ((RenderView2D*)mainwnd->GetRenderView(i))->GetCursor2D(), SLOT(SetThickness(int)));
     connect(ui->colorPickerAnnotation, SIGNAL(colorChanged(QColor)),
             ((RenderView2D*)mainwnd->GetRenderView(i))->GetAnnotation2D(), SLOT(SetColor(QColor)));
+    connect(ui->spinBoxFontSize, SIGNAL(valueChanged(int)),
+            ((RenderView2D*)mainwnd->GetRenderView(i)), SLOT(SetTextSize(int)));
+    connect(ui->checkBoxAutoScaleFont, SIGNAL(toggled(bool)),
+            ((RenderView2D*)mainwnd->GetRenderView(i)), SLOT(SetAutoScaleText(bool)));
   }
   connect(ui->colorPickerCursor, SIGNAL(colorChanged(QColor)),
           ((RenderView3D*)mainwnd->GetRenderView(3))->GetCursor3D(), SLOT(SetColor(QColor)));
@@ -93,6 +96,33 @@ DialogPreferences::DialogPreferences(QWidget *parent) :
   connect(ui->radioButtonThemeDark, SIGNAL(toggled(bool)), mainwnd, SLOT(UpdateSettings()));
   connect(ui->checkBoxAutoReorientView, SIGNAL(toggled(bool)), mainwnd, SLOT(UpdateSettings()));
   connect(ui->checkBoxDecimalVoxelCoord, SIGNAL(toggled(bool)), mainwnd, SLOT(UpdateSettings()));
+  connect(ui->checkBoxAutoScaleFont, SIGNAL(toggled(bool)), mainwnd, SLOT(UpdateSettings()));
+  connect(ui->spinBoxFontSize, SIGNAL(valueChanged(int)), mainwnd, SLOT(UpdateSettings()));
+  connect(ui->checkBoxAutoMidToMin, SIGNAL(toggled(bool)), mainwnd, SLOT(UpdateSettings()));
+  connect(ui->spinBoxPrecision, SIGNAL(valueChanged(int)), mainwnd, SLOT(UpdateSettings()));
+  connect(ui->checkBoxComma, SIGNAL(toggled(bool)), mainwnd, SLOT(UpdateSettings()));
+  connect(ui->checkBoxClickToLock, SIGNAL(toggled(bool)), mainwnd, SLOT(UpdateSettings()));
+
+  connect(ui->spinBoxPrecision, SIGNAL(valueChanged(int)), mainwnd, SLOT(UpdateInfoPanel()), Qt::QueuedConnection);
+  connect(ui->checkBoxComma, SIGNAL(toggled(bool)), mainwnd, SLOT(UpdateInfoPanel()), Qt::QueuedConnection);
+
+  QList<QComboBox*> list_combos;
+  list_combos << ui->comboBoxShortcutCycleLayer << ui->comboBoxShortcutToggleSurface
+              << ui->comboBoxShortcutToggleVolume;
+  foreach (QComboBox* combo, list_combos)
+  {
+    combo->clear();
+    QAction* act = qobject_cast<QAction*>(combo->property("action").value<QObject*>());
+    if (act)
+    {
+      combo->addItem(act->shortcut().toString());
+      for (int i = 1; i <= 12; i++)
+        combo->addItem(tr("F%1").arg(i));
+      combo->addItem(tr("Pause"));
+      combo->setCurrentIndex(0);
+    }
+    connect(combo, SIGNAL(currentIndexChanged(QString)), this, SLOT(OnComboShortcutChanged(QString)));
+  }
 }
 
 DialogPreferences::~DialogPreferences()
@@ -118,7 +148,36 @@ void DialogPreferences::SetSettings(const QVariantMap &map)
   ui->colorPickerAnnotation->setCurrentColor(map["AnnotationColor"].value<QColor>());
   ui->checkBoxRightButtonErase->setChecked(map["RightButtonErase"].toBool());
   ui->checkBoxAutoReorientView->setChecked(map["AutoReorientView"].toBool());
+  ui->checkBoxAutoMidToMin->setChecked(map["AutoSetMidToMin"].toBool());
   ui->checkBoxDecimalVoxelCoord->setChecked(map["DecimalVoxelCoord"].toBool());
+  ui->checkBoxAutoScaleFont->setChecked(map["AutoScaleText"].toBool());
+  ui->spinBoxFontSize->setValue(map["TextSize"].toInt());
+  ui->spinBoxPrecision->setValue(map["Precision"].toInt());
+  ui->checkBoxComma->setChecked(map["UseComma"].toBool());
+  ui->checkBoxClickToLock->setChecked(map["ClickToLock"].toBool());
+
+  MainWindow* mainwnd = MainWindow::GetMainWindow();
+  QString val = map.value("ShortcutCycleLayer").toString();
+  if (!val.isEmpty() && val != "Default")
+  {
+    SetActionShortcut(mainwnd->ui->actionCycleLayer, val);
+    ui->comboBoxShortcutCycleLayer->setProperty("shortcut_text", val);
+    SetCurrentComboText(ui->comboBoxShortcutCycleLayer, val);
+  }
+  val = map.value("ShortcutToggleVolume").toString();
+  if (!val.isEmpty() && val != "Default")
+  {
+    SetActionShortcut(mainwnd->ui->actionToggleVolumeVisibility, val);
+    ui->comboBoxShortcutToggleVolume->setProperty("shortcut_text", val);
+    SetCurrentComboText(ui->comboBoxShortcutToggleVolume, val);
+  }
+  val = map.value("ShortcutToggleSurface").toString();
+  if (!val.isEmpty() && val != "Default")
+  {
+    SetActionShortcut(mainwnd->ui->actionToggleSurfaceVisibility, val);
+    ui->comboBoxShortcutToggleSurface->setProperty("shortcut_text", val);
+    SetCurrentComboText(ui->comboBoxShortcutToggleSurface, val);
+  }
   BlockAllSignals(this, false);
 }
 
@@ -139,8 +198,29 @@ QVariantMap DialogPreferences::GetSettings()
   map["AnnotationColor"] = ui->colorPickerAnnotation->currentColor();
   map["RightButtonErase"] = ui->checkBoxRightButtonErase->isChecked();
   map["AutoReorientView"] = ui->checkBoxAutoReorientView->isChecked();
+  map["AutoSetMidToMin"] = ui->checkBoxAutoMidToMin->isChecked();
   map["DecimalVoxelCoord"] = ui->checkBoxDecimalVoxelCoord->isChecked();
+  map["ShortcutCycleLayer"] = ui->comboBoxShortcutCycleLayer->currentText();
+  map["ShortcutToggleVolume"] = ui->comboBoxShortcutToggleVolume->currentText();
+  map["ShortcutToggleSurface"] = ui->comboBoxShortcutToggleSurface->currentText();
+  map["TextSize"] = ui->spinBoxFontSize->value();
+  map["AutoScaleText"] = ui->checkBoxAutoScaleFont->isChecked();
+  map["Precision"] = ui->spinBoxPrecision->value();
+  map["UseComma"] = ui->checkBoxComma->isChecked();
+  map["ClickToLock"] = ui->checkBoxClickToLock->isChecked();
   return map;
+}
+
+void DialogPreferences::SetCurrentComboText(QComboBox *combo, const QString &text)
+{
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
+  combo->setCurrentText(text);
+#else
+  int n = combo->findText(text);
+  if (n < 0)
+    n = 0;
+  combo->setCurrentIndex(n);
+#endif
 }
 
 void DialogPreferences::OnClicked(QAbstractButton* btn)
@@ -158,9 +238,45 @@ void DialogPreferences::OnClicked(QAbstractButton* btn)
     ui->checkBoxRightButtonErase->setChecked(false);
     ui->checkBoxSyncZoom->setChecked(true);
     ui->radioButtonThemeDark->setChecked(true);
+    ui->comboBoxShortcutCycleLayer->setCurrentIndex(0);
+    ui->comboBoxShortcutToggleVolume->setCurrentIndex(0);
+    ui->comboBoxShortcutToggleSurface->setCurrentIndex(0);
 #ifdef Q_OS_MAC
     ui->checkBoxCommandKey->setChecked(false);
     ui->checkBoxMacUnified->setChecked(false);
 #endif
   }
+}
+
+void DialogPreferences::OnComboShortcutChanged(const QString& text)
+{
+  QStringList list;
+  list << ui->comboBoxShortcutCycleLayer->currentText() <<
+          ui->comboBoxShortcutToggleSurface->currentText() <<
+          ui->comboBoxShortcutToggleVolume->currentText();
+  list.removeOne(text);
+  if (list.contains(text))
+  {
+    QMessageBox::warning(this, "Shortcut", "Conflict shortcut. Please select another one.");
+    SetCurrentComboText(qobject_cast<QComboBox*>(sender()), sender()->property("shortcut_text").toString());
+  }
+  else
+  {
+    sender()->setProperty("shortcut_text", text);
+    SetActionShortcut(qobject_cast<QAction*>(sender()->property("action").value<QObject*>()), text);
+    MainWindow::GetMainWindow()->UpdateSettings();
+  }
+}
+
+void DialogPreferences::SetActionShortcut(QAction *act, const QString &text)
+{
+  QList<QKeySequence> list = act->shortcuts();
+  for (int i = 1; i <= 12; i++)
+    list.removeAll(QKeySequence(tr("F%1").arg(i)));
+  list.removeAll(QKeySequence(tr("Pause")));
+
+  if (!list.contains(QKeySequence(text)))
+    list << QKeySequence(text);
+
+  act->setShortcuts(list);
 }

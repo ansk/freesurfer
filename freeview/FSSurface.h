@@ -1,14 +1,9 @@
 /**
- * @file  FSSurface.h
  * @brief Base surface class that takes care of I/O and data conversion.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/12/11 16:04:03 $
- *    $Revision: 1.51 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -32,15 +27,17 @@
 #include "vtkImageData.h"
 #include "vtkPolyData.h"
 #include "vtkMatrix4x4.h"
+#include <QVector>
+#include <QVariantMap>
 
 #include <vector>
 #include <string>
 
-extern "C"
-{
+
+
 #include "mrisurf.h"
 #include "mri.h"
-}
+
 
 #define NUM_OF_VSETS 5
 
@@ -60,6 +57,7 @@ public:
                  const QString& vector_filename = QString(),
                  const QString& patch_filename = QString(),
                  const QString& target_filename = QString(),
+                 const QString& sphere_filename = QString(),
                  const QStringList& sup_files = QStringList());
 
   bool CreateFromMRIS(MRIS* mris);
@@ -229,12 +227,29 @@ public:
   bool FindPath(int* vert_vno, int num_vno,
                 int* path, int* path_length);
 
+  void UpdatePolyData();
+  void RipFaces();
+  QVector<int> MakeCutLine(const QVector<int>& verts);
+  void ClearCuts(const QVector<int>& verts = QVector<int>());
+
+  QVector<int> FloodFillFromSeed(int seed_vno);
+
+  void UpdateHashTable(int nSet = 0, int coord = CURRENT_VERTICES);
+
+  void UpdateCoords();
+
+  vtkTransform* GetSurfaceToRasTransform();
+
+  void SetIgnoreVolumeGeometry(bool bIgnore)
+  {
+    m_bIgnoreVG = bIgnore;
+  }
+
 protected:
   bool InitializeData(const QString& vector_filename = QString(),
                       const QString& patch_filename = QString(),
                       const QString& target_filename = QString(),
                       const QStringList& sup_files = QStringList());
-  void UpdatePolyData();
   void UpdatePolyData( MRIS* mris, vtkPolyData* polydata,
                        vtkPolyData* polydata_verts = NULL,
                        vtkPolyData* polydata_wireframe = NULL, bool create_segs = false );
@@ -329,6 +344,10 @@ protected:
   bool      m_bSharedMRIS;
 
   double    m_dMaxSegmentLength;
+
+  QVector<int>  m_originalRipflags;
+
+  bool    m_bIgnoreVG;
 };
 
 #endif

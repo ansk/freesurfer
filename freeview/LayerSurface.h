@@ -1,14 +1,9 @@
 /**
- * @file  LayerSurface.h
  * @brief Layer data object for MRI volume.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/08 21:01:00 $
- *    $Revision: 1.85 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,6 +24,8 @@
 #include "LayerEditable.h"
 #include "vtkSmartPointer.h"
 #include <QList>
+#include <QVector>
+#include <QVariantMap>
 
 class vtkImageReslice;
 class vtkImageMapToColors;
@@ -51,7 +48,9 @@ class SurfaceAnnotation;
 class SurfaceLabel;
 class SurfaceROI;
 class SurfaceSpline;
+class SurfacePath;
 class LayerROI;
+class vtkPolyData;
 
 struct RGBMap {
   QString name;
@@ -65,7 +64,7 @@ public:
   LayerSurface( LayerMRI* mri = NULL, QObject* parent = NULL );
   virtual ~LayerSurface();
 
-  bool LoadSurfaceFromFile();
+  bool LoadSurfaceFromFile(bool bIgnoreVG = false);
   bool LoadVectorFromFile();
   bool LoadCurvatureFromFile( const QString& filename );
   bool LoadOverlayFromFile( const QString& filename, const QString& fn_reg, bool bCorrelation, bool bSecondHalfData = false );
@@ -84,6 +83,7 @@ public:
   bool SaveSurface( const QString& filename );
   bool SaveSurface( );
   bool WriteIntersection( const QString& filename, int nPlane, LayerMRI* ref);
+  bool SaveSurfaceAsSTL(const QString& filename);
 
   void SetSlicePositionToWorldCenter();
 
@@ -173,6 +173,11 @@ public:
 
   void CopyCorrelationOverlay(LayerSurface* surf);
 
+  QList<SurfaceOverlay*> GetOverlays()
+  {
+    return m_overlays;
+  }
+
   // annotation functions
   int GetNumberOfAnnotations();
 
@@ -208,6 +213,8 @@ public:
 
   void DeleteLabel(SurfaceLabel* label);
   void MoveLabelToTop(SurfaceLabel* label);
+  void MoveLabelUp(SurfaceLabel* label);
+  void MoveLabelDown(SurfaceLabel* label);
 
   void SetRefVolume(LayerMRI* ref);
 
@@ -262,6 +269,10 @@ public:
     return m_nCurrentVertex;
   }
 
+  int GetLastMark();
+
+  QVector<int> GetAllMarks();
+
   bool GetCorrelationOverlayDataAtVertex(int nVert, float* output, int nFrames);
 
   bool IsInflated();
@@ -296,7 +307,7 @@ public:
 
   void SetNeighborhoodSize(int nSize);
 
-  QList<int> GetVertexNeighbors(int nvo);
+  QVector<int> GetVertexNeighbors(int vno);
 
   bool IsContralateralReady()
   {
@@ -310,7 +321,7 @@ public:
     return m_surfaceContralateral;
   }
 
-  int GetContralateralVertex(int nvo);
+  int GetContralateralVertex(int vno);
 
   int GetMouseVertex()
   {
@@ -321,6 +332,51 @@ public:
   {
     m_nMouseVertex = n;
   }
+
+  void AddPathPoint(int vno);
+
+  void RemovePathPoint(int vno);
+
+  void RemoveLastPathPoint();
+
+  void SetActivePath(int n);
+
+  SurfacePath* GetActivePath();
+
+  SurfacePath* GetMadePath(int nPath);
+
+  void DeleteActivePath();
+
+  int FindPathAt(int vno);
+
+  bool IsVertexRipped(int vno);
+
+  bool HasUndoableCut();
+
+  bool FillUncutArea(int vno);
+
+  bool LoadPatch(const QString& filename);
+
+  bool WritePatch(const QString& filename);
+
+  bool FillPath(int nvo, const QVariantMap& options);
+
+  int FillPath(const QVector<int>& verts, const QVariantMap& options);
+
+  void ClearMarks();
+
+  SurfaceLabel* CreateNewLabel(const QString& name = "");
+
+  bool LoadParameterization(const QString& filename);
+
+  bool LoadCoordsFromParameterization(const QString &filename);
+
+  void SetSphereFileName(const QString& fn)
+  {
+    m_sSphereFilename = fn;
+  }
+
+  SurfaceAnnotation* CreateNewAnnotation(const QString& ct_file, const QString& name = "");
 
 public slots:
   void SetActiveSurface( int nSurfaceType );
@@ -367,7 +423,7 @@ public slots:
 
   void RemoveMappedLabel(QObject* label_in);
 
-  QList<int> FindPath(const QList<int> seeds);
+  QVector<int> FindPath(const QVector<int>& seeds);
 
   void UpdateOverlayLabels()
   {
@@ -376,6 +432,25 @@ public slots:
 
   void SetContralateralLayer(LayerSurface* layer, LayerSurface* sphere1, LayerSurface* sphere2);
   void ResetContralateralInfo();
+
+  void OnPathCut();
+
+  void OnPathMade();
+
+  void ClearAllCuts();
+
+  void UndoCut();
+
+  QVector<int> FloodFillFromSeed(int seed_vno, const QVariantMap& options = QVariantMap());
+
+  bool IsVertexOnPath(int vno);
+
+  SurfacePath* GetMarks()
+  {
+    return m_marks;
+  }
+
+  vtkActor* GetMainActor();
 
 Q_SIGNALS:
   void SurfaceAnnotationAdded( SurfaceAnnotation* );
@@ -406,12 +481,17 @@ protected slots:
   void UpdateActorPositions();
   void UpdateROIPosition(double dx, double dy, double dz);
   void UpdateVectorActor2D();
+  void OnSlicePositionChanged3D();
+  void SetHighlightedLabelOnAnnotation(int n);
 
 protected:
   void InitializeData();
   void InitializeSurface();
   void InitializeActors();
+  void InitializeLabel(SurfaceLabel* label);
   void MapLabels( unsigned char* data, int nVertexCount );
+  void EditPathPoint(int vno, bool remove = false);
+  void PushMarksToPath();
 
   virtual void OnSlicePositionChanged( int nPlane );
 
@@ -426,6 +506,7 @@ protected:
   QString   m_sPatchFilename;
   QString   m_sVectorFilename;
   QString   m_sTargetFilename;
+  QString   m_sSphereFilename;
 
   vtkSmartPointer<vtkActor>   m_sliceActor2D[3];
   vtkSmartPointer<vtkActor>   m_sliceActor3D[3];
@@ -439,6 +520,7 @@ protected:
 
   vtkSmartPointer<vtkCutter>  m_cutter[3];
   vtkSmartPointer<vtkBox>     m_box[3];
+  vtkSmartPointer<vtkPolyData>     m_vertexPoly2D[3];
 
   QList<SurfaceOverlay*>    m_overlays;
   int         m_nActiveOverlay;
@@ -448,6 +530,10 @@ protected:
 
   QList<SurfaceLabel*>      m_labels;
   int         m_nActiveLabel;
+
+  QList<SurfacePath*> m_paths;
+  int         m_nActivePath;
+  SurfacePath*  m_marks;
 
   QList<RGBMap>             m_rgbMaps;
   int         m_nActiveRGBMap;

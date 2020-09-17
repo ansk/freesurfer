@@ -21,11 +21,11 @@ if( $#argv == 0 || $#argv > 2) then
   echo " "
   echo "Usage: "
   echo " "
-  echo "   segmentSF_T1.sh SUBJECT_ID [SUBJECT_DIR]" 
+  echo "   segmentHA_T1.sh SUBJECT_ID [SUBJECT_DIR]" 
   echo " "
   echo "Or, for help"
   echo " "
-  echo "   segmentSF_T1.sh --help"  
+  echo "   segmentHA_T1.sh --help"  
   echo " "
   exit 1
 endif
@@ -45,7 +45,7 @@ if( $1 == "--help") then
   echo "processed with the recon-all flag -cm. Then, you can run the following command"
   echo "to obtain the segmentation: "
   echo " "
-  echo "   segmentSF_T1.sh SUBJECT_ID [SUBJECT_DIR]"
+  echo "   segmentHA_T1.sh SUBJECT_ID [SUBJECT_DIR]"
   echo " "
   echo "   (the argument [SUBJECT_DIR] is only necessary if the"
   echo "    environment variable SUBJECTS_DIR has not been set"
@@ -154,6 +154,10 @@ if(-e $IsRunningFile) then
   exit 1;
 endif
 
+# If not explicitly specfied, set to 1
+if($?ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS == 0) then
+  setenv ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS 1
+endif
 
 # If everything is in place, let's do it! First, we create the IsRunning file
 echo "------------------------------" > $IsRunningFile
@@ -170,15 +174,15 @@ if($?PBS_JOBID) then
 endif
 
 # Parameters
-set RUNTIME="$FREESURFER_HOME/MCRv80/";
+set RUNTIME="$FREESURFER_HOME/MCRv84/";
 set RESOLUTION="0.333333333333333333333333333333333333";
 set ATLASMESH="$FREESURFER_HOME/average/HippoSF/atlas/AtlasMesh.gz";
 set ATLASDUMP="$FREESURFER_HOME/average/HippoSF/atlas/AtlasDump.mgz";
 set LUT="$FREESURFER_HOME/average/HippoSF/atlas/compressionLookupTable.txt";
 set K="0.05";
-set OPTIMIZER="ConjGrad";
+set OPTIMIZER="L-BFGS";
 set MRFCONSTANT="0";
-set SUFFIX="v20";
+set SUFFIX="v21";
 
 # Now the real job
 set hippohemilist=(left right)
@@ -191,12 +195,19 @@ echo "HOST `hostname`" >> $HSFLOG
 echo "PROCESSID $$ "   >> $HSFLOG
 echo "PROCESSOR `uname -m`" >> $HSFLOG
 echo "OS `uname -s`"       >> $HSFLOG
+echo "ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS $ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS " >> $HSFLOG
 uname -a         >> $HSFLOG
 if($?PBS_JOBID) then
   echo "pbsjob $PBS_JOBID"  >> $HSFLOG
 endif
 echo "------------------------------" >> $HSFLOG
 echo " " >> $HSFLOG
+cat $FREESURFER_HOME/build-stamp.txt  >> $HSFLOG
+echo " " >> $HSFLOG
+echo "setenv SUBJECTS_DIR $SUBJECTS_DIR"  >> $HSFLOG
+echo "cd `pwd`"   >> $HSFLOG
+echo $0 $argv  >> $HSFLOG
+echo ""  >> $HSFLOG
 
 foreach hemi ($hippohemilist)
   echo "#--------------------------------------------" \
@@ -205,16 +216,18 @@ foreach hemi ($hippohemilist)
     |& tee -a $HSFLOG
 
   # command
-  set cmd="run_segmentSubjectT1_autoEstimateAlveusML.sh $RUNTIME $SUBJECTNAME $SUBJECTS_DIR $RESOLUTION $ATLASMESH $ATLASDUMP $LUT $K $hemi $OPTIMIZER $SUFFIX ${FREESURFER_HOME}/bin/ $MRFCONSTANT"
+  set cmd="run_segmentSubjectT1_autoEstimateAlveusML.sh $RUNTIME $SUBJECTNAME $SUBJECTS_DIR $RESOLUTION $ATLASMESH $ATLASDUMP $LUT $K $hemi $OPTIMIZER $SUFFIX '${FREESURFER_HOME}/bin/fs_run_from_mcr ${FREESURFER_HOME}/bin/'  $MRFCONSTANT"
 
   fs_time ls >& /dev/null
   if ($status) then
     $cmd |& tee -a $HSFLOG 
+    set returnVal=$status
   else
     fs_time $cmd |& tee -a $HSFLOG
+    set returnVal=$status
   endif
 
-  if ($status) then
+  if ($returnVal) then
 
     uname -a | tee -a $HSFLOG
     echo "" |& tee -a $HSFLOG
@@ -226,6 +239,23 @@ foreach hemi ($hippohemilist)
     rm -f $IsRunningFile
     exit 1;
   endif
+end
+
+# Convert the txt files into a stats file so that asegstats2table can
+# be run Note: the number of voxels is set to 0 and there is no info
+# about intensity. The only useful info is the volume in mm and the
+# structure name. The segmentation IDs also do not mean anything. 
+# Could run mri_segstats instead, but the volumes would not include
+# partial volume correction.
+foreach hemi (lh rh)
+  set txt=$SUBJECTS_DIR/$SUBJECTNAME/mri/$hemi.hippoSfVolumes-T1.$SUFFIX.txt
+  set stats=$SUBJECTS_DIR/$SUBJECTNAME/stats/hipposubfields.$hemi.T1.$SUFFIX.stats
+  echo "# Hippocampal subfield volumes as created by segmentHA_T1.sh" > $stats
+  cat $txt | awk '{print NR" "NR"  0 "$2" "$1}' >> $stats
+  set txt=$SUBJECTS_DIR/$SUBJECTNAME/mri/$hemi.amygNucVolumes-T1.$SUFFIX.txt
+  set stats=$SUBJECTS_DIR/$SUBJECTNAME/stats/amygdalar-nuclei.$hemi.T1.$SUFFIX.stats
+  echo "# Amygdala nuclei volumes as created by segmentHA_T1.sh" > $stats
+  cat $txt | awk '{print NR" "NR"  0 "$2" "$1}' >> $stats
 end
  
 # All done!

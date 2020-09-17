@@ -1,13 +1,8 @@
 /**
- * @file  utilsmath.h
  * @brief utilities for distance field algorithm and the OBB Tree algorithm
  */
 /*
  * Original Author: Krish Subramanium
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2010/03/13 01:32:40 $
- *    $Revision: 1.3 $
  *
  * Geometric Tools, LLC
  * Copyright (c) 1998-2010
@@ -22,24 +17,10 @@
 #ifndef utilsmath_h
 #define utilsmath_h
 
-// The following is usable from C
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include "mri.h"
 #include "mrisurf.h"
 #include "diag.h"
 #include "proto.h"
-
-#ifdef __cplusplus
-}
-#endif
-
-
-// C++ portion starts here
-#ifdef __cplusplus
 
 #include <iostream>
 #include <limits.h>
@@ -161,25 +142,25 @@ namespace Math
   */
   void ConvertSurfaceRASToVoxel(MRIS *mris, MRI *mri_template)
   {
-    VERTEX* vertex;
-    double cx, cy, cz; 
-    double vx, vy, vz;
+    MRISfreeDistsButNotOrig(mris);
+      // MRISsetXYZ will invalidate all of these,
+      // so make sure they are recomputed before being used again!
+
     for (int i=0; i< mris->nvertices; i++)
     {
-      vertex = &mris->vertices[i];
-      cx = vertex->x;
-      cy = vertex->y;
-      cz = vertex->z;
+      VERTEX const * const vertex = &mris->vertices[i];
+      double cx = vertex->x;
+      double cy = vertex->y;
+      double cz = vertex->z;
 
       // for every surface vertex do this call
+      double vx, vy, vz;
       MRISsurfaceRASToVoxelCached(mris,
                                   mri_template,
                                   cx, cy, cz,
                                   &vx, &vy, &vz);
       // and reassign the vertices
-      vertex->x = vx;
-      vertex->y = vy; 
-      vertex->z = vz;
+      MRISsetXYZ(mris,i, (float)vx,(float)vy,(float)vz);
     }
   }
 
@@ -573,25 +554,21 @@ namespace Math
    */
   MRI* MRISmaxedgeshell(MRI *mrisrc, MRIS *mris, MRI* mridst, int clearflag)
   {
-    VERTEX *vert, *nvert;
-    double _dist, distance, xd, yd, zd;
-    double fi, fj, fimnr;
-    int i, j, imnr;
-    
     /* For each vertex, find the edge with the 
        maximum length and store it in an array */
     for (int vno = 0; vno < mris->nvertices; vno++)
     {
-      vert = &mris->vertices[vno];
+      VERTEX_TOPOLOGY const * const vert_topology = &mris->vertices_topology[vno];
+      VERTEX          const * const vert          = &mris->vertices         [vno];
       /* neighbor m */
-      distance = 0.0; // An edge length obviously has to be atleast 0.0
-      for (int nc = 0; nc < vert->vnum; nc++)
+      double distance = 0.0; // An edge length obviously has to be atleast 0.0
+      for (int nc = 0; nc < vert_topology->vnum; nc++)
       {
-        nvert = &mris->vertices[ vert->v[nc] ];
-        xd    = vert->x - nvert->x;
-        yd    = vert->y - nvert->y;
-        zd    = vert->z - nvert->z;
-        _dist = sqrt( xd*xd + yd*yd + zd*zd);
+        VERTEX const * const nvert = &mris->vertices[ vert_topology->v[nc] ];
+        double const xd    = vert->x - nvert->x;
+        double const yd    = vert->y - nvert->y;
+        double const zd    = vert->z - nvert->z;
+        double const _dist = sqrt( xd*xd + yd*yd + zd*zd);
         // length of the edge with max length among its neighbors
         if ( _dist > distance )
           distance = _dist;
@@ -601,12 +578,14 @@ namespace Math
           for (double zk = -distance; zk <=distance ; zk+=distance/5.0)
           {
             if ( xk*xk + yk*yk + zk*zk > distance*distance ) continue;
+
+    	    double fi, fj, fimnr;
             MRISsurfaceRASToVoxelCached(mris, mrisrc,
                                         vert->x + xk,vert->y+yk,vert->z+zk,
                                         &fi,&fj,&fimnr);
-            i=nint(fi);
-            j=nint(fj);
-            imnr=nint(fimnr);
+            int i=nint(fi);
+            int j=nint(fj);
+            int imnr=nint(fimnr);
             if (i>=0 && i<mridst->width && 
                 j>=0 && j<mridst->height && 
                 imnr>=0 && imnr<mridst->depth)
@@ -699,5 +678,4 @@ namespace Math
 
 }
 
-#endif //cplusplus
 #endif //utilsmath_h

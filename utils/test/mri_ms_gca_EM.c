@@ -1,5 +1,4 @@
 /**
- * @file  mri_ms_gca_EM.c
  * @brief performs EM-segmentation on the multidimensional intensity space.
  *
  * This program takes an arbitrary # of FLASH images as input,
@@ -19,10 +18,6 @@
  */
 /*
  * Original Author: Xiao Han
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:55 $
- *    $Revision: 1.9 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -74,7 +69,7 @@ static int debug_flag = 0;
 int main(int argc, char *argv[]) ;
 static int get_option(int argc, char *argv[]) ;
 
-char *Progname ;
+const char *Progname ;
 
 static int normflag = 0; /* normalize input volume */
 
@@ -162,7 +157,7 @@ main(int argc, char *argv[])
   MRI    *mri_flash[MAX_IMAGES], *mri_mem[MAX_CLASSES], *mri_mask, *mri_label, *mri_tmp;
   char   *out_prefx ;
   int    msec, minutes, seconds, nvolumes, nvolumes_total, label ;
-  struct timeb start ;
+  Timer start ;
   MATRIX *F[MAX_CLASSES];
   float *centroids[MAX_CLASSES];
   float value;
@@ -182,8 +177,7 @@ main(int argc, char *argv[])
   int MLE_label;
   double max_prior;
 
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option (argc, argv, "$Id: mri_ms_gca_EM.c,v 1.9 2011/03/02 00:04:55 nicks Exp $", "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "mri_ms_gca_EM");
   if (nargs && argc - nargs == 1)
     exit (0);
   argc -= nargs;
@@ -193,7 +187,7 @@ main(int argc, char *argv[])
   DiagInit(NULL, NULL, NULL) ;
 
 
-  TimerStart(&start) ;
+  start.reset() ;
 
   ac = argc ;
   av = argv ;
@@ -768,7 +762,7 @@ main(int argc, char *argv[])
     MRIfree(&mri_tmp);
   }
 
-  msec = TimerStop(&start) ;
+  msec = start.milliseconds() ;
   seconds = nint((float)msec/1000.0f) ;
   minutes = seconds / 60 ;
   seconds = seconds % 60 ;

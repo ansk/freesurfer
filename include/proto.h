@@ -1,14 +1,9 @@
 /**
- * @file  proto.h
  * @brief function prototypes of common system functions
  *
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: zkaufman $
- *    $Date: 2012/12/05 18:31:09 $
- *    $Revision: 1.40 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -22,16 +17,13 @@
  *
  */
 
-
+// proto.h is included by base.h    
+//  and it is preferred that it not be included directly
+//
 #ifndef _PROTO_H_
 #define _PROTO_H_
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <time.h>
-#include <sys/timeb.h>
+#include "base.h"
 
 #if defined(SunOS) | defined(IRIX)
 #include <ieeefp.h>

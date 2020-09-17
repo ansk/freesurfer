@@ -1,16 +1,8 @@
 /**
- * @file  gcsa.h
  * @brief utilities for Gaussian Classifier Surface Arrays.
  *
  * the heart of the cortical parcellation code - implements an
  * anisotropic nonstationary MRF on the surface.
- */
-/*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:09 $
- *    $Revision: 1.15 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -126,12 +118,13 @@ int   GCSAlabel(GCSA *gcsa, MRI_SURFACE *mris) ;
 int   GCSAdump(GCSA *gcsa, int vno, MRI_SURFACE *mris, FILE *fp) ;
 int   GCSAreclassifyUsingGibbsPriors(GCSA *gcsa, MRI_SURFACE *mris) ;
 int   GCSAreclassifyLabel(GCSA *gcsa, MRI_SURFACE *mris, LABEL *area) ;
-int   GCSAputInputType(GCSA *gcsa, int type, char *fname, int navgs, int ino,
+int   GCSAputInputType(GCSA *gcsa, int type, const char *fname, int navgs, int ino,
                        int flags) ;
 int   GCSAsetCovariancesToIdentity(GCSA *gcsa) ;
-VERTEX *GCSAsourceToPriorVertex(GCSA *gcsa, VERTEX *v) ;
-int GCSAsourceToPriorVertexNo(GCSA *gcsa, VERTEX *v);
-VERTEX *GCSAsourceToClassifierVertex(GCSA *gcsa, VERTEX *v) ;
+VERTEX *GCSAsourceToPriorVertex     (GCSA *gcsa, VERTEX const *v);
+int     GCSAsourceToPriorVertexNo   (GCSA *gcsa, VERTEX const *v);
+VERTEX *GCSAsourceToClassifierVertex(GCSA *gcsa, VERTEX const *v);
+
 int dump_gcsan(GCSA_NODE *gcsan, CP_NODE *cpn, FILE *fp, int verbose) ;
 int GCSAbuildMostLikelyLabels(GCSA *gcsa, MRI_SURFACE *mris) ;
 int GCSArelabelWithAseg(GCSA *gcsa, MRI_SURFACE *mris, MRI *mri_aseg) ;

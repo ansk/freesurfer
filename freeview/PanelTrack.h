@@ -1,14 +1,5 @@
-/**
- * @file  PanelTrack.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2011/12/05 20:03:33 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -44,6 +35,10 @@ protected:
   void DoUpdateWidgets();
   void DoIdle();
   virtual void ConnectLayer( Layer* layer );
+
+protected slots:
+  void OnSliderOpacity(int);
+  void OnLineEditOpacity(const QString&);
 
 private:
   Ui::PanelTrack *ui;

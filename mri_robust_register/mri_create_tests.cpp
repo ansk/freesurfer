@@ -1,15 +1,10 @@
 /**
- * @file  mri_create_tests.cpp
  * @brief Creates a modified image with noise or transformed 
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2012/11/10 15:35:01 $
- *    $Revision: 1.9 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -43,11 +38,6 @@
 #include "Quaternion.h"
 #include "MyMRI.h"
 
-// all other software are all in "C"
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "error.h"
 #include "macros.h"
 #include "mri.h"
@@ -57,10 +47,6 @@ extern "C"
 #include "mrimorph.h"
 #include "version.h"
 #include <vnl/vnl_matrix.h>
-
-#ifdef __cplusplus
-}
-#endif
 
 using namespace std;
 
@@ -95,9 +81,7 @@ static struct Parameters P =
 static void printUsage(void);
 static bool parseCommandLine(int argc, char *argv[], Parameters & P);
 
-static char vcid[] =
-    "$Id: mri_create_tests.cpp,v 1.9 2012/11/10 15:35:01 mreuter Exp $";
-char *Progname = NULL;
+const char *Progname = NULL;
 
 std::vector<int> get_random(int lowest, int highest, int num = 3)
 {
@@ -173,10 +157,10 @@ int main(int argc, char *argv[])
   // testvnl();
 
   { // for valgrind, so that everything is freed
-    cout << vcid << endl;
+    cout << getVersion() << endl;
 
     // Default initialization
-    int nargs = handle_version_option(argc, argv, vcid, "$Name:  $");
+    int nargs = handleVersionOption(argc, argv, "mri_create_tests");
     if (nargs && argc - nargs == 1)
       exit(0);
     argc -= nargs;

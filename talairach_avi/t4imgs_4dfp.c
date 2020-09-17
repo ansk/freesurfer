@@ -1,15 +1,10 @@
 /**
- * @file  t4imgs_4dfp.c
  * @brief 12 parameter linear transform and average 4dfp stacks.
  *
  */
 /*
  * Original Author: Avi Z. Snyder, Washington University
  * 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2010/02/27 01:41:53 $
- *    $Revision: 1.3 $
  *
  * Copyright 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
  * Washington University, Mallinckrodt Institute of Radiology.
@@ -86,7 +81,6 @@ typedef struct {
 	int		shift;
 } RUN_INFO;
 
-static char rcsid[] = "$Id: t4imgs_4dfp.c,v 1.3 2010/02/27 01:41:53 nicks Exp $";
 int main (int argc, char *argv[]) {
 	FILE			*lstfp;			/* input image list */
 	FILE			*imgfp, *mskfp;		/* input image and mask file pointers */
@@ -149,7 +143,7 @@ int main (int argc, char *argv[]) {
  	int			NaN_flag = 0;		/* enable NaN output if value undefined */
 	int 			nearest_neighbor = 0;   /* interpolate */
 
-	printf ("%s\n", rcsid);
+	printf ("%s\n", "freesurfer t4imgs_4dfp.c");
 	if (!(ptr = strrchr (argv[0], '/'))) ptr = argv[0]; else ptr++;
 	strcpy (program, ptr);
 #ifndef HAVE_GFORTRAN
@@ -334,7 +328,7 @@ int main (int argc, char *argv[]) {
 /* construct output file name */
 /******************************/
 	sprintf  (outfile, "%s.4dfp.img", outroot);
-	startrece (outfile, argc, argv, rcsid, control);
+	startrece (outfile, argc, argv, "freesurfer t4imgs_4dfp.c", control);
 	if (spline_flag) {
 		printrec ("resampling by 3D cubic spline interpolation\n");
 	} else if (nearest_neighbor) {

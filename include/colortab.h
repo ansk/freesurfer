@@ -1,5 +1,4 @@
 /**
- * @file  colortab.h
  * @brief color table utilities
  *
  * An entry in a color table has:
@@ -10,10 +9,6 @@
  */
 /*
  * Original Authors: Kevin Teich, Bruce Fischl
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2015/06/22 19:13:33 $
- *    $Revision: 1.38 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -96,14 +91,17 @@ int         CTABfree(COLOR_TABLE **pct) ;
 /* Returns a deep copy of the table. */
 COLOR_TABLE *CTABdeepCopy(COLOR_TABLE *ct);
 
+// Reads the default color table from $FREESURFER_HOME/FreeSurferColorLUT.txt
+COLOR_TABLE *CTABreadDefault();
+
 /* Converts an RGB triplet into an annotaion value */
 int CTABrgb2Annotation(int r, int g, int b);
 
 /* Return the color table index given the name of the entry*/
-int CTABentryNameToIndex(char *EntryName, COLOR_TABLE *ct);
+int CTABentryNameToIndex(const char *EntryName, COLOR_TABLE *ct);
 
 /* Return the color table annotation given the name of the entry.*/
-int CTABentryNameToAnnotation(char *EntryName, COLOR_TABLE *ct);
+int CTABentryNameToAnnotation(const char *EntryName, COLOR_TABLE *ct);
 
 /* Copy the file name. */
 int CTABcopyFileName(COLOR_TABLE *ct, char *name, size_t name_len);
@@ -166,7 +164,7 @@ COLOR_TABLE *CTABaddEntry(COLOR_TABLE *ctold,const char *name);
 // returns name of annotation (or "NOT_FOUND")
 const char* CTABgetAnnotationName(COLOR_TABLE *ct, int annotation);
 
-int CTABcountRepeats(COLOR_TABLE *ct);
+int CTABcountRepeats(COLOR_TABLE *ct, int break_after_found);
 int CTABrandom(COLOR_TABLE *ct);
 int CTABunique(COLOR_TABLE *ct, int nmax);
 
@@ -177,9 +175,10 @@ int CTABunique(COLOR_TABLE *ct, int nmax);
 #define RGBToAnnot(r,g,b,annot)                                     \
   annot = ((r) & 0xff) | (((g) & 0xff) << 8) | (((b) & 0xff) << 16);
 
-COLOR_TABLE *TissueTypeSchema(COLOR_TABLE *ct, char *schema);
+COLOR_TABLE *TissueTypeSchema(COLOR_TABLE *ct, const char *schema);
 COLOR_TABLE *TissueTypeSchemaDefault(COLOR_TABLE *ct);
 COLOR_TABLE *TissueTypeSchemaDefaultHead(COLOR_TABLE *ct);
+COLOR_TABLE *TissueTypeSchemaLat(COLOR_TABLE *ct);
 int CTABprintASCIItt(COLOR_TABLE *ct, FILE *fp);
 int CTABwriteFileASCIItt(COLOR_TABLE *ct, const char *fname);
 COLOR_TABLE *CTABreadASCIIttHeader(const char *fname);

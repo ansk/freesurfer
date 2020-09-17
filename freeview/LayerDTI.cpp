@@ -1,14 +1,9 @@
 /**
- * @file  LayerDTI.cpp
  * @brief Layer class for DTI volume.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2015/11/19 19:16:51 $
- *    $Revision: 1.22 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -122,8 +117,12 @@ void LayerDTI::InitializeDTIColorMap()
   m_vectorData->DeepCopy(vectors);
   vtkFloatArray* fas = vtkFloatArray::New();
   fas->DeepCopy( m_imageData->GetPointData()->GetScalars() );
+#if VTK_MAJOR_VERSION > 5
+  m_imageData->AllocateScalars(VTK_FLOAT, 2);
+#else
   m_imageData->SetNumberOfScalarComponents( 2 );
   m_imageData->AllocateScalars();
+#endif
   vtkMatrix4x4* rotation_mat = vtkMatrix4x4::New();
   rotation_mat->Identity();
   MATRIX* reg = m_vectorSource->GetRegMatrix();

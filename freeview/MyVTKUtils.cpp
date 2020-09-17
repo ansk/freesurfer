@@ -1,14 +1,9 @@
 /**
- * @file  MyVTKUtilsUtils.h
  * @brief Misc utility class.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/06/24 17:11:04 $
- *    $Revision: 1.10 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -65,11 +60,8 @@
 #include <vtkTriangleFilter.h>
 #include <vtkPiecewiseFunction.h>
 #include <vtkColorTransferFunction.h>
-#include <vtkVolumeRayCastMapper.h>
 #include <vtkVolumeProperty.h>
 #include <vtkVolume.h>
-#include <vtkVolumeRayCastCompositeFunction.h>
-#include <vtkVolumeTextureMapper2D.h>
 #include <vtkFixedPointVolumeRayCastMapper.h>
 #include <vtkImageCast.h>
 #include <vtkImageClip.h>
@@ -82,10 +74,23 @@
 #include <vtkDijkstraImageGeodesicPath.h>
 #include <vtkCleanPolyData.h>
 #include <vtkImageResample.h>
+#include <vtkImageReslice.h>
 #include <vtkWindowedSincPolyDataFilter.h>
 #include <QFileInfo>
 #include <QDebug>
 #include <QMap>
+#include "vtkDataSetMapper.h"
+#include "vtkGlyph3DMapper.h"
+#include "vtkThreshold.h"
+#include "vtkDataSetAttributes.h"
+#include "vtkGeometryFilter.h"
+#include "vtkPointData.h"
+#include "vtkFloatArray.h"
+#include "vtkPassThrough.h"
+#include "vtkDiscreteMarchingCubes.h"
+#if VTK_MAJOR_VERSION > 5
+#include "vtkFlyingEdges3D.h"
+#endif
 
 bool MyVTKUtils::VTKScreenCapture( vtkRenderWindow* renderWnd,
                                    vtkRenderer* renderer,
@@ -138,7 +143,11 @@ bool MyVTKUtils::VTKScreenCapture( vtkRenderWindow* renderWnd,
     vtkRenderLargeImage* image = vtkRenderLargeImage::New();
     image->SetInput( renderer );
     image->SetMagnification( nMag );
+#if VTK_MAJOR_VERSION > 5
+    writer->SetInputData( image->GetOutput() );
+#else
     writer->SetInput( image->GetOutput() );
+#endif
     writer->SetFileName( fn.toUtf8().data() );
     writer->Write();
     if ( writer->GetErrorCode() != 0 )
@@ -212,21 +221,28 @@ void MyVTKUtils::WorldToViewport( vtkRenderer* renderer,
 
 bool MyVTKUtils::BuildLabelContourActor( vtkImageData* data_in,
                                          int labelIndex,
-                                         vtkActor* actor_out, int nSmoothIterations, int* ext, bool bAllRegions, bool bUpsample )
+                                         vtkActor* actor_out, int nSmoothIterations, int* ext, bool bAllRegions, bool bUpsample, bool bVoxelized)
 {
   Q_UNUSED(ext);
   int i = labelIndex;
   vtkSmartPointer<vtkImageThreshold> threshold = vtkSmartPointer<vtkImageThreshold>::New();
+#if VTK_MAJOR_VERSION > 5
+  threshold->SetInputData( data_in );
+#else
   threshold->SetInput( data_in );
+#endif
   threshold->ThresholdBetween( i-0.5, i+0.5 );
   threshold->ReplaceOutOn();
   threshold->SetOutValue( 0 );
-  vtkSmartPointer<vtkImageResample> resampler = vtkSmartPointer<vtkImageResample>::New();
+  vtkSmartPointer<vtkImageReslice> resampler = vtkSmartPointer<vtkImageReslice>::New();
   if (bUpsample)
   {
-    resampler->SetAxisMagnificationFactor(0, 2.0);
-    resampler->SetAxisMagnificationFactor(1, 2.0);
-    resampler->SetAxisMagnificationFactor(2, 2.0);
+//    resampler->SetAxisMagnificationFactor(0, 2.0);
+//    resampler->SetAxisMagnificationFactor(1, 2.0);
+//    resampler->SetAxisMagnificationFactor(2, 2.0);
+    double vs[3];
+    data_in->GetSpacing(vs);
+    resampler->SetOutputSpacing(vs[0]/2, vs[1]/2, vs[2]/2);
     resampler->SetInputConnection(threshold->GetOutputPort());
   }
   vtkSmartPointer<vtkMarchingCubes> contour = vtkSmartPointer<vtkMarchingCubes>::New();
@@ -256,10 +272,62 @@ bool MyVTKUtils::BuildLabelContourActor( vtkImageData* data_in,
   stripper->SetInputConnection( normals->GetOutputPort() );
   vtkSmartPointer<vtkCleanPolyData> cleaner = vtkSmartPointer<vtkCleanPolyData>::New();
   cleaner->SetInputConnection(stripper->GetOutputPort());
-  cleaner->Update();
-  vtkPolyDataMapper* mapper = vtkPolyDataMapper::SafeDownCast( actor_out->GetMapper() );
-  mapper->SetInputConnection( cleaner->GetOutputPort() );
-  mapper->ScalarVisibilityOn();
+//  vtkPolyDataMapper* mapper = vtkPolyDataMapper::SafeDownCast( actor_out->GetMapper() );
+  if (!bVoxelized)
+  {
+    vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+    cleaner->Update();
+    mapper->SetInputConnection( cleaner->GetOutputPort() );
+    actor_out->SetMapper(mapper);
+    mapper->ScalarVisibilityOn();
+  }
+  else
+  {
+    threshold->SetOutputScalarTypeToFloat();
+    threshold->Update();
+    vtkImageData* outputImage = threshold->GetOutput();
+    int* dim = outputImage->GetDimensions();
+    double* voxel_size = outputImage->GetSpacing();
+    double* origin = outputImage->GetOrigin();
+    float* p = static_cast<float*>(outputImage->GetScalarPointer());
+    vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
+    vtkSmartPointer<vtkFloatArray> scalars = vtkSmartPointer<vtkFloatArray>::New();
+    for (int i = 0; i < dim[0]; i++)
+    {
+      for (int j = 0; j < dim[1]; j++)
+      {
+        for (int k = 0; k < dim[2]; k++)
+        {
+          float val = p[i+j*dim[0]+k*dim[0]*dim[1]];
+          if (val > 0)
+          {
+            points->InsertNextPoint(origin[0]+voxel_size[0]*i, origin[1]+voxel_size[1]*j, origin[2]+voxel_size[2]*k);
+            scalars->InsertNextValue(val);
+          }
+        }
+      }
+    }
+    vtkSmartPointer<vtkPolyData> polydata = vtkSmartPointer<vtkPolyData>::New();
+    polydata->SetPoints(points);
+    polydata->GetPointData()->SetScalars(scalars);
+    vtkSmartPointer<vtkCubeSource> cube = vtkSmartPointer<vtkCubeSource>::New();
+    cube->SetXLength(voxel_size[0]);
+    cube->SetYLength(voxel_size[1]);
+    cube->SetZLength(voxel_size[2]);
+    vtkSmartPointer<vtkGlyph3DMapper> glyph = vtkSmartPointer<vtkGlyph3DMapper>::New();
+    glyph->SetSourceConnection(cube->GetOutputPort());
+    glyph->SetScaleModeToNoDataScaling();
+#if VTK_MAJOR_VERSION > 5
+    glyph->SetInputData(polydata);
+#else
+    vtkSmartPointer<vtkPassThrough> pass = vtkSmartPointer<vtkPassThrough>::New();
+    pass->SetInput(polydata);
+    glyph->SetInputConnection(pass->GetOutputPort());
+#endif
+    glyph->Update();
+    actor_out->SetMapper(glyph);
+    glyph->ScalarVisibilityOn();
+  }
 
   return true;
 }
@@ -277,22 +345,29 @@ bool MyVTKUtils::BuildLabelContourActor( vtkImageData* data_in,
   foreach (int i, labelIndices)
   {
     vtkSmartPointer<vtkImageThreshold> threshold = vtkSmartPointer<vtkImageThreshold>::New();
+#if VTK_MAJOR_VERSION > 5
+    threshold->SetInputData( data_in );
+#else
     threshold->SetInput( data_in );
+#endif
     threshold->ThresholdBetween( i-0.5, i+0.5 );
     threshold->ReplaceOutOn();
     threshold->SetOutValue( 0 );
-    vtkSmartPointer<vtkImageResample> resampler = vtkSmartPointer<vtkImageResample>::New();
+    vtkSmartPointer<vtkImageReslice> resampler = vtkSmartPointer<vtkImageReslice>::New();
     if (bUpsample)
     {
-      resampler->SetAxisMagnificationFactor(0, 2.0);
-      resampler->SetAxisMagnificationFactor(1, 2.0);
-      resampler->SetAxisMagnificationFactor(2, 2.0);
+//      resampler->SetAxisMagnificationFactor(0, 2.0);
+//      resampler->SetAxisMagnificationFactor(1, 2.0);
+//      resampler->SetAxisMagnificationFactor(2, 2.0);
+      double vs[3];
+      data_in->GetSpacing(vs);
+      resampler->SetOutputSpacing(vs[0]/2, vs[1]/2, vs[2]/2);
       resampler->SetInputConnection(threshold->GetOutputPort());
     }
     vtkSmartPointer<vtkMarchingCubes> contour = vtkSmartPointer<vtkMarchingCubes>::New();
     contour->SetInputConnection( bUpsample? resampler->GetOutputPort() : threshold->GetOutputPort());
     contour->SetValue(0, i);
-    append->AddInput(contour->GetOutput());
+    append->AddInputConnection(contour->GetOutputPort());
   }
   /*
   contour->Update();
@@ -349,20 +424,31 @@ bool MyVTKUtils::BuildContourActor( vtkImageData* data_in,
   int nSwell = 2;
   vtkSmartPointer<vtkImageThreshold> threshold = vtkSmartPointer<vtkImageThreshold>::New();
 
-  vtkSmartPointer<vtkImageResample> resampler = vtkSmartPointer<vtkImageResample>::New();
-  resampler->SetAxisMagnificationFactor(0, 2.0);
-  resampler->SetAxisMagnificationFactor(1, 2.0);
-  resampler->SetAxisMagnificationFactor(2, 2.0);
+  vtkSmartPointer<vtkImageReslice> resampler = vtkSmartPointer<vtkImageReslice>::New();
+//  resampler->SetAxisMagnificationFactor(0, 2.0);
+//  resampler->SetAxisMagnificationFactor(1, 2.0);
+//  resampler->SetAxisMagnificationFactor(2, 2.0);
+  double vs[3];
+  data_in->GetSpacing(vs);
+  resampler->SetOutputSpacing(vs[0]/2, vs[1]/2, vs[2]/2);
   if ( ext )
   {
     vtkSmartPointer<vtkImageClip> clipper = vtkSmartPointer<vtkImageClip>::New();
     if (bUpsample)
     {
+#if VTK_MAJOR_VERSION > 5
+      resampler->SetInputData(data_in);
+#else
       resampler->SetInput(data_in);
+#endif
       clipper->SetInputConnection(resampler->GetOutputPort());
     }
     else
+#if VTK_MAJOR_VERSION > 5
+      clipper->SetInputData( data_in );
+#else
       clipper->SetInput( data_in );
+#endif
     clipper->SetOutputWholeExtent( ext );
     threshold->SetInputConnection( clipper->GetOutputPort() );
   }
@@ -370,11 +456,19 @@ bool MyVTKUtils::BuildContourActor( vtkImageData* data_in,
   {
     if (bUpsample)
     {
+#if VTK_MAJOR_VERSION > 5
+      resampler->SetInputData(data_in);
+#else
       resampler->SetInput(data_in);
+#endif
       threshold->SetInputConnection(resampler->GetOutputPort());
     }
     else
+#if VTK_MAJOR_VERSION > 5
+      threshold->SetInputData( data_in );
+#else
       threshold->SetInput( data_in );
+#endif
   }
   threshold->ThresholdByLower( dTh2 );
   threshold->ReplaceOutOn();
@@ -396,7 +490,6 @@ bool MyVTKUtils::BuildContourActor( vtkImageData* data_in,
   vtkSmartPointer<vtkContourFilter> contour = vtkSmartPointer<vtkContourFilter>::New();
   contour->SetInputConnection( threshold->GetOutputPort());
   contour->SetValue(0, dTh1);
-
   {
     vtkSmartPointer<vtkPolyDataConnectivityFilter> conn = vtkSmartPointer<vtkPolyDataConnectivityFilter>::New();
     conn->SetInputConnection( contour->GetOutputPort() );
@@ -461,7 +554,11 @@ bool MyVTKUtils::BuildVolume( vtkImageData* data_in,
       vtkSmartPointer<vtkFixedPointVolumeRayCastMapper>::New();
 
   vtkSmartPointer<vtkImageCast> cast = vtkSmartPointer<vtkImageCast>::New();
+#if VTK_MAJOR_VERSION > 5
+  cast->SetInputData( data_in );
+#else
   cast->SetInput( data_in );
+#endif
   cast->SetOutputScalarTypeToUnsignedShort();
 
   // qDebug() << volumeMapper->GetIntermixIntersectingGeometry();
@@ -498,7 +595,11 @@ void MyVTKUtils::GetLivewirePoints( vtkImageData* image_in,
   int m_nPlane = nPlane_in;
   int m_nSlice = nSlice_in;
 
+#if VTK_MAJOR_VERSION > 5
+  m_imageClip->SetInputData( image_in );
+#else
   m_imageClip->SetInput( image_in );
+#endif
   int ext[6];
   image_in->GetExtent( ext );
   ext[m_nPlane*2] = ext[m_nPlane*2 + 1] = m_nSlice;
@@ -612,10 +713,10 @@ void MyVTKUtils::SetImageDataComponent(char* ptr, int* dim, size_t nNumberOfFram
   switch (data_type)
   {
   case VTK_UNSIGNED_CHAR:
-    ((unsigned char*)ptr)[(k*dim[0]*dim[1]+j*dim[0]+i)*nNumberOfFrames + nframe] = (unsigned char)val;
+    ((unsigned char*)ptr)[(k*dim[0]*dim[1]+j*dim[0]+i)*nNumberOfFrames + nframe] = ((unsigned char)val);
     break;
   case VTK_INT:
-    ((int*)ptr)[(k*dim[0]*dim[1]+j*dim[0]+i)*nNumberOfFrames + nframe] = (int)val;
+    ((int*)ptr)[(k*dim[0]*dim[1]+j*dim[0]+i)*nNumberOfFrames + nframe] = ((int)val);
     break;
   case VTK_LONG:
     ((long*)ptr)[(k*dim[0]*dim[1]+j*dim[0]+i)*nNumberOfFrames + nframe] = (long)val;

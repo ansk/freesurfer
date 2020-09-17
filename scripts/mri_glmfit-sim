@@ -1,5 +1,5 @@
 #!/bin/tcsh -f
-set VERSION = '$Id: mri_glmfit-sim,v 1.66 2016/11/16 20:52:22 greve Exp $';
+set VERSION = 'mri_glmfit-sim @FS_VERSION@';
 setenv LANG en_US.UTF-8
 
 set inputargs = ($argv);
@@ -24,8 +24,9 @@ set UniformPDFMax = ();
 set DiagCluster = 0;
 set PBNodeType = ();
 set UseCache = 0;
-set PermForce = 0;
-set PermResid = 0; # use residual when running permutation
+set PermForce = 1;
+set PermSignFlip = 0; # for osgm-type contrasts
+set PermResid = 1; # use residual when running permutation, ter Braak method
 set UseGRF = 0;
 set volsubject = fsaverage;
 set subjectOverride = ();
@@ -37,6 +38,9 @@ set DoClusterMean = 1
 set OutputAnnot = 1
 set DoGRFOCNAnat = 0;
 set y = ()
+set framemask = ()
+set PermNonStatCor = 0;
+set fwhmmap = ()
 
 set nJobs = 1;
 set DoBackground = 0;
@@ -164,7 +168,21 @@ while($#glmfitcmd)
     endif
     if("$flag" == "--table") set UseTable = 1;
     breaksw
+  case "--frame-mask"
+    set framemask = $glmfitcmd[1]; 
+    shift glmfitcmd;
+    if(! -e $framemask) then
+      echo "ERROR: cannot find frame mask $framemask"
+      exit 1;
+    endif
+    echo "Using frame mask $framemask"
+    breaksw
   case "--wls"
+    if($nulltype == perm) then
+      echo "ERROR: cannot use permutation with weighted least squares (--wls)"
+      echo "You must re-run mri_glmfit without the --wls flag"
+      exit 1;
+    endif
     set wls = $glmfitcwd/$glmfitcmd[1]; shift glmfitcmd;
     if(! -e $wls) then
       set wls = $glmdir/`basename $wls`
@@ -174,10 +192,13 @@ while($#glmfitcmd)
       endif
     endif
     breaksw
+  case "--osgm"
+    # Technically don't need to do this here because automatically done in mri_glmfit
+    set PermSignFlip = 1;
+    breaksw
   # Ignore these options that have no args
   case "cmdline"
   case "mri_glmfit"
-  case "--osgm"
   case "--prune"
   case "--no-prune"
   case "--pca"
@@ -196,6 +217,13 @@ while($#glmfitcmd)
   case "--no-pcc"
   case "dods"
   case "mri_glmfit.bin"
+  case "--save-eres"
+  case "--eres-save"
+  case "--save-fwhm-map"
+  case "--mgz"
+  case "--mgh"
+  case "--nii"
+  case "--nii.gz"
     breaksw
   # Ignore these options that have one arg
   case "--glmdir"
@@ -356,6 +384,8 @@ if($#fwhmOverride) then
   set fwhm = $fwhmOverride
 endif
 
+mkdir -p $glmdir/csd
+
 if($UseCache) then
   #set fwhm = `cat $glmdir/fwhm.dat`;
   set fwhmStr = `perl -e "printf('"'%02d'"',int ( $fwhm+0.5+$fwhmAdd ) ) "`
@@ -394,7 +424,6 @@ if($DoSim) then
 
   # ----------------- Run glmfit simulation ----------------------
   # This may take a while
-  mkdir -p $glmdir/csd
   @ nthJob = 1
   while($nthJob <= $nJobs)
     set jpad = `printf j%03d $nthJob`
@@ -407,11 +436,14 @@ if($DoSim) then
     if($#fsgd) set cmd = ($cmd --fsgd $fsgd $gd2mtx)
     if($#X)    set cmd = ($cmd --X $X)
     if($#wls)  set cmd = ($cmd --wls $wls)
+    if($#framemask)  set cmd = ($cmd --frame-mask $framemask)
     # --y must go after --fsgd
     if(! $UseTable) then
       set cmd = ($cmd --mask $mask)
       if($PermResid == 0) set cmd = ($cmd --y $y)
       if($PermResid == 1) set cmd = ($cmd --y $residual)
+      if($PermSignFlip == 1) set cmd = ($cmd --perm-1)
+      if($PermNonStatCor) set cmd = ($cmd --perm-nonstatcor)
     endif
     if($UseTable)   set cmd = ($cmd --table $y)
     #if($#label) set cmd = ($cmd --label $label)
@@ -521,10 +553,11 @@ if($DoPBSubmit) then
   set cmd = (mri_glmfit-sim --glmdir $glmdir  --tmp $tmpdir)
   set cmd = ($cmd --sim-sign $simsign --no-sim $csdbase --cwpvalthresh $cwpvalthresh)
   set cmd = ($cmd --log $LF)
+  if($PermNonStatCor) set cmd = ($cmd --perm-nonstatcor)
   echo "------------------------------------------------" | tee -a $LF
   echo $cmd  | tee -a $LF
   pbsubmit $PBNodeType -c "$cmd"
-  sleep 5;
+  sleep 1;
   echo "" 
   echo "Just submitted this as a job, and exiting now."
   echo ""
@@ -570,9 +603,10 @@ foreach conname ($conlist)
     set cmd = (mri_surfcluster --in $sig  --mask $mask \
       --cwsig $cwsig --sum $sum --ocn $ocn \
       --annot $annot --cwpvalthresh $cwpvalthresh --o $msig --no-fixmni)
+    set cmd = ($cmd --csd-out $glmdir/csd/all.$csdbase-$conname.csd)
     if(! $UseGRF) set cmd = ($cmd $csdlist --csdpdf $csdpdf --vwsig $vwsig --vwsigmax $vwsigmax)
     if($UseGRF)   set cmd = ($cmd --fwhm $fwhm --hemi $hemi --subject $subject --thmin $thresh --sign $simsign)
-
+    if($PermNonStatCor) set cmd = ($cmd --fwhm-map $fwhmmap)
     if($OutputAnnot) set cmd = ($cmd --oannot $oannot)
     if($Bonferroni) set cmd = ($cmd --bonferroni $Bonferroni)
     if($ReportCentroid) set cmd = ($cmd --centroid);
@@ -687,6 +721,8 @@ while( $#argv != 0 )
       set simsign = $argv[1]; shift;
       set UseCache = 1;
       set DoSim = 0;
+      # Handles the case where LC_NUMERIC is not set to en_US.UTF-8
+      set thresh = `echo $thresh | sed 's/,/./g'`
       set thresh = `printf %2.1f $thresh`
       if($thresh != 1.3 && $thresh != 2.0 && $thresh != 2.3 && \
          $thresh != 3.0 && $thresh != 3.3 && $thresh != 4.0) then
@@ -738,6 +774,11 @@ while( $#argv != 0 )
       set csdbase = perm.th$threshStr.$simsign
       breaksw
 
+    case "--perm-nonstatcor":
+      set PermNonStatCor = 1;
+      set csdbase = perm.nsc.th$threshStr.$simsign
+      breaksw
+
     case "--sim":
       if( $#argv < 4) goto arg4err;
       set nulltype = $argv[1]; shift;
@@ -783,12 +824,6 @@ while( $#argv != 0 )
       set DoPBSubmit = 1;
       set DoPoll = 1;
       set DoBackground = 0;
-      if(`hostname` != seychelles && `hostname` != launchpad) then
-        hostname
-        echo "ERROR: must be on seychelles or launchpad to pbsubmit"
-        exit 1;
-      endif
-      if(`hostname` == seychelles) set PBNodeType = "-l nodes=1:opteron";
       breaksw
 
     case "--bg":
@@ -830,6 +865,14 @@ while( $#argv != 0 )
     case "--perm-resid":
       set PermResid = 1;
       set PermForce = 1; # purpose of using residual is to allow non-orthog
+      breaksw
+
+    case "--no-perm-force":
+      set PermForce = 0;
+      breaksw
+    case "--no-perm-resid":
+      set PermForce = 0;
+      set PermResid = 0;
       breaksw
 
     case "--tmp":
@@ -926,11 +969,11 @@ if($DoSim) then
   endif
 endif
 set residual = ()
-if($PermResid) then
+if($nulltype == perm && $PermResid) then
   set stem = $glmdir/eres
   set residual = `stem2fname $stem`
   if($status) then
-    echo "ERROR: cannot find residual $stem"
+    echo "ERROR: cannot find residual $stem needed with --perm-resid"
     echo "  when running mri_glmfit, make sure to include --eres-save"
     exit 1;
   endif
@@ -946,6 +989,16 @@ endif
 if($DiagCluster && $DoSim == 0) then
   echo "ERROR: must simulate with --diag-cluster"
   exit 1;
+endif
+
+if($PermNonStatCor) then
+  set stem = $glmdir/fwhm
+  set fwhmmap = `stem2fname $stem`
+  if($status) then
+    echo "ERROR: cannot find fwhmmap $stem needed with --perm-nonstatcor"
+    echo "  when running mri_glmfit, make sure to include --save-fwhm-map"
+    exit 1;
+  endif
 endif
 
 goto check_params_return;
@@ -972,7 +1025,7 @@ arg4err:
 ############--------------##################
 usage_exit:
   echo ""
-  echo "mri_glmfit-sim"
+  echo "mri_glmfit-sim --help"
   echo ""
   echo " --glmdir glmdir"
   echo " --cwp cwthresh : cluster-wise p-value threshold ($cwpvalthresh)"
@@ -984,9 +1037,11 @@ usage_exit:
   echo "   --mczsim-label label : default is cortex"
   echo ""
   echo "Use permutation simulation"
-  echo " --perm nsim vwthreshold sign"
+  echo " --perm nsim CFT sign : permutation simulation with nsim iterations"
   echo "   --perm-resid : add this with non-orthogonal designs to run permutation"
-  echo "      on the residual rather than on the raw data (must have run mri_glmfit with --eres-save)"
+  echo "      on the residual rather than on the raw data (must have run mri_glmfit"
+  echo "      with --eres-save)"
+  echo " --perm-signflip : use sign flipping instead of shuffling (automatic for --osgm)"
   echo ""
   echo "Use Gaussian Random Fields (GRF), volumes only"
   echo " --grf vwthreshold sign : -log10(p) and sign (pos, neg, abs)"
@@ -1184,14 +1239,38 @@ Specify the GLM input (ie, argument to --y in mri_glmfit) rather
 than determining it from the glmdir. This can be handy if the
 y file was deleted at some point.
 
+--perm nsim CFT sign
+
+Perform a permutation simulation to correct for multiple comparisons using 
+nsim iterations, a cluster forming threshold of CFT (in -log10(p) units),
+using the given contrast sign (pos, neg, abs). 
+
+--perm-signflip
+
+Perform sign flipping instead of shuffling. This is required (and
+automatic) when --osgm is used. But it can be helpful when looking
+at any main effect. Eg, if you have two groups, then it is usually 
+the case that you will look at the difference between the groups.
+If you want to look at the mean of the groups, then you would
+want to enable sign flipping.
+
 --perm-resid
+--no-perm-resid
 
-This is used for non-orthogonal designs (eg, when there is a covariate
-present). It runs the permutation using the residual of the analysis
-as the input rather than the raw data (the residual will have the
-covariate regressed out). You must have originally run mri_glmfit with
-the --eres-save option. This method is an APPROXIMATION that allows
-for permutation to be run on non-orthogonal designs.
+perm-resid is used for non-orthogonal designs (eg, when there is a
+covariate present). It runs the permutation using the residual of the
+analysis as the input rather than the raw data (the residual will have
+the covariate regressed out). You must have originally run mri_glmfit
+with the --eres-save option. This method is an APPROXIMATION known as
+the ter Braak method (ter Braak, 1992) that allows for permutation to
+be run on non-orthogonal designs. See also Winkler, 2014. This is
+turned ON by default. Use --no-perm-resid to turn off.
 
+ter Braak, C.J.F., 1992. Permutation versus bootstrap significance
+tests in multiple regression and ANOVA. In: Jöckel, K.-H., Rothe, G.,
+Sendler, W. (Eds.), Bootstrapping and Related
+Techniques. No. 1989. Springer-Verlag, Berlin, pp. 79–86.
 
+Winkler, et al, 2014. Permutation inference for the general linear
+model. Neuroimage 92 (2014) 381–397.
 

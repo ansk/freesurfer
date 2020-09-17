@@ -1,15 +1,4 @@
-/**
- * @file  fmriutils.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2016/11/01 20:25:03 $
- *    $Revision: 1.53 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -78,7 +67,6 @@ typedef struct
 MRIGLM;
 /*---------------------------------------------------------*/
 
-const char *fMRISrcVersion(void);
 MRI *fMRImatrixMultiply(MRI *inmri, MATRIX *M, MRI *outmri);
 MRI *fMRIcovariance(MRI *fmri, int Lag, float DOFAdjust, MRI *mask, MRI *covar);
 
@@ -103,7 +91,7 @@ MRI *MRInormWeights(MRI *w, int sqrtFlag, int invFlag, MRI *mask, MRI *wn);
 int MRIglmFitAndTest(MRIGLM *mriglm);
 int MRIglmFit(MRIGLM *glmmri);
 int MRIglmTest(MRIGLM *mriglm);
-int MRIglmLoadVox(MRIGLM *mriglm, int c, int r, int s, int LoadBeta);
+int MRIglmLoadVox(MRIGLM *mriglm, int c, int r, int s, int LoadBeta, GLMMAT *glm);
 int MRIglmNRegTot(MRIGLM *mriglm);
 VECTOR *MRItoVector(MRI *mri, int c, int r, int s, VECTOR *v);
 int MRIsetSign(MRI *invol, MRI *signvol, int frame);

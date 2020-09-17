@@ -1,5 +1,4 @@
 /**
- * @file  surfcluster.h
  * @brief routines for growing clusters on the surface
  *
  * routines for growing clusters on the surface
@@ -8,10 +7,6 @@
  */
 /*
  * Original Author: Doug Greve
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2012/01/11 21:53:17 $
- *    $Revision: 1.19 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -64,7 +59,7 @@ SURFCLUSTERSUM, SCS;
 
 SCS *sclustMapSurfClusters(MRI_SURFACE *Surf, float thmin, float thmax,
                            int thsign, float minarea, int *nClusters,
-                           MATRIX *XFM);
+                           MATRIX *XFM, MRI *fwhmmap);
 int sclustGrowSurfCluster(int ClustNo, int SeedVtx, MRI_SURFACE *Surf,
                           float thmin, float thmax, int thsign);
 float sclustSurfaceArea(int ClusterNo, MRI_SURFACE *Surf, int *nvtxs) ;
@@ -76,8 +71,8 @@ float sclustZeroSurfaceNonClusters(MRI_SURFACE *Surf);
 float sclustSetSurfaceValToClusterNo(MRI_SURFACE *Surf);
 float sclustSetSurfaceValToCWP(MRI_SURFACE *Surf, SCS *scs);
 float sclustCountClusters(MRI_SURFACE *Surf);
-SCS *SurfClusterSummary(MRI_SURFACE *Surf, MATRIX *T, int *nClusters);
-SCS *SurfClusterSummaryFast(MRI_SURFACE *Surf, MATRIX *T, int *nClusters);
+SCS *SurfClusterSummary(MRI_SURFACE *Surf, MATRIX *T, int *nClusters, MRI *fwhmmap);
+SCS *SurfClusterSummaryOld(MRI_SURFACE *Surf, MATRIX *T, int *nClusters);
 int DumpSurfClusterSum(FILE *fp, SCS *scs, int nClusters);
 SCS *SortSurfClusterSum(SCS *scs, int nClusters);
 int sclustReMap(MRI_SURFACE *Surf, int nClusters, SCS *scs_sorted);
@@ -90,6 +85,6 @@ SCS *sclustPruneByCWPval(SCS *ClusterList, int nclusters,
 int sclustAnnot(MRIS *surf, int NClusters);
 int sclustGrowByDist(MRIS *surf, int seedvtxno, double dthresh, 
 		     int shape, int vtxno, int *vtxlist);
-const char *sculstSrcVersion(void);
+int sclustSaveAsPointSet(char *fname, SCS *scslist, int NClusters, MRIS *surf);
 
 #endif

@@ -50,8 +50,8 @@
       <property name="childrenCollapsible">
        <bool>false</bool>
       </property>
-      <widget class="QWidget" name="widgetControlPanel" native="true">
-       <layout class="QVBoxLayout" name="verticalLayout_2">
+      <widget class="QWidget" name="widgetControlPanelHolder" native="true">
+       <layout class="QVBoxLayout" name="layoutControlPanelHolder">
         <property name="spacing">
          <number>0</number>
         </property>
@@ -68,13 +68,43 @@
          <number>0</number>
         </property>
         <item>
-         <widget class="PanelAllLayers" name="widgetAllLayers" native="true">
-          <property name="minimumSize">
-           <size>
-            <width>100</width>
-            <height>0</height>
-           </size>
-          </property>
+         <widget class="QWidget" name="widgetControlPanel" native="true">
+          <layout class="QVBoxLayout" name="layoutControlPanel">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="sizeConstraint">
+            <enum>QLayout::SetDefaultConstraint</enum>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="PanelAllLayers" name="widgetAllLayers" native="true">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+               <horstretch>1</horstretch>
+               <verstretch>1</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>100</width>
+               <height>0</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </widget>
         </item>
        </layout>
@@ -175,10 +205,10 @@
             </item>
            </layout>
           </widget>
-          <widget class="QWidget" name="widget_3" native="true">
-           <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <widget class="QWidget" name="widgetInfoPanelHolder" native="true">
+           <layout class="QVBoxLayout" name="layoutInfoPanelHolder">
             <property name="spacing">
-             <number>2</number>
+             <number>0</number>
             </property>
             <property name="leftMargin">
              <number>0</number>
@@ -193,49 +223,70 @@
              <number>0</number>
             </property>
             <item>
-             <widget class="InfoTreeWidget" name="treeWidgetCursorInfo">
-              <property name="rootIsDecorated">
-               <bool>false</bool>
-              </property>
-              <property name="uniformRowHeights">
-               <bool>true</bool>
-              </property>
-              <property name="columnCount">
-               <number>2</number>
-              </property>
-              <attribute name="headerCascadingSectionResizes">
-               <bool>false</bool>
-              </attribute>
-              <column>
-               <property name="text">
-                <string notr="true">Cursor</string>
+             <widget class="QWidget" name="widgetInfoPanel" native="true">
+              <layout class="QHBoxLayout" name="horizontalLayout_3">
+               <property name="spacing">
+                <number>2</number>
                </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>-</string>
+               <property name="leftMargin">
+                <number>0</number>
                </property>
-              </column>
-             </widget>
-            </item>
-            <item>
-             <widget class="InfoTreeWidget" name="treeWidgetMouseInfo">
-              <property name="rootIsDecorated">
-               <bool>false</bool>
-              </property>
-              <property name="uniformRowHeights">
-               <bool>true</bool>
-              </property>
-              <column>
-               <property name="text">
-                <string>Mouse</string>
+               <property name="topMargin">
+                <number>0</number>
                </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>-</string>
+               <property name="rightMargin">
+                <number>0</number>
                </property>
-              </column>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="InfoTreeWidget" name="treeWidgetCursorInfo">
+                 <property name="rootIsDecorated">
+                  <bool>false</bool>
+                 </property>
+                 <property name="uniformRowHeights">
+                  <bool>true</bool>
+                 </property>
+                 <property name="columnCount">
+                  <number>2</number>
+                 </property>
+                 <attribute name="headerCascadingSectionResizes">
+                  <bool>false</bool>
+                 </attribute>
+                 <column>
+                  <property name="text">
+                   <string notr="true">Cursor</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string/>
+                  </property>
+                 </column>
+                </widget>
+               </item>
+               <item>
+                <widget class="InfoTreeWidget" name="treeWidgetMouseInfo">
+                 <property name="rootIsDecorated">
+                  <bool>false</bool>
+                 </property>
+                 <property name="uniformRowHeights">
+                  <bool>true</bool>
+                 </property>
+                 <column>
+                  <property name="text">
+                   <string>Mouse</string>
+                  </property>
+                 </column>
+                 <column>
+                  <property name="text">
+                   <string/>
+                  </property>
+                 </column>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
            </layout>
@@ -254,7 +305,7 @@
      <x>0</x>
      <y>0</y>
      <width>1213</width>
-     <height>20</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -282,6 +333,9 @@
     <addaction name="actionReloadSurface"/>
     <addaction name="actionSaveSurface"/>
     <addaction name="actionSaveSurfaceAs"/>
+    <addaction name="actionLoadPatch"/>
+    <addaction name="actionSavePatchAs"/>
+    <addaction name="actionLoadParameterization"/>
     <addaction name="separator"/>
     <addaction name="actionNewROI"/>
     <addaction name="actionLoadROI"/>
@@ -297,6 +351,7 @@
     <addaction name="actionCloseConnectome"/>
     <addaction name="separator"/>
     <addaction name="actionLoadTrack"/>
+    <addaction name="actionLoadTractCluster"/>
     <addaction name="actionCloseTrack"/>
     <addaction name="separator"/>
     <addaction name="actionLoadFCD"/>
@@ -342,21 +397,26 @@
      <addaction name="actionViewAxial"/>
      <addaction name="actionView3D"/>
     </widget>
-    <addaction name="menuViewport_Layout"/>
+    <addaction name="actionShowToolbar"/>
     <addaction name="actionShowControlPanel"/>
-    <addaction name="actionShowCommandConsole"/>
+    <addaction name="actionFloatPanels"/>
+    <addaction name="menuViewport_Layout"/>
+    <addaction name="separator"/>
     <addaction name="actionResetView"/>
     <addaction name="actionResetViewNearestAxis"/>
+    <addaction name="actionRotateView90"/>
     <addaction name="actionSetCamera"/>
+    <addaction name="separator"/>
+    <addaction name="actionShowCommandConsole"/>
+    <addaction name="actionTimeCourse"/>
     <addaction name="separator"/>
     <addaction name="actionShowCoordinateAnnotation"/>
     <addaction name="actionShowColorScale"/>
-    <addaction name="actionTimeCourse"/>
     <addaction name="actionToggleCursorVisibility"/>
     <addaction name="actionShowSlices"/>
     <addaction name="actionShowSliceFrames"/>
     <addaction name="separator"/>
-    <addaction name="actionToggleSurfaceSpline"/>
+    <addaction name="actionStereoRender"/>
    </widget>
    <widget class="QMenu" name="menuLayer">
     <property name="title">
@@ -406,6 +466,7 @@
      <addaction name="actionVolumeFilterDilate"/>
      <addaction name="actionVolumeFilterOpen"/>
      <addaction name="actionVolumeFilterClose"/>
+     <addaction name="actionVolumeFilterBoundary"/>
     </widget>
     <addaction name="menuVolume_Filter"/>
     <addaction name="actionTransformVolume"/>
@@ -1555,6 +1616,177 @@
     <string>Ctrl+Shift+D</string>
    </property>
   </action>
+  <action name="actionLoadTractCluster">
+   <property name="text">
+    <string>Load Tract Cluster...</string>
+   </property>
+  </action>
+  <action name="actionRotateView90">
+   <property name="text">
+    <string>Rotate View 90 Degree</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+9</string>
+   </property>
+  </action>
+  <action name="actionRotateView180">
+   <property name="text">
+    <string>Rotate View 180 Degree</string>
+   </property>
+  </action>
+  <action name="actionResetViewLeft">
+   <property name="text">
+    <string>Left</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+1</string>
+   </property>
+  </action>
+  <action name="actionResetViewRight">
+   <property name="text">
+    <string>Right</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+2</string>
+   </property>
+  </action>
+  <action name="actionResetViewAnterior">
+   <property name="text">
+    <string>Anterior</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+3</string>
+   </property>
+  </action>
+  <action name="actionResetViewPosterior">
+   <property name="text">
+    <string>Posterior</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+4</string>
+   </property>
+  </action>
+  <action name="actionResetViewSuperior">
+   <property name="text">
+    <string>Superior</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+5</string>
+   </property>
+  </action>
+  <action name="actionResetViewInferior">
+   <property name="text">
+    <string>Inferior</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+6</string>
+   </property>
+  </action>
+  <action name="actionPathEdit">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Path Edit</string>
+   </property>
+  </action>
+  <action name="actionLoadPatch">
+   <property name="text">
+    <string>Load Patch...</string>
+   </property>
+  </action>
+  <action name="actionSavePatchAs">
+   <property name="text">
+    <string>Save Patch As...</string>
+   </property>
+  </action>
+  <action name="actionLoadTransform">
+   <property name="text">
+    <string>Load Transform...</string>
+   </property>
+   <property name="toolTip">
+    <string>Load Transform</string>
+   </property>
+  </action>
+  <action name="actionUnloadTransform">
+   <property name="text">
+    <string>Unload Transform...</string>
+   </property>
+  </action>
+  <action name="actionNextLabelPoint">
+   <property name="text">
+    <string>Go to Next Label Point</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+N</string>
+   </property>
+  </action>
+  <action name="actionReloadROI">
+   <property name="text">
+    <string>Reload ROI...</string>
+   </property>
+   <property name="toolTip">
+    <string>Reload ROI</string>
+   </property>
+  </action>
+  <action name="actionReloadPointSet">
+   <property name="text">
+    <string>Reload Point Set...</string>
+   </property>
+  </action>
+  <action name="actionLoadParameterization">
+   <property name="text">
+    <string>Load Parameterization...</string>
+   </property>
+  </action>
+  <action name="actionStereoRender">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Stereo Render (3D View)</string>
+   </property>
+  </action>
+  <action name="actionCycleOverlay">
+   <property name="text">
+    <string>Cycle Overlay</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+R</string>
+   </property>
+  </action>
+  <action name="actionViewLayerInfo">
+   <property name="text">
+    <string>View Layer Info</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+I</string>
+   </property>
+  </action>
+  <action name="actionVolumeFilterBoundary">
+   <property name="text">
+    <string>Boundary</string>
+   </property>
+  </action>
+  <action name="actionShowToolbar">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show Toolbar</string>
+   </property>
+  </action>
+  <action name="actionFloatPanels">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Floating Panels</string>
+   </property>
+   <property name="toolTip">
+    <string>Floating Panels</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <customwidgets>
@@ -1566,6 +1798,14 @@
    <slots>
     <slot>SnapToNearestAxis()</slot>
     <slot>SetShowSliceFrames(bool)</slot>
+    <slot>Rotate90()</slot>
+    <slot>Rotate180()</slot>
+    <slot>ResetViewLeft()</slot>
+    <slot>ResetViewRight()</slot>
+    <slot>ResetViewSuperior()</slot>
+    <slot>ResetViewInferior()</slot>
+    <slot>ResetViewAnterior()</slot>
+    <slot>ResetViewPosterior()</slot>
    </slots>
   </customwidget>
   <customwidget>
@@ -2829,16 +3069,16 @@
   <connection>
    <sender>actionShowControlPanel</sender>
    <signal>toggled(bool)</signal>
-   <receiver>widgetControlPanel</receiver>
-   <slot>setVisible(bool)</slot>
+   <receiver>MainWindow</receiver>
+   <slot>OnShowControlPanel(bool)</slot>
    <hints>
     <hint type="sourcelabel">
      <x>-1</x>
      <y>-1</y>
     </hint>
     <hint type="destinationlabel">
-     <x>49</x>
-     <y>466</y>
+     <x>606</x>
+     <y>435</y>
     </hint>
    </hints>
   </connection>
@@ -3083,39 +3323,328 @@
    </hints>
   </connection>
   <connection>
-   <sender>actionSelectAllLayers</sender>
+   <sender>actionLoadTractCluster</sender>
    <signal>triggered()</signal>
-   <receiver>widgetAllLayers</receiver>
-   <slot>SelectAllLayers()</slot>
+   <receiver>MainWindow</receiver>
+   <slot>OnLoadTractCluster()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>-1</x>
      <y>-1</y>
     </hint>
     <hint type="destinationlabel">
-     <x>49</x>
-     <y>466</y>
+     <x>606</x>
+     <y>435</y>
     </hint>
    </hints>
   </connection>
   <connection>
-   <sender>actionDeselectAllLayers</sender>
+   <sender>actionRotateView90</sender>
    <signal>triggered()</signal>
-   <receiver>widgetAllLayers</receiver>
-   <slot>DeselectAllLayers()</slot>
+   <receiver>view3D</receiver>
+   <slot>Rotate90()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>-1</x>
      <y>-1</y>
     </hint>
     <hint type="destinationlabel">
-     <x>49</x>
-     <y>466</y>
+     <x>936</x>
+     <y>520</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionRotateView180</sender>
+   <signal>triggered()</signal>
+   <receiver>view3D</receiver>
+   <slot>Rotate180()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>936</x>
+     <y>520</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionResetViewLeft</sender>
+   <signal>triggered()</signal>
+   <receiver>view3D</receiver>
+   <slot>ResetViewLeft()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>936</x>
+     <y>520</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionResetViewInferior</sender>
+   <signal>triggered()</signal>
+   <receiver>view3D</receiver>
+   <slot>ResetViewInferior()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>936</x>
+     <y>520</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionResetViewRight</sender>
+   <signal>triggered()</signal>
+   <receiver>view3D</receiver>
+   <slot>ResetViewRight()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>936</x>
+     <y>520</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionResetViewSuperior</sender>
+   <signal>triggered()</signal>
+   <receiver>view3D</receiver>
+   <slot>ResetViewSuperior()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>936</x>
+     <y>520</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionResetViewPosterior</sender>
+   <signal>triggered()</signal>
+   <receiver>view3D</receiver>
+   <slot>ResetViewPosterior()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>936</x>
+     <y>520</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionResetViewAnterior</sender>
+   <signal>triggered()</signal>
+   <receiver>view3D</receiver>
+   <slot>ResetViewAnterior()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>936</x>
+     <y>520</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionLoadPatch</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>OnLoadPatch()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>606</x>
+     <y>435</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionSavePatchAs</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>OnSavePatchAs()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>606</x>
+     <y>435</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionLoadTransform</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>OnLoadVolumeTransform()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>606</x>
+     <y>435</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionUnloadTransform</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>OnUnloadVolumeTransform()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>606</x>
+     <y>435</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionReloadPointSet</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>OnReloadPointSet()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>606</x>
+     <y>435</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionReloadROI</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>OnReloadROI()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>606</x>
+     <y>435</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionLoadParameterization</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>OnLoadSurfaceParameterization()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>606</x>
+     <y>435</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionStereoRender</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>OnStereoRender(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>606</x>
+     <y>435</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionVolumeFilterBoundary</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>OnVolumeFilterBoundary()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>606</x>
+     <y>435</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionShowToolbar</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>mainToolBar</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>606</x>
+     <y>39</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionFloatPanels</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>OnFloatPanels(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>606</x>
+     <y>435</y>
     </hint>
    </hints>
   </connection>
  </connections>
  <slots>
+  <signal>CycleOverlayRequested()</signal>
   <slot>OnLoadVolume()</slot>
   <slot>OnCloseVolume()</slot>
   <slot>OnCycleLayer()</slot>
@@ -3208,5 +3737,18 @@
   <slot>OnToolSaveCamera()</slot>
   <slot>OnToolLoadCamera()</slot>
   <slot>OnVolumeFilterThreshold()</slot>
+  <slot>OnLoadTractCluster()</slot>
+  <slot>OnLoadPatch()</slot>
+  <slot>OnSavePatchAs()</slot>
+  <slot>OnLoadVolumeTransform()</slot>
+  <slot>OnUnloadVolumeTransform()</slot>
+  <slot>OnGoToNextLabelPoint()</slot>
+  <slot>OnReloadROI()</slot>
+  <slot>OnReloadPointSet()</slot>
+  <slot>OnLoadSurfaceParameterization()</slot>
+  <slot>OnStereoRender(bool)</slot>
+  <slot>OnVolumeFilterBoundary()</slot>
+  <slot>OnShowControlPanel(bool)</slot>
+  <slot>OnFloatPanels(bool)</slot>
  </slots>
 </ui>

@@ -1,5 +1,4 @@
 /**
- * @file  C_mpmProg.h
  * @brief The internal 'program' API.
  *
  *  C_mpmProgs are overloaded classes that perform specific functions in the
@@ -11,10 +10,6 @@
  */
 /*
  * Original Author: Rudolph Pienaar
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2016/06/11 20:50:54 $
- *    $Revision: 1.20 $
  *
  * Copyright © 2011-2016 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -32,19 +27,11 @@
 #ifndef __C_MPM_PROG_H__
 #define __C_MPM_PROG_H__
 
-#ifdef __cplusplus
-extern  "C" {
-#endif
-
 #include "mri.h"
 #include "mrisurf.h"
 #include "label.h"
 #include "error.h"
 #include "fio.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 #include "env.h"
 #include "C_mpmOverlay.h"

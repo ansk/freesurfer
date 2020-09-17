@@ -1,14 +1,5 @@
-/**
- * @file  DialogPreferences.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/14 23:44:47 $
- *    $Revision: 1.16 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -34,6 +25,7 @@ class DialogPreferences;
 }
 
 class QAbstractButton;
+class QComboBox;
 
 class DialogPreferences : public QDialog, public UIUpdateHelper
 {
@@ -49,8 +41,12 @@ public:
 
 protected slots:
   void OnClicked(QAbstractButton* btn);
+  void OnComboShortcutChanged(const QString& text);
+  void SetActionShortcut(QAction* act, const QString& text);
 
 private:
+  void SetCurrentComboText(QComboBox* combo, const QString& text);
+
   Ui::DialogPreferences *ui;
 };
 

@@ -20,17 +20,12 @@ function Xfir = fast_st2fir(st,ntp,TR,psdwin,usew)
 %     but it is a good idea.
 %  6. If two stimuli fall within the sam TR bin, the Xfir
 %     matrix will have a 2 instead of a 1.
-% $Id: fast_st2fir.m,v 1.21 2011/03/02 00:04:05 nicks Exp $
 
 
 %
 % fast_st2fir.m
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:05 $
-%    $Revision: 1.21 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

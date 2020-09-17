@@ -20,17 +20,15 @@ if( $#argv < 1 ) then
   echo " "
   echo "Usage: "
   echo " "
-  echo "   segmentSF_T1_long.sh BASE_SUBJECT_ID [SUBJECT_DIR]" 
+  echo "   segmentHA_T1_long.sh BASE_SUBJECT_ID [SUBJECT_DIR]" 
   echo " "
   echo "Or, for help"
   echo " "
-  echo "   segmentSF_T1_long.sh --help"  
+  echo "   segmentHA_T1_long.sh --help"  
   echo " "
   exit 1
 endif
 
-checkMCR
-if($status) exit 1;
 
 if( $1 == "--help") then
   echo " "
@@ -51,7 +49,7 @@ if( $1 == "--help") then
   echo "points simultaneously using the method described in [1] (and the atlases described"
   echo "in [2] and [3]):"
   echo " "
-  echo "   segmentSF_T1_long.sh BASE_SUBJECT_ID [SUBJECT_DIR]"
+  echo "   segmentHA_T1_long.sh BASE_SUBJECT_ID [SUBJECT_DIR]"
   echo " "
   echo "   (the argument [SUBJECT_DIR] is only necessary if the"
   echo "    environment variable SUBJECTS_DIR has not been set"
@@ -208,16 +206,16 @@ if($?PBS_JOBID) then
 endif
 
 # Parameters
-set RUNTIME="$FREESURFER_HOME/MCRv80/";
+set RUNTIME="$FREESURFER_HOME/MCRv84/";
 set RESOLUTION="0.333333333333333333333333333333333333";
 set ATLASMESH="$FREESURFER_HOME/average/HippoSF/atlas/AtlasMesh.gz";
 set ATLASDUMP="$FREESURFER_HOME/average/HippoSF/atlas/AtlasDump.mgz";
 set LUT="$FREESURFER_HOME/average/HippoSF/atlas/compressionLookupTable.txt";
 set K1="0.05";
 set K2="0.05";
-set OPTIMIZER="ConjGrad";
+set OPTIMIZER="L-BFGS";
 set MRFCONSTANT="0";
-set SUFFIX="long.v20";
+set SUFFIX="long.v21";
 
 # Now the real job
 set hippohemilist=(left right)
@@ -244,7 +242,7 @@ foreach hemi ($hippohemilist)
     |& tee -a $HSFLOG
 
   # command
-  set cmd="run_SegmentSubfieldsT1Longitudinal.sh $RUNTIME $SUBJECTS_DIR $RESOLUTION $ATLASMESH $ATLASDUMP $LUT $K1 $K2 $hemi $OPTIMIZER $SUFFIX  ${FREESURFER_HOME}/bin/  $MRFCONSTANT $BASESUBJ"
+  set cmd="run_SegmentSubfieldsT1Longitudinal.sh $RUNTIME $SUBJECTS_DIR $RESOLUTION $ATLASMESH $ATLASDUMP $LUT $K1 $K2 $hemi $OPTIMIZER $SUFFIX  '${FREESURFER_HOME}/bin/fs_run_from_mcr ${FREESURFER_HOME}/bin/'  $MRFCONSTANT $BASESUBJ"
 
   foreach s ($SubjsList)
     set cmd="$cmd ${s}.long.$BASESUBJ"
@@ -253,11 +251,13 @@ foreach hemi ($hippohemilist)
   fs_time ls >& /dev/null
   if ($status) then
     $cmd |& tee -a $HSFLOG
+    set returnVal=$status
   else
     fs_time $cmd |& tee -a $HSFLOG
+    set returnVal=$status
   endif
 
-  if ($status) then
+  if ($returnVal) then
 
     uname -a | tee -a $HSFLOG
     echo "" |& tee -a $HSFLOG

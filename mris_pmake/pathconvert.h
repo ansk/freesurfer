@@ -1,5 +1,4 @@
 /**
- * @file  pathconvert.h
  * @brief convert directory path specifications in *nix.
  *
  * 'pathconvert.h' declares two functions, 'abs2rel' and 'rel2abs'
@@ -11,10 +10,6 @@
  */
 /*
  * Original Authors: Rudolph Pienaar / Christian Haselgrove
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/02/27 21:18:07 $
- *    $Revision: 1.2 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -32,23 +27,12 @@
 #ifndef __PATHCONVERT_H__
 #define __PATHCONVERT_H__
 
-#ifdef __cplusplus
-extern  "C" {
-#endif
-
-
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
 
-
-  char    *abs2rel __P((const char *, const char *, char *, size_t));
-  char    *rel2abs __P((const char *, const char *, char *, size_t));
-
-#ifdef __cplusplus
-}
-#endif
-
+char    *abs2rel __P((const char *, const char *, char *, size_t));
+char    *rel2abs __P((const char *, const char *, char *, size_t));
 
 #endif // __PATHCONVERT_H__

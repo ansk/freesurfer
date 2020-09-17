@@ -1,15 +1,4 @@
-/**
- * @file  mris_spharm.c
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:34 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,13 +20,10 @@
 // date: 12/09/04
 //
 // Warning: Do not edit the following four lines.  CVS maintains them.
-// Revision Author: $Author: nicks $
-// Revision Date  : $Date: 2011/03/02 00:04:34 $
-// Revision       : $Revision: 1.7 $
 ////////////////////////////////////////////
 #include "ANN.h"
 
-extern "C" {
+ 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,14 +45,11 @@ extern "C" {
 #include "version.h"
 #include "error.h"
 #include "matrix.h"
-}
-
-//static char vcid[] = "$Id: mris_spharm.c,v 1.7 2011/03/02 00:04:34 nicks Exp $";
 
 
 int             main(int argc, char *argv[]) ;
 static int      get_option(int argc, char *argv[]) ;
-char            *Progname ;
+const char            *Progname ;
 static int      SphericalHarmonics(int L, int M, float theta, float phi) ;
 static double   legendre(int l, int m, float x) ;
 static double   factorial(int L, int M) ;
@@ -86,7 +69,7 @@ main(int argc, char *argv[]) {
   char          fname[STRLEN];
   int           nargs, msec, order, i, j, k, nvertices, dimension, count, fno;
   float         phi, d, theta, area;
-  struct timeb  then ;
+  Timer then ;
   MRIS          *mris_in, *mris_out;
   //MRI_SP        *mrisp ;
   MATRIX        *m_Z, *m_V, *m_c, *m_Z_inv, *m_V_new;
@@ -106,7 +89,7 @@ main(int argc, char *argv[]) {
     ErrorExit(ERROR_BADPARM,
               "usage: %s <input surface> <orig surface> <finest order> <output surface>", Progname);
 
-  TimerStart(&then) ;
+  then.reset() ;
 
   mris_in = MRISread(argv[1]) ;
   if (!mris_in)
@@ -301,7 +284,7 @@ main(int argc, char *argv[]) {
   //MRISPfree(&mrisp) ;
   MRISfree(&mris_in) ;
   MRISfree(&mris_out);
-  msec = TimerStop(&then) ;
+  msec = then.milliseconds() ;
   fprintf(stdout, "spherical wavelet took %2.1f minutes\n", (float)msec/(1000.0f*60.0f));
   exit(0) ;
   return(0) ;

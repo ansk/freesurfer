@@ -1,4 +1,3 @@
-#$Id: FreeSurferColorLUT.txt,v 1.105 2015/07/29 18:23:03 greve Exp $
 
 #No. Label Name:                            R   G   B   A
 
@@ -11,8 +10,8 @@
 6   Left-Cerebellum-Exterior                0   148 0   0
 7   Left-Cerebellum-White-Matter            220 248 164 0
 8   Left-Cerebellum-Cortex                  230 148 34  0
-9   Left-Thalamus                           0   118 14  0
-10  Left-Thalamus-Proper                    0   118 14  0
+9   Left-Thalamus-unused                    0   118 14  0
+10  Left-Thalamus                           0   118 14  0
 11  Left-Caudate                            122 186 220 0
 12  Left-Putamen                            236 13  176 0
 13  Left-Pallidum                           12  48  255 0
@@ -50,8 +49,8 @@
 45  Right-Cerebellum-Exterior               0   148 0   0
 46  Right-Cerebellum-White-Matter           220 248 164 0
 47  Right-Cerebellum-Cortex                 230 148 34  0
-48  Right-Thalamus                          0   118 14  0
-49  Right-Thalamus-Proper                   0   118 14  0
+48  Right-Thalamus-unused                   0   118 14  0
+49  Right-Thalamus                          0   118 14  0
 50  Right-Caudate                           122 186 220 0
 51  Right-Putamen                           236 13  176 0
 52  Right-Pallidum                          13  48  255 0
@@ -93,10 +92,11 @@
 87  Right_future_WMSA                       200 121  255 0
 88  future_WMSA                             200 122  255 0
 
-
 96  Left-Amygdala-Anterior                  205 10  125 0
 97  Right-Amygdala-Anterior                 205 10  125 0
 98  Dura                                    160 32  240 0
+
+99  Lesion                                  255 165 0   0
 
 100 Left-wm-intensity-abnormality           124 140 178 0
 101 Left-caudate-intensity-abnormality      125 140 178 0
@@ -129,7 +129,7 @@
 127 Soft-Tissue                             26  237 57  0
 128 Nerve                                   34  139 34  0
 129 Bone                                    30  144 255 0
-130 Air                                     147 19  173 0
+130 AirCavity                               196 160 128 0
 131 Orbital-Fat                             238 59  59  0
 132 Tongue                                  221 39  200 0
 133 Nasal-Structures                        238 174 238 0
@@ -202,7 +202,7 @@
 200 Right-fimbria                           0   50  128 0
 201 alveus                                  255 204 153 0
 202 perforant_pathway                       255 128 128 0
-203 parasubiculum                           175 175 75   0
+203 parasubiculum                           175 175 75  0
 204 presubiculum                            64  0   64  0
 205 subiculum                               0   0   255 0
 206 CA1                                     255 0   0   0
@@ -226,6 +226,8 @@
 224 Background                              100 100 100 0
 225 Ectorhinal                              197 150 250 0
 226 HP_tail                                 170 170 255 0
+227 Polymorphic-Layer                       128 255 128 0
+228 Intracellular-Space                     204 153 204 0
 
 231 HP_body                                 0 255 0 0
 232 HP_head                                 255 0 0 0
@@ -245,7 +247,7 @@
 245  molecular_layer_HP-head                      100 25   25   0
 246  molecular_layer_HP-body                      128 0   0   0
 
-
+247 FreezeSurface                        10 100  100 0
 
 250 Fornix                                  255 0   0   0
 251 CC_Posterior                            0   0   64  0
@@ -259,12 +261,14 @@
 
 257 CSF-ExtraCerebral                      60  60  60  0
 258 Head-ExtraCerebral                    150 150 200  0
-259 SkullApprox                           120 120 120  0
+259 Eye-Fluid                              60  60  60  0
 260 BoneOrAir                             119 159 176 0
 261 PossibleFluid                         120  18 134 0
-262 Sinus                                 119 159 176 0
+262 Sinus                                 196 160 128 0
 263 Left-Eustachian                       119 159 176 0
 264 Right-Eustachian                      119 159 176 0
+265 Left-Eyeball                          60  60  60  0
+266 Right-Eyeball                         60  60  60  0
 
 # lymph node and vascular labels
 331 Aorta                                   255 0   0   0
@@ -446,6 +450,17 @@
 702 GrayMatter-FSL-FAST                     205 62  78  0
 703 WhiteMatter-FSL-FAST                    0   225 0   0
 
+801 L_hypothalamus_anterior_inferior        250 255 50  0
+802 L_hypothalamus_anterior_superior        80  200 255 0
+803 L_hypothalamus_posterior                255 160 0   0
+804 L_hypothalamus_tubular_inferior         255 160 200 0
+805 L_hypothalamus_tubular_superior         20  180 130 0
+806 R_hypothalamus_anterior_inferior        250 255 50  0
+807 R_hypothalamus_anterior_superior        80  200 255 0
+808 R_hypothalamus_posterior                255 160 0   0
+809 R_hypothalamus_tubular_inferior         255 160 200 0
+810 R_hypothalamus_tubular_superior         20  180 130 0
+
 999 SUSPICIOUS                              255 100 100 0
 
 # Below is the color table for the cortical labels of the seg volume
@@ -611,9 +626,29 @@
 4034    wm-rh-transversetemporal            105 105 55  0
 4035    wm-rh-insula                        20  220 160 0
 
+# Below is the color table for a lobar parcellation obtained from running:
+# mri_annotation2label --subject subject --hemi lh --lobesStrict lobes
+# mri_annotation2label --subject subject --hemi rh --lobesStrict lobes
+# mri_aparc2aseg --s subject --rip-unknown --volmask \
+#   --o aparc.lobes.mgz --annot lobes \
+#   --base-offset 300 [--base-offset must be last arg]
 
-# Below is the color table for a lobar white matter parcelation
-#  obtained from running
+1301    ctx-lh-frontal-lobe                  25  100 40  0
+1303    ctx-lh-cingulate-lobe                100 25  0   0
+1304    ctx-lh-occipital-lobe                120 70  50  0
+1305    ctx-lh-temporal-lobe                 220 20  100 0
+1306    ctx-lh-parietal-lobe                 220 20  10  0
+1307    ctx-lh-insula-lobe                   255 192 32  0
+
+2301    ctx-rh-frontal-lobe                  25  100 40  0
+2303    ctx-rh-cingulate-lobe                100 25  0   0
+2304    ctx-rh-occipital-lobe                120 70  50  0
+2305    ctx-rh-temporal-lobe                 220 20  100 0
+2306    ctx-rh-parietal-lobe                 220 20  10  0
+2307    ctx-rh-insula-lobe                   255 192 32  0
+
+# Below is the color table for a lobar white matter parcellation
+#  obtained from running:
 # mri_annotation2label --subject subject --hemi lh --lobesStrict lobes
 # mri_annotation2label --subject subject --hemi rh --lobesStrict lobes
 # mri_aparc2aseg --s subject --labelwm --hypo-as-wm --rip-unknown \
@@ -622,14 +657,14 @@
 
 3201    wm-lh-frontal-lobe                  235 35  95  0
 3203    wm-lh-cingulate-lobe                35  75  35  0
-3204    wm-lh-occiptal-lobe                 135 155 195 0
+3204    wm-lh-occipital-lobe                135 155 195 0
 3205    wm-lh-temporal-lobe                 115 35  35  0
 3206    wm-lh-parietal-lobe                 35  195 35  0
 3207    wm-lh-insula-lobe                   20  220 160 0
 
 4201    wm-rh-frontal-lobe                  235 35  95  0
 4203    wm-rh-cingulate-lobe                35  75  35  0
-4204    wm-rh-occiptal-lobe                 135 155 195 0
+4204    wm-rh-occipital-lobe                135 155 195 0
 4205    wm-rh-temporal-lobe                 115 35  35  0
 4206    wm-rh-parietal-lobe                 35  195 35  0
 4207    wm-rh-insula-lobe                   20  220 160 0
@@ -1109,6 +1144,67 @@
 8012  Thalamus-pulvinar                                 12  46  250 0
 8013  Thalamus-lateral-geniculate                       203 182 143 0
 8014  Thalamus-medial-geniculate                        42  204 167 0
+
+
+
+#
+# Labels for thalamus parcellation using histological atlas (Iglesias et al.)
+#
+
+8103 Left-AV 0 85 0 0
+8104 Left-CeM 170 85 0 0
+8105 Left-CL 0 170 0 0
+8106 Left-CM 170 170 0 0
+8108 Left-LD 170 255 0 0
+8109 Left-LGN 0 0 127 0
+8110 Left-LP 0 85 127 0
+8111 Left-L-Sg 170 85 127 0
+8112 Left-MDl 0 170 127 0
+8113 Left-MDm 170 170 127 0
+8115 Left-MGN 170 255 127 0
+8116 Left-MV(Re) 0 0 255 0
+8117 Left-Pc 170 0 255 0
+8118 Left-Pf 0 85 255 0
+8119 Left-Pt 170 85 255 0
+8120 Left-PuA 0 170 255 0
+8121 Left-PuI 170 170 255 0
+8122 Left-PuL 0 255 255 0
+8123 Left-PuM 170 255 255 0
+8125 Left-R 255 0 0 0
+8126 Left-VA 85 85 0 0
+8127 Left-VAmc 255 85 0 0
+8128 Left-VLa 85 170 0 0
+8129 Left-VLp 255 170 0 0
+8130 Left-VM 85 255 0 0
+8133 Left-VPL 255 0 255 0
+
+8203 Right-AV 0 85 0 0
+8204 Right-CeM 170 85 0 0
+8205 Right-CL 0 170 0 0
+8206 Right-CM 170 170 0 0
+8208 Right-LD 170 255 0 0
+8209 Right-LGN 0 0 127 0
+8210 Right-LP 0 85 127 0
+8211 Right-L-Sg 170 85 127 0
+8212 Right-MDl 0 170 127 0
+8213 Right-MDm 170 170 127 0
+8215 Right-MGN 170 255 127 0
+8216 Right-MV(Re) 0 0 255 0
+8217 Right-Pc 170 0 255 0
+8218 Right-Pf 0 85 255 0
+8219 Right-Pt 170 85 255 0
+8220 Right-PuA 0 170 255 0
+8221 Right-PuI 170 170 255 0
+8222 Right-PuL 0 255 255 0
+8223 Right-PuM 170 255 255 0
+8225 Right-R 255 0 0 0
+8226 Right-VA 85 85 0 0
+8227 Right-VAmc 255 85 0 0
+8228 Right-VLa 85 170 0 0
+8229 Right-VLp 255 170 0 0
+8230 Right-VM 85 255 0 0
+8233 Right-VPL 255 0 255 0
+
 
 #
 # Labels for thalamus parcellation using probabilistic tractography. See:

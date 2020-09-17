@@ -1,14 +1,5 @@
-/**
- * @file  Track.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/14 23:44:48 $
- *    $Revision: 1.4 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -36,6 +27,7 @@ struct Track
 
   short* nVoxels;
   int    nNumberOfVoxels;
+  unsigned char charColor[3];
 
   Track()
   {

@@ -1,14 +1,5 @@
-/**
- * @file  PanelSurface.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/09/06 16:09:03 $
- *    $Revision: 1.39 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -36,6 +27,11 @@ class QAction;
 class WindowConfigureOverlay;
 class SurfaceLabel;
 class SurfaceSpline;
+class QToolButton;
+class QActionGroup;
+class DialogCustomFill;
+class DialogSurfaceLabelOperations;
+class WindowEditAnnotation;
 
 class PanelSurface : public PanelLayer
 {
@@ -44,6 +40,8 @@ class PanelSurface : public PanelLayer
 public:
   explicit PanelSurface(QWidget *parent = 0);
   ~PanelSurface();
+
+  bool eventFilter(QObject *watched, QEvent *event);
 
 protected:
   void DoUpdateWidgets();
@@ -70,6 +68,7 @@ protected slots:
   void OnComboSpline(int nSel );
   void OnComboColor(int nSel);
   void OnButtonConfigureOverlay();
+  void OnButtonEditAnnotation();
   void OnButtonRemoveOverlay();
   void OnEditPositionOffset();
   void OnLabelItemChanged(QTreeWidgetItem *item);
@@ -77,11 +76,14 @@ protected slots:
   void OnCurrentLabelItemChanged(QTreeWidgetItem *item);
   void OnButtonLoadLabel();
   void OnButtonDeleteLabel();
+  void OnButtonNewLabel();
+  void OnButtonSaveLabel();
+  void OnSaveLabelAs();
   void OnToggleOverlay(bool bShow);
   void OnToggleAnnotation(bool bShow);
   void OnColorPickerLabelColor(const QColor& color);
   void OnCheckBoxLabelOutline(bool outline);
-  void UpdateLabelWidgets();
+  void UpdateLabelWidgets(bool block_signals = true);
   void UpdateSplineWidgets();
   void OnLockLayer(bool b);
   void OnButtonLoadSpline();
@@ -90,6 +92,29 @@ protected slots:
   void OnCheckBoxSplineProjection(bool);
   void OnSplineItemChanged(QTreeWidgetItem *item);
   void OnCurrentSplineItemChanged(QTreeWidgetItem *item);
+  void OnButtonEditCut(bool b);
+  void OnButtonEditPath(bool b);
+  void OnButtonCutLine();
+  void OnButtonCutClosedLine();
+  void OnButtonClearCuts();
+  void OnButtonFillUncutArea();
+  void OnButtonUndoCut();
+  void OnLabelResample();
+  void OnLabelMaskOverlay();
+  void OnLabelMoreOps();
+  void OnLabelOperation(const QVariantMap& op);
+  void OnSpinBoxZOrder(int nOrder);
+  void OnButtonMakePath();
+  void OnButtonMakeClosedPath();
+  void OnButtonDeletePath();
+  void OnButtonCustomFillPath();
+  void OnCustomFillTriggered(const QVariantMap& options);
+  void OnButtonClearMarks();
+  void OnLineEditLabelOpacity(const QString& text);
+  void OnButtonLabelUp();
+  void OnButtonLabelDown();
+  void SetOverlayFrame(int nFrame);
+  void OnButtonSaveAnnotation();
 
 private:
   QList<SurfaceLabel*> GetSelectedLabels();
@@ -104,8 +129,15 @@ private:
   QList<QWidget*>  m_widgetsMesh;
   QList<QWidget*>  m_widgetsLabel;
   QList<QWidget*>  m_widgetsSpline;
+  QList<QWidget*>  m_widgetsOverlay;
+  QList<QWidget*>  m_widgetsAnnotation;
+  QToolButton*     m_toolButtonSurface;
+  QActionGroup*    m_actGroupSurface;
 
   WindowConfigureOverlay* m_wndConfigureOverlay;
+  DialogCustomFill*     m_dlgCustomFill;
+  DialogSurfaceLabelOperations* m_dlgLabelOps;
+  WindowEditAnnotation*   m_wndEditAnnotation;
 };
 
 #endif // PANELSURFACE_H

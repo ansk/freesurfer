@@ -1,15 +1,4 @@
-/**
- * @file  path.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:10 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -27,7 +16,6 @@
 #ifndef PATHS_INCLUDED
 #define PATHS_INCLUDED
 
-#define _GNU_SOURCE
 #include <stdio.h>
 #ifdef Darwin
 // Mac OS X doesnt have gnulib, so it doesn't have getline,
@@ -71,7 +59,7 @@ int    PathWriteMany (char *fname, int num_paths, PATH **paths);
 
 /* Allocate and free paths. PathAlloc returns the new path or NULL if
    there was an error. PathFree returns an error code.*/
-PATH*  PathAlloc (int n_points, char* name);
+PATH*  PathAlloc (int n_points, const char* name);
 int    PathFree (PATH** path);
 
 /* Returns whether or not a file is a path file. If an error occurs,

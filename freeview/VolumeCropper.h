@@ -1,14 +1,9 @@
 /**
- * @file  VolumeCropper.h
  * @brief Class to crop volume.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/14 23:44:48 $
- *    $Revision: 1.8 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -117,8 +112,8 @@ protected:
   vtkSmartPointer<vtkActor>     m_actorFrame;
   vtkSmartPointer<vtkActor>     m_actorActivePlane;
   vtkSmartPointer<vtkActor>     m_actorSphere[6];
-  vtkSmartPointer<vtkActor>     m_actorBox2D;
-  vtkSmartPointer<vtkActor>     m_actorFrame2D;
+  vtkSmartPointer<vtkActor>     m_actorBox2D[3];
+  vtkSmartPointer<vtkActor>     m_actorFrame2D[3];
   vtkSmartPointer<vtkActor>     m_actorActivePlane2D[3];
   vtkSmartPointer<vtkSphereSource>  m_sphereSource[6];
   vtkSmartPointer<vtkClipPolyData>  m_clipper;

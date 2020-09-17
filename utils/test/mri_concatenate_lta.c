@@ -1,15 +1,4 @@
-/**
- * @file  mri_concatenate_lta.c
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2016/02/27 20:38:29 $
- *    $Revision: 1.6 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -56,7 +45,7 @@ static int invert2 = 0;
 
 static int out_type = 0;
 
-char *Progname;
+const char *Progname;
 char *tal_src_file = 0;
 char *tal_dst_file = 0;
 MRI *tal_src = 0;
@@ -75,7 +64,7 @@ int main(int argc, char *argv[])
 
   Progname = argv[0];
 
-  nargs = handle_version_option (argc, argv, "$Id: mri_concatenate_lta.c,v 1.6 2016/02/27 20:38:29 nicks Exp $", "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "mri_concatenate_lta");
   if (nargs && argc - nargs == 1)
     exit (0);
   argc -= nargs ;
@@ -477,7 +466,7 @@ get_transform:
 }
 
 
-#include "volume_io.h"
+#include "minc.h"
 
 int  ltaMNIwrite(LTA *lta, char *fname)
 {

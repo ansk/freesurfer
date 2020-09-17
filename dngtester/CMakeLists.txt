@@ -1,20 +1,21 @@
 project(dngtester)
-include_directories(${dngtester_SOURCE_DIR}
-${INCLUDE_DIR_TOP} 
-${VXL_INCLUDES} 
-${MINC_INCLUDE_DIRS}) 
 
-SET(dngtester_SRCS
-dngtester.c
-)
+include_directories(${FS_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/packages/dicom)
 
-SET (dngtester_LIBS
-fsgdf
-${FS_LIBS}
-)
+# always debug
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
+# dngtester
+add_executable(dngtester dngtester.cpp)
+target_link_libraries(dngtester utils)
 
-add_executable(dngtester ${dngtester_SRCS})
-target_link_libraries(dngtester ${dngtester_LIBS})
-install(TARGETS dngtester DESTINATION bin)	
+# cpptester
+include_directories(${ITK_INCLUDE_DIRS})
+add_executable(cpptester cpptester.cpp)
+target_link_libraries(cpptester PRIVATE utils ${ITK_LIBRARIES})
 
+if(ARMADILLO_FOUND)
+  target_include_directories(cpptester PRIVATE ${ARMADILLO_INCLUDE_DIRS})
+  target_link_libraries(cpptester PRIVATE ${ARMADILLO_LIBRARIES})
+endif()

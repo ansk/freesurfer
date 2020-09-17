@@ -4,13 +4,8 @@ function fwhm = fast_ar12fwhm(ar1,d)
 % Converts an AR1 to FWHM. 
 % d is the voxel size. FWHM will be in units of d.
 %
-% $Id: fast_ar12fwhm.m,v 1.3 2011/03/02 00:04:03 nicks Exp $
 
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:03 $
-%    $Revision: 1.3 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

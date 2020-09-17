@@ -1,14 +1,9 @@
 /**
- * @file  help.h
  * @brief help text utils
  *
  */
 /*
  * Original Author: Rudolph Pienaar / Christian Haselgrove
- * CVS Revision Info:
- *    $Author: rudolph $
- *    $Date: 2012/10/19 19:01:35 $
- *    $Revision: 1.9 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -32,18 +27,11 @@
 #include "general.h"
 #include "env.h"
 
-#ifdef __cplusplus
-extern  "C" {
-#endif
-
 #include "mri.h"
 #include "mrisurf.h"
 #include "label.h"
 #include "error.h"
 
-#ifdef __cplusplus
-}
-#endif
 #include <unistd.h>
 #include <string>
 using namespace std;

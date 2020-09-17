@@ -1,15 +1,4 @@
-/**
- * @file  voxlist.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2016/07/08 16:54:30 $
- *    $Revision: 1.21 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,11 +18,6 @@
 
 #include "mri.h"
 #include "label.h"
-
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 
 #define VOXLIST_NORMAL   0
 #define VOXLIST_SPLINE   1
@@ -86,9 +70,10 @@ VOXEL_LIST *VLSTsort(VOXEL_LIST *vl_src, VOXEL_LIST *vl_dst) ;
 int         VLSTaddUnique(VOXEL_LIST *vl, int x, int y, int z, float xd, float yd, float zd);
 int         VLSTinList(VOXEL_LIST *vl, int x, int y, int z);
 int         VLSTadd(VOXEL_LIST *vl, int x, int y, int z, float xd, float yd, float zd) ;
+int         VLSTaddWithValue(VOXEL_LIST *vl, int x, int y, int z, float xd, float yd, float zd, float vsrc, float vdst) ;
 
 int         VLmostCommonLabel(VOXEL_LIST *vl) ;
-int         VLSTwriteLabel(VOXEL_LIST *vl, char *fname, MRI_SURFACE *mris, MRI *mri) ;
+int         VLSTwriteLabel(VOXEL_LIST *vl, const char *fname, MRI_SURFACE *mris, MRI *mri) ;
 LABEL       *VLSTtoLabel(VOXEL_LIST *vl, MRI_SURFACE *mris, MRI *mri) ;
 MRI         *VLSTwriteOrderToMRI(VOXEL_LIST *vl, MRI *mri) ;
 
@@ -121,10 +106,5 @@ double VLSTcomputeSplineSegmentMean(VOXEL_LIST *vl_spline, MRI *mri, double step
 float VLSTcomputeSplineMedian(VOXEL_LIST *vl_spline, MRI *mri, double step_size) ;
   double VLSThausdorffDistance(VOXEL_LIST *vl1, VOXEL_LIST *vl2, double max_dist, MRI **pmri_dist) ;
   double VLSTrmsDistance(VOXEL_LIST *vl1, VOXEL_LIST *vl2, double max_dist, MRI **pmri_dist) ;
-
-#if defined(__cplusplus)
-};
-#endif
-
 
 #endif

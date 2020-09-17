@@ -1,14 +1,9 @@
 /**
- * @file  Contour2D.cpp
  * @brief Contour2D.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2015/11/19 19:16:51 $
- *    $Revision: 1.16 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -27,7 +22,7 @@
 #include "RenderView2D.h"
 #include "vtkImageData.h"
 #include "vtkImageActor.h"
-#include "vtkImageResample.h"
+#include "vtkImageReslice.h"
 #include "vtkImageThreshold.h"
 #include "vtkSimpleLabelEdgeFilter.h"
 #include "vtkImageMapToColors.h"
@@ -37,6 +32,8 @@
 #include "vtkMatrix4x4.h"
 #include "vtkImageMask.h"
 #include "vtkImageLogic.h"
+#include "vtkImageMapper3D.h"
+#include <QDebug>
 
 #define IMAGE_RESAMPLE_FACTOR     4.0     // must be multiples of 2
 
@@ -45,12 +42,15 @@ Contour2D::Contour2D( RenderView2D* view ) :
   m_view( view )
 {
   m_nPlane = view->GetViewPlane();
-  m_imageInput = NULL;
+  m_imageInput = vtkSmartPointer<vtkImageData>::New();
   m_dContourValue = 0;
 
   m_actorContour = vtkSmartPointer<vtkImageActor>::New();
   m_actorContour->VisibilityOff();
   m_actorContour->InterpolateOff();
+#if VTK_MAJOR_VERSION > 5
+    m_actorContour->ForceOpaqueOn();
+#endif
 
   m_filterSmooth = vtkSmartPointer<vtkImageGaussianSmooth>::New();
   m_filterSmooth->SetStandardDeviations( 1, 1, 1 );
@@ -63,10 +63,10 @@ Contour2D::Contour2D( RenderView2D* view ) :
   m_filterMask  = vtkSmartPointer<vtkImageMask>::New();
   m_filterLogic = vtkSmartPointer<vtkImageLogic>::New();
   m_filterLogic->SetOperationToOr();
-  m_filterResample = vtkSmartPointer<vtkImageResample>::New();
-  m_filterResample->SetAxisMagnificationFactor( 0, IMAGE_RESAMPLE_FACTOR );
-  m_filterResample->SetAxisMagnificationFactor( 1, IMAGE_RESAMPLE_FACTOR );
-  m_filterResample->SetAxisMagnificationFactor( 2, IMAGE_RESAMPLE_FACTOR );
+  m_filterResample = vtkSmartPointer<vtkImageReslice>::New();
+//  m_filterResample->SetAxisMagnificationFactor( 0, IMAGE_RESAMPLE_FACTOR );
+//  m_filterResample->SetAxisMagnificationFactor( 1, IMAGE_RESAMPLE_FACTOR );
+//  m_filterResample->SetAxisMagnificationFactor( 2, IMAGE_RESAMPLE_FACTOR );
   m_filterResample->SetInterpolationModeToNearestNeighbor();
   m_filterEdge = vtkSmartPointer<vtkSimpleLabelEdgeFilter>::New();
   m_colormap = vtkSmartPointer<vtkImageMapToColors>::New();
@@ -89,6 +89,11 @@ vtkImageActor* Contour2D::GetActor()
   return m_actorContour;
 }
 
+vtkImageData* Contour2D::GetInputImage()
+{
+  return m_imageInput;
+}
+
 void Contour2D::Reset()
 {
   m_imageInput = NULL;
@@ -104,7 +109,11 @@ void Contour2D::SetInput( vtkImageData* imagedata, double dContourValue, double 
   vtkSmartPointer<vtkImageExtractComponents> extract = vtkSmartPointer<vtkImageExtractComponents>::New();
   if ( imagedata->GetNumberOfScalarComponents() > 1 )
   {
-    extract->SetInput( imagedata );
+#if VTK_MAJOR_VERSION > 5
+    extract->SetInputData( imagedata );
+#else
+    extract->SetInput(imagedata);
+#endif
     extract->SetComponents( active_frame );
     extract->Update();
     m_imageInput = extract->GetOutput();
@@ -112,15 +121,19 @@ void Contour2D::SetInput( vtkImageData* imagedata, double dContourValue, double 
   else
   {
     m_imageInput = imagedata;
-  }
+  } 
 
-  m_filterThreshold->SetInput( m_imageInput );
+#if VTK_MAJOR_VERSION > 5
+  m_filterThreshold->SetInputData( m_imageInput );
+#else
+  m_filterThreshold->SetInput(m_imageInput);
+#endif
   SetContourValue( dContourValue );
 
   // create two masks and initialize them.
   m_imageMaskAdd = vtkSmartPointer<vtkImageData>::New();
-  m_imageMaskAdd->DeepCopy( m_filterThreshold->GetOutput() );
   m_imageMaskRemove = vtkSmartPointer<vtkImageData>::New();
+  m_imageMaskAdd->DeepCopy( m_filterThreshold->GetOutput() );
   m_imageMaskRemove->DeepCopy( m_imageMaskAdd );
   int* dim = m_imageMaskAdd->GetDimensions();
   long long size = ((long long)dim[0])*dim[1]*dim[2];
@@ -131,17 +144,30 @@ void Contour2D::SetInput( vtkImageData* imagedata, double dContourValue, double 
     ptr[i] = 1;
   }
 
+#if VTK_MAJOR_VERSION > 5
+  m_filterLogic->SetInput1Data( m_filterThreshold->GetOutput() );
+  m_filterLogic->SetInput2Data( m_imageMaskAdd );
+  m_filterMask->SetMaskInputData( m_imageMaskRemove );
+#else
   m_filterLogic->SetInput1( m_filterThreshold->GetOutput() );
   m_filterLogic->SetInput2( m_imageMaskAdd );
-  m_filterMask->SetInputConnection( m_filterLogic->GetOutputPort() );
   m_filterMask->SetMaskInput( m_imageMaskRemove );
+#endif
+  m_filterMask->SetInputConnection( m_filterLogic->GetOutputPort() );
+  double vs[3];
+  imagedata->GetSpacing(vs);
+  m_filterResample->SetOutputSpacing(vs[0]/IMAGE_RESAMPLE_FACTOR, vs[1]/IMAGE_RESAMPLE_FACTOR, vs[2]/IMAGE_RESAMPLE_FACTOR);
   m_filterResample->SetInputConnection( m_filterMask->GetOutputPort() );
   m_filterEdge->SetInputConnection( m_filterResample->GetOutputPort() );
   m_colormap->SetInputConnection( m_filterEdge->GetOutputPort() );
+#if VTK_MAJOR_VERSION > 5
+  m_actorContour->GetMapper()->SetInputConnection( m_colormap->GetOutputPort() );
+#else
   m_actorContour->SetInput( m_colormap->GetOutput() );
+#endif
 
   SetSmooth( m_bSmooth );
-  UpdateSliceLocation( dSliceLocation );
+  UpdateSliceLocation( dSliceLocation, true );
 }
 
 void Contour2D::AddLine( double* ras1, double* ras2 )
@@ -228,7 +254,7 @@ void Contour2D::DrawPatchLineOnMask( vtkImageData* image, double* ras1, double* 
   image->Modified();
 }
 
-void Contour2D::UpdateSliceLocation( double dSliceLocation )
+void Contour2D::UpdateSliceLocation( double dSliceLocation, bool bForced )
 {
   vtkImageData* imagedata = vtkImageData::SafeDownCast( m_filterThreshold->GetInput() );
   if ( !imagedata )
@@ -236,7 +262,7 @@ void Contour2D::UpdateSliceLocation( double dSliceLocation )
     return;
   }
 
-  if ( fabs( dSliceLocation - m_dSliceLocation ) < 1e-6 )
+  if ( !bForced && fabs( dSliceLocation - m_dSliceLocation ) < 1e-6 )
   {
     return;
   }
@@ -287,10 +313,15 @@ void Contour2D::SetVisible( bool visible )
 void Contour2D::SetSmooth( bool bSmooth )
 {
   m_bSmooth = bSmooth;
-  if ( m_imageInput )
+  if ( m_imageInput.GetPointer() )
   {
+#if VTK_MAJOR_VERSION > 5
+    m_filterSmooth->SetInputData( m_imageInput );
+    m_filterThreshold->SetInputData( bSmooth ? m_filterSmooth->GetOutput() : m_imageInput.GetPointer() );
+#else
     m_filterSmooth->SetInput( m_imageInput );
-    m_filterThreshold->SetInput( bSmooth ? m_filterSmooth->GetOutput() : m_imageInput );
+    m_filterThreshold->SetInput( bSmooth ? m_filterSmooth->GetOutput() : m_imageInput.GetPointer() );
+#endif
   }
 }
 

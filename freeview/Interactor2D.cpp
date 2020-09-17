@@ -1,14 +1,9 @@
 /**
- * @file  Interactor2D.cpp
  * @brief Base Interactor class to manage mouse and key input on 2D render view.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/02 18:41:17 $
- *    $Revision: 1.42 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -89,6 +84,7 @@ bool Interactor2D::ProcessMouseDownEvent( QMouseEvent* event, RenderView* render
     }
     else
     {
+      view->grabMouse();
       m_bMovingCursor = true;
       view->UpdateCursorRASPosition( m_nMousePosX, m_nMousePosY,
                                      !mainwnd->IsRepositioningSurface() && ( event->modifiers() & CONTROL_MODIFIER ) &&
@@ -105,7 +101,9 @@ bool Interactor2D::ProcessMouseDownEvent( QMouseEvent* event, RenderView* render
       emit CursorLocationClicked();
     }
   }
-  else if ( event->button() == Qt::MidButton && ( event->modifiers() & Qt::ShiftModifier ) )
+  else if ( (event->button() == Qt::MidButton && ( event->modifiers() & Qt::ShiftModifier )) ||
+            (event->button() == Qt::RightButton && ( event->modifiers() & CONTROL_MODIFIER ) &&
+            ( event->modifiers() & Qt::ShiftModifier )) )
   {
     m_bSelecting = true;
     view->StartSelection( m_nMousePosX, m_nMousePosY );
@@ -141,6 +139,7 @@ bool Interactor2D::ProcessMouseDownEvent( QMouseEvent* event, RenderView* render
 bool Interactor2D::ProcessMouseUpEvent( QMouseEvent* event, RenderView* renderview )
 {
   RenderView2D* view = ( RenderView2D* )renderview;
+  view->releaseMouse();
 
   if ( m_bSelecting )
   {
@@ -319,12 +318,20 @@ bool Interactor2D::ProcessKeyDownEvent( QKeyEvent* event, RenderView* renderview
 {
   RenderView2D* view = ( RenderView2D* )renderview;
 
+  int nKeyCode = event->key();
+  if (nKeyCode == Qt::Key_Escape)
+  {
+    m_bWindowLevel = false;
+    m_bChangeSlice = false;
+    m_bMovingCursor = false;
+    m_bSelecting = false;
+  }
+
   if ( MainWindow::GetMainWindow()->IsEmpty() )
   {
     return Interactor::ProcessKeyDownEvent( event, renderview );
   }
 
-  int nKeyCode = event->key();
   if ( event->modifiers() & Qt::ShiftModifier )
   {
     if ( nKeyCode == Qt::Key_Up )

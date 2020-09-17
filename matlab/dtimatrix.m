@@ -12,16 +12,11 @@ function B = dtimatrix(bvalues,bvectors)
 %     2 4 5
 %     3 5 6
 %
-% $Id: dtimatrix.m,v 1.2 2011/03/02 00:04:12 nicks Exp $
 
 %
 % dtimatrix.m
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:12 $
-%    $Revision: 1.2 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

@@ -8,16 +8,11 @@ function p = mri_cdf2p(x,xcdf,cdf)
 % make sure to subtract xdelta from xcdf before
 % using this function.
 %
-% $Id: mri_cdf2p.m,v 1.2 2011/03/02 00:04:12 nicks Exp $
 
 %
 % mri_cdf2p.m
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:12 $
-%    $Revision: 1.2 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

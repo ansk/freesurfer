@@ -1,15 +1,16 @@
 project(mris2rgb)
-include_directories(${mris2rgb_SOURCE_DIR}
-${INCLUDE_DIR_TOP} 
-${VXL_INCLUDES} 
-${MINC_INCLUDE_DIRS}) 
 
-SET(mris2rgb_SRCS
-mris2rgb.c
-)
+if(OPENGL_FOUND)
 
+  include_directories(
+    ${FS_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/packages/tiff
+    ${CMAKE_SOURCE_DIR}/packages/glut
+    ${X11_INCLUDE_DIR}
+  )
 
-add_executable(mris2rgb ${mris2rgb_SRCS})
-target_link_libraries(mris2rgb ${FS_LIBS})
-install(TARGETS mris2rgb DESTINATION bin)	
+  add_executable(mris2rgb mris2rgb.cpp oglutil.cpp texfont.cpp)
+  target_link_libraries(mris2rgb utils ${OPENGL_LIBRARIES} glut ${X11_LIBRARIES})
+  install(TARGETS mris2rgb DESTINATION bin)
 
+endif()

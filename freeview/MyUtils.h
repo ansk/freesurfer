@@ -1,14 +1,9 @@
 /**
- * @file  MyUtils.h
  * @brief Misc utility class.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2015/05/18 20:55:37 $
- *    $Revision: 1.30 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -46,8 +41,8 @@ public:
   template <class T> static void FreeMatrix(T** p, int ny);
   template <class T> static double Dot( T* v1, T* v2 );
 
-  static double RoundToGrid( double dvalue );
 
+  static double RoundToGrid( double dvalue );
 
   static bool CalculateOptimalVolume( int* vox, int nsize1, int* vox2, int nsize2,
                                       std::vector<void*> input_volumes, float* output_volume, int vol_size );
@@ -79,6 +74,18 @@ public:
   static QString CygwinPathProof(const QString& path_in);
 
   static QString Win32PathProof(const QString& path_in);
+
+  static bool FindIntersection(const double& x0, const double& y0,
+                               const double& x1, const double& y1,
+                               const double& a0, const double& b0,
+                               const double& a1, const double& b1,
+                               double* x, double* y);
+
+  static bool FindIntersection(std::vector < std::vector < double > >& line0,
+                               std::vector < std::vector < double > >& line1,
+                               double* x, double* y, int* n0 = NULL, int* n1 = NULL);
+
+  static QString RealToNumber(qreal val, int nPrecision);
 };
 
 template <class T>

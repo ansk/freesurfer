@@ -1,8 +1,6 @@
 #include "vtkKWRGBATransferFunctionEditorTester.h"
 
-extern "C" {
-  #include "mrisurf.h"
-}
+#include "mrisurf.h"
 
 #include "vtkObjectFactory.h"
 #include "vtkKWWindowBase.h"
@@ -12,9 +10,7 @@ extern "C" {
 #include "vtkFloatArray.h"
 #include "vtkKWHistogram.h"
 
-extern "C" {
-  extern int Rgbatransferfunctioneditortesterlib_SafeInit ( Tcl_Interp* );
-}
+extern int Rgbatransferfunctioneditortesterlib_SafeInit ( Tcl_Interp* );
 
 const char* Progname = "vtkKWRGBATransferFunctionEditorTester";
 
@@ -41,7 +37,6 @@ main ( int iArgc, char** iArgv ) {
 }
 
 vtkStandardNewMacro( vtkKWRGBATransferFunctionEditorTester );
-vtkCxxRevisionMacro( vtkKWRGBATransferFunctionEditorTester, "$Revision: 1.3 $" );
 
 void
 vtkKWRGBATransferFunctionEditorTester::Start ( int iArgc, char** iArgv ) {

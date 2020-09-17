@@ -1,15 +1,20 @@
 project(mri_aparc2aseg)
-include_directories(${mri_aparc2aseg_SOURCE_DIR}
-${INCLUDE_DIR_TOP} 
-${VXL_INCLUDES} 
-${MINC_INCLUDE_DIRS}) 
 
-SET(mri_aparc2aseg_SRCS
-mri_aparc2aseg.c
-)
+include_directories(${FS_INCLUDE_DIRS})
+
+add_executable(mri_aparc2aseg mri_aparc2aseg.cpp)
+add_help(mri_aparc2aseg mri_aparc2aseg.help.xml)
+target_link_libraries(mri_aparc2aseg utils)
+
+add_test_script(NAME mri_aparc2aseg_test SCRIPT test.sh DEPENDS mri_aparc2aseg)
+
+install(TARGETS mri_aparc2aseg DESTINATION bin)
 
 
-add_executable(mri_aparc2aseg ${mri_aparc2aseg_SRCS})
-target_link_libraries(mri_aparc2aseg ${FS_LIBS})
-install(TARGETS mri_aparc2aseg DESTINATION bin)	
+add_executable(mri_surf2volseg mri_surf2volseg.cpp)
+add_help(mri_surf2volseg mri_surf2volseg.help.xml)
+target_link_libraries(mri_surf2volseg utils)
 
+#add_test_script(NAME mri_surf2volseg_test SCRIPT test.sh DEPENDS mri_surf2volseg)
+
+install(TARGETS mri_surf2volseg DESTINATION bin)

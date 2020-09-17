@@ -1,14 +1,5 @@
-/**
- * @file  FSTrack.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2011/12/05 20:03:33 $
- *    $Revision: 1.6 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -34,6 +25,7 @@ class FSTrack : public TrackData
 public:
   FSTrack(FSVolume* ref = 0, QObject *parent = 0);
   bool LoadFromFile(const QString &filename, const QString& ref_fn = QString());
+  bool LoadFromFiles(const QStringList &filenames, const QString& ref_fn = QString());
 
   void GetRASBounds(double bounds[]);
 

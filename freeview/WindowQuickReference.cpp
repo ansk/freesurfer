@@ -1,14 +1,5 @@
-/**
- * @file  WindowQuickReference.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/14 23:44:48 $
- *    $Revision: 1.14 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -34,7 +25,11 @@ WindowQuickReference::WindowQuickReference(QWidget *parent) :
   setWindowFlags( Qt::Tool );
   QFile file(":/resource/QuickRef.html");
   file.open(QIODevice::ReadOnly | QIODevice::Text);
-  ui->textBrowser->setHtml(file.readAll());
+  QByteArray ba = file.readAll();
+#ifdef Q_OS_MAC
+  ba.replace("Ctrl +", "Cmd +");
+#endif
+  ui->textBrowser->setHtml(ba);
 
   QSettings settings;
   restoreGeometry(settings.value("WindowQuickRef/Geometry").toByteArray());

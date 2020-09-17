@@ -1,14 +1,9 @@
 /**
- * @file  macros.h
  * @brief common macro definitions
  *
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2014/04/03 01:14:24 $
- *    $Revision: 1.39 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -25,15 +20,20 @@
 #ifndef MACROS_H
 #define MACROS_H
 
+#include "base.h"
+
 #include "const.h"
 #include "utils.h"
 #include "proto.h"
 #include "math.h"
 
+#define DEFINE_LOG2 static double log2(double x) { return log(x) / log(2.0); }
+	// defining log2 as a macro has problems with other header files that also define it as a function taking an integer arg 
+	
 #ifdef _MSDOS
 #include <math.h>
 #define exp2(f)     pow(2.0,(f))
-#define log2(f)     (log(f) / log(2.0))
+DEFINE_LOG2
 #ifndef M_E
 #define M_E 2.718282 /* exp(1) */
 #endif
@@ -48,6 +48,14 @@
 
 #ifndef UINT
 #define UINT         unsigned int
+#endif
+
+#ifndef FALSE
+#define FALSE  	     0
+#endif
+
+#ifndef TRUE
+#define TRUE         1
 #endif
 
 #define ISOPTION(c)  ((c) == '-')
@@ -100,17 +108,16 @@
 
 #ifdef Linux
 #define exp2(f)     pow(2.0,(f))
-#define log2(f)     (log(f) / log(2.0))
 #endif
 
 #ifdef IRIX
 #define exp2(f)     pow(2.0,(f))
-#define log2(f)     (log(f) / log(2.0))
+DEFINE_LOG2
 #endif
 
 #ifdef SunOS
 #define exp2(f)     pow(2.0,(f))
-#define log2(f)     (log(f) / log(2.0))
+DEFINE_LOG2
 #define ceilf(f)    (int)ceil((double)f)
 #define floorf(f)   (int)floor((double)f)
 #endif
@@ -131,26 +138,4 @@
 #define memmove  memcpy
 #endif
 
-#endif
-
-// you can do #if GCC_VERSION > 30200 for gcc 3.2.0
-#ifdef __GNUC__
-#define GCC_VERSION (__GNUC__ * 10000 \
-                     + __GNUC_MINOR__ * 100 \
-                     + __GNUC_PATCHLEVEL__)
-// from Graham Wideman:
-// __func__ in gcc appears not to be a predefined macro that can be
-// tested and also glued to string literals. Instead we have to use
-// printf-style
-#define __MYFUNCTION__ __func__
-
-#ifdef  __FUNCTION__
-#undef  __MYFUNCTION__
-#define __MYFUNCTION__  __FUNCTION__
-#endif
-
-#ifdef  __FUNC__
-#undef  __MYFUNCTION__
-#define __MYFUNCTION__  __FUNC__
-#endif
 #endif

@@ -1,14 +1,9 @@
 /**
- * @file  Region2D.h
  * @brief Region2D data object.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2015/10/07 20:01:59 $
- *    $Revision: 1.11 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,7 +24,6 @@
 #include <QObject>
 #include <QStringList>
 #include <vtkSmartPointer.h>
-
 
 class RenderView2D;
 class vtkRenderer;
@@ -81,6 +75,12 @@ public:
     return m_strsLongStats;
   }
 
+  vtkTextActor* GetTextActor();
+
+  void SetTextSize(int nsize);
+
+  void SetAutoScaleText(bool b);
+
 signals:
   void StatsUpdated();
 
@@ -89,7 +89,6 @@ protected:
   QString       m_strShortStats;
   QStringList   m_strsLongStats;
   vtkSmartPointer<vtkTextActor> m_actorText;
-
 };
 
 #endif

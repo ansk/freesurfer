@@ -1,14 +1,9 @@
 /**
- * @file  LayerCollection.cpp
  * @brief Collection of layers of the same type.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/05/31 18:30:40 $
- *    $Revision: 1.44 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -30,6 +25,8 @@
 #include <QDebug>
 #include <iostream>
 #include <QTimer>
+#include "LayerMRI.h"
+#include "LayerPropertyMRI.h"
 
 LayerCollection::LayerCollection( const QString& strType, QObject* parent ) :
   QObject( parent ),
@@ -53,7 +50,8 @@ void LayerCollection::Clear()
 {
   for ( int i = 0; i < m_layers.size(); i++ )
   {
-    m_layers[i]->deleteLater();
+  //  m_layers[i]->deleteLater();
+    delete m_layers[i];
   }
   m_layers.clear();
 }
@@ -451,6 +449,27 @@ void LayerCollection::ReorderLayers(const QList<Layer*> &layers)
   emit LayersReordered();
 }
 
+void LayerCollection::UpdateLayerOrder(const QList<int> &layer_ids)
+{
+  QList<Layer*> old_layers = m_layers;
+  QList<Layer*> new_layers;
+  for (int i = 0; i < layer_ids.size(); i++)
+  {
+    for (int j = 0; j < old_layers.size(); j++)
+    {
+      if (old_layers[j]->GetID() == layer_ids[i])
+      {
+        new_layers << old_layers[j];
+        old_layers.removeAt(j);
+        break;
+      }
+    }
+  }
+
+  if (new_layers.size() == m_layers.size())
+    ReorderLayers(new_layers);
+}
+
 bool LayerCollection::Contains( Layer* layer )
 {
   for ( int i = 0; i < m_layers.size(); i++ )
@@ -473,9 +492,31 @@ void LayerCollection::Append2DProps( vtkRenderer* renderer, int nImagePlane )
 
 void LayerCollection::Append3DProps( vtkRenderer* renderer, bool* bSliceVisibility )
 {
-  for ( int i = (int)m_layers.size()-1; i >= 0; i-- )
+  if (m_strType != "MRI")
   {
-    m_layers[i]->Append3DProps( renderer, bSliceVisibility );
+    for ( int i = (int)m_layers.size()-1; i >= 0; i-- )
+    {
+      m_layers[i]->Append3DProps( renderer, bSliceVisibility );
+    }
+  }
+  else
+  {
+    QList<Layer*> contour_layers;
+    QList<Layer*> normal_layers;
+    for (size_t i = 0; i < m_layers.size(); i++)
+    {
+      if (m_layers[i]->IsTypeOf("VolumeTrack") ||
+          qobject_cast<LayerMRI*>(m_layers[i])->GetProperty()->GetShowAsContour())
+        contour_layers << m_layers[i];
+      else
+        normal_layers << m_layers[i];
+    }
+
+    for (int i = (int)contour_layers.size()-1; i >= 0; i--)
+      contour_layers[i]->Append3DProps(renderer, bSliceVisibility);
+
+    for (int i = (int)normal_layers.size()-1; i >= 0; i--)
+      normal_layers[i]->Append3DProps(renderer, bSliceVisibility);
   }
 }
 
@@ -534,6 +575,17 @@ bool LayerCollection::SetSlicePosition( int nPlane, double dPos_in, bool bRoundT
     Layer* layer = GetActiveLayer();
     if (layer && layer->IsTypeOf("MRI"))
     {
+      if (!layer->IsVisible())
+      {
+        for (int i = 0; i < GetNumberOfLayers(); i++)
+        {
+          if (m_layers[i]->IsVisible())
+          {
+            layer = m_layers[i];
+            break;
+          }
+        }
+      }
       double* wo = layer->GetWorldOrigin();
       for (int i = 0; i < 3; i++)
         origin[i] = wo[i] - ((int)((wo[i]-origin[i])/voxel_size[i]+1))*voxel_size[i];
@@ -781,6 +833,16 @@ Layer* LayerCollection::GetLayerByName(const QString &name)
   for (int i = 0; i < m_layers.size(); i++)
   {
     if (m_layers[i]->GetName() == name)
+      return m_layers[i];
+  }
+  return NULL;
+}
+
+Layer* LayerCollection::GetLayerById(int nId)
+{
+  for (int i = 0; i < m_layers.size(); i++)
+  {
+    if (m_layers[i]->GetID() == nId)
       return m_layers[i];
   }
   return NULL;

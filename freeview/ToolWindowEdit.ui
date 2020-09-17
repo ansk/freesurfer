@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>338</width>
-    <height>693</height>
+    <width>446</width>
+    <height>1020</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -48,12 +48,15 @@
      </property>
      <addaction name="actionFreeHand"/>
      <addaction name="actionPolyLine"/>
-     <addaction name="actionLiveWire"/>
      <addaction name="actionFill"/>
-     <addaction name="actionClone"/>
-     <addaction name="actionContour"/>
      <addaction name="actionColorPicker"/>
      <addaction name="separator"/>
+     <addaction name="actionAutoSeg"/>
+     <addaction name="actionLiveWire"/>
+     <addaction name="actionContour"/>
+     <addaction name="separator"/>
+     <addaction name="actionShift"/>
+     <addaction name="actionClone"/>
      <addaction name="actionReplaceLabel"/>
     </widget>
    </item>
@@ -89,54 +92,7 @@
        <property name="spacing">
         <number>6</number>
        </property>
-       <item row="0" column="0">
-        <widget class="QLabel" name="labelBrushSize">
-         <property name="text">
-          <string>Brush size</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QSpinBox" name="spinBoxBrushSize">
-         <property name="minimum">
-          <number>1</number>
-         </property>
-         <property name="maximum">
-          <number>512</number>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="labelReference">
-         <property name="text">
-          <string>Reference</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1" colspan="5">
-        <widget class="QComboBox" name="comboBoxReference">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-           <horstretch>1</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>200</width>
-           <height>16777215</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="labelTolerance">
-         <property name="text">
-          <string>Tolerance</string>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="1">
+       <item row="6" column="1">
         <widget class="QLineEdit" name="lineEditContourValue">
          <property name="minimumSize">
           <size>
@@ -158,21 +114,42 @@
          </property>
         </widget>
        </item>
-       <item row="4" column="0">
-        <widget class="QLabel" name="labelContourValue">
+       <item row="8" column="1">
+        <widget class="QLineEdit" name="lineEditGeoMaxDistance">
+         <property name="minimumSize">
+          <size>
+           <width>65</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>70</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="baseSize">
+          <size>
+           <width>0</width>
+           <height>0</height>
+          </size>
+         </property>
          <property name="text">
-          <string>Contour value</string>
+          <string>10</string>
          </property>
         </widget>
        </item>
-       <item row="3" column="1">
-        <widget class="QSpinBox" name="spinBoxTolerance">
-         <property name="suffix">
-          <string>%</string>
+       <item row="6" column="6">
+        <widget class="QtColorPicker" name="colorPickerContour" native="true"/>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="labelBrushSize">
+         <property name="text">
+          <string>Brush size</string>
          </property>
         </widget>
        </item>
-       <item row="3" column="2" colspan="4">
+       <item row="5" column="2" colspan="5">
         <spacer name="horizontalSpacer_2">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
@@ -185,48 +162,27 @@
          </property>
         </spacer>
        </item>
-       <item row="4" column="2" colspan="4">
-        <spacer name="horizontalSpacer_3">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
+       <item row="3" column="1" colspan="3">
+        <widget class="QComboBox" name="comboBoxReference">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>1</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
          </property>
-         <property name="sizeHint" stdset="0">
+         <property name="maximumSize">
           <size>
-           <width>0</width>
-           <height>0</height>
+           <width>160000</width>
+           <height>16777215</height>
           </size>
          </property>
-        </spacer>
-       </item>
-       <item row="0" column="3" colspan="3">
-        <widget class="QCheckBox" name="checkBoxReconEditing">
-         <property name="text">
-          <string>Recon editing</string>
-         </property>
         </widget>
        </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="labelBrushValue">
-         <property name="text">
-          <string>Brush value</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="2" colspan="3">
-        <widget class="QLabel" name="labelEraseValue">
-         <property name="text">
-          <string>Eraser value</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
+       <item row="2" column="1">
         <widget class="QLineEdit" name="lineEditBrushValue">
          <property name="minimumSize">
           <size>
-           <width>0</width>
+           <width>50</width>
            <height>0</height>
           </size>
          </property>
@@ -247,8 +203,39 @@
          </property>
         </widget>
        </item>
-       <item row="1" column="5">
-        <widget class="QLineEdit" name="lineEditEraseValue">
+       <item row="0" column="2" colspan="5">
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <item>
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>1</width>
+             <height>1</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBoxReconEditing">
+           <property name="text">
+            <string>Recon editing</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="5" column="0">
+        <widget class="QLabel" name="labelTolerance">
+         <property name="text">
+          <string>Tolerance</string>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="1">
+        <widget class="QLineEdit" name="lineEditGeoLambda">
          <property name="minimumSize">
           <size>
            <width>65</width>
@@ -272,18 +259,546 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="2">
-        <spacer name="horizontalSpacer">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
+       <item row="6" column="3" colspan="2">
+        <widget class="QLabel" name="labelContourColor">
+         <property name="text">
+          <string>Contour color</string>
          </property>
-         <property name="sizeHint" stdset="0">
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="0">
+        <widget class="QLabel" name="labelGeoLambda">
+         <property name="text">
+          <string>Lambda</string>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="0">
+        <widget class="QLabel" name="labelGeoMaxDistance">
+         <property name="text">
+          <string>Bounding box
+distance</string>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="3" colspan="2">
+        <widget class="QLabel" name="labelGeoWsize">
+         <property name="text">
+          <string>WSize</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="5">
+        <widget class="QLabel" name="labelEraseValue">
+         <property name="text">
+          <string>Eraser value</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="6">
+        <widget class="QLineEdit" name="lineEditEraseValue">
+         <property name="minimumSize">
           <size>
-           <width>1</width>
-           <height>1</height>
+           <width>50</width>
+           <height>0</height>
           </size>
          </property>
-        </spacer>
+         <property name="maximumSize">
+          <size>
+           <width>50</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="baseSize">
+          <size>
+           <width>0</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>0</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="QSpinBox" name="spinBoxTolerance">
+         <property name="suffix">
+          <string>%</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="0" colspan="7">
+        <widget class="QWidget" name="widgetClone" native="true">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>20</height>
+          </size>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_9">
+          <property name="topMargin">
+           <number>8</number>
+          </property>
+          <property name="bottomMargin">
+           <number>8</number>
+          </property>
+          <item>
+           <spacer name="horizontalSpacer_3">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButtonCloneCopy">
+            <property name="text">
+             <string>Copy</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButtonCloneCopyStructure">
+            <property name="text">
+             <string>Copy Structure</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButtonClonePaste">
+            <property name="text">
+             <string>Paste</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="labelBrushValue">
+         <property name="text">
+          <string>Brush value</string>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="0">
+        <widget class="QLabel" name="labelContourValue">
+         <property name="text">
+          <string>Contour value</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="labelReference">
+         <property name="text">
+          <string>Reference</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QSpinBox" name="spinBoxBrushSize">
+         <property name="minimum">
+          <number>1</number>
+         </property>
+         <property name="maximum">
+          <number>512</number>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="5">
+        <widget class="QSpinBox" name="spinBoxGeoWsize">
+         <property name="suffix">
+          <string/>
+         </property>
+         <property name="minimum">
+          <number>3</number>
+         </property>
+         <property name="maximum">
+          <number>100</number>
+         </property>
+        </widget>
+       </item>
+       <item row="14" column="0" colspan="7">
+        <layout class="QHBoxLayout" name="horizontalLayout_7">
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="BusyIndicator" name="widgetBusyIndicator" native="true">
+           <property name="minimumSize">
+            <size>
+             <width>10</width>
+             <height>0</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBoxGeoSegOverwrite">
+           <property name="layoutDirection">
+            <enum>Qt::LeftToRight</enum>
+           </property>
+           <property name="text">
+            <string>Overwrite existing labels</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_14">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>5</width>
+             <height>0</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButtonAbort">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>60</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Abort</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButtonGeoGo">
+           <property name="maximumSize">
+            <size>
+             <width>60</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Test</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButtonGeoApply">
+           <property name="maximumSize">
+            <size>
+             <width>60</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Apply</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="8" column="3" colspan="4">
+        <layout class="QHBoxLayout" name="horizontalLayout_11">
+         <item>
+          <spacer name="horizontalSpacer_15">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>0</width>
+             <height>0</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBoxApplySmoothing">
+           <property name="text">
+            <string>Apply smoothing</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="lineEditSmoothingStd">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>35</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="baseSize">
+            <size>
+             <width>0</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>0.5</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="10" column="0" colspan="7">
+        <widget class="QWidget" name="widgetGeoColors" native="true">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_2">
+          <property name="topMargin">
+           <number>5</number>
+          </property>
+          <property name="bottomMargin">
+           <number>5</number>
+          </property>
+          <item row="1" column="0">
+           <widget class="QLabel" name="labelGeoInsideColor">
+            <property name="text">
+             <string>Inside color</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="6">
+           <widget class="QLabel" name="labelGeoFillColor">
+            <property name="text">
+             <string>Fill color</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3" rowspan="2">
+           <widget class="QPushButton" name="pushButtonGeoClear">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Clear</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2">
+           <widget class="QtColorPicker" name="colorPickerGeoOutside" native="true"/>
+          </item>
+          <item row="2" column="7" colspan="2">
+           <widget class="QSlider" name="sliderGeoOpacity">
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="value">
+             <number>100</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="4" rowspan="2">
+           <widget class="QPushButton" name="pushButtonGeoUndo">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Undo</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="labelGeoOutsideColor">
+            <property name="text">
+             <string>Outside color</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="8">
+           <widget class="QPushButton" name="pushButtonGeoClearFilling">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>50000</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Clear</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="7">
+           <widget class="QtColorPicker" name="colorPickerGeoFill" native="true"/>
+          </item>
+          <item row="1" column="2">
+           <widget class="QtColorPicker" name="colorPickerGeoInside" native="true"/>
+          </item>
+          <item row="1" column="5">
+           <spacer name="horizontalSpacer_4">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>5</width>
+              <height>5</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="2" column="6">
+           <widget class="QLabel" name="labelGeoOpacity">
+            <property name="text">
+             <string>Opacity</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="9" column="0">
+        <widget class="QCheckBox" name="checkBoxMaxForegroundDistance">
+         <property name="text">
+          <string>Max foreground
+distance</string>
+         </property>
+        </widget>
+       </item>
+       <item row="9" column="1">
+        <widget class="QLineEdit" name="lineEditGeoMaxForegroundDistance">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>65</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>70</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="baseSize">
+          <size>
+           <width>0</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>10</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_8">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QWidget" name="widgetEmpty" native="true">
+         <property name="minimumSize">
+          <size>
+           <width>2</width>
+           <height>2</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>2</width>
+           <height>2</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="labelGeoMessage">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>1</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">font-size:10px;</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="scaledContents">
+          <bool>true</bool>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
+         </property>
+         <property name="wordWrap">
+          <bool>false</bool>
+         </property>
+        </widget>
        </item>
       </layout>
      </item>
@@ -721,40 +1236,6 @@ connected to existing labels</string>
       </layout>
      </item>
      <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_4">
-       <item>
-        <widget class="QLabel" name="labelContourColor">
-         <property name="text">
-          <string>Contour color</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QtColorPicker" name="colorPickerContour" native="true">
-         <property name="minimumSize">
-          <size>
-           <width>60</width>
-           <height>0</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <spacer name="horizontalSpacer_4">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>0</width>
-           <height>0</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-      </layout>
-     </item>
-     <item>
       <widget class="QCheckBox" name="checkBoxFill3D">
        <property name="text">
         <string>Flood fill multiple slices at a time</string>
@@ -783,7 +1264,7 @@ connected to existing labels</string>
         <string>Tips:
 Shift + Ctrl + Left button to move cursor.
 Shift + C to pick color.
-Alt + L to turn on/off label outline display mode.</string>
+Ctrl + L to turn on/off label outline display mode.</string>
        </property>
       </widget>
      </item>
@@ -795,6 +1276,16 @@ Left button to add pixels to contour.
 Shift + Left button to break contour.
 Ctrl + Left button to fill isolated contour.
 Alt + H to show/hide contour.
+</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="labelTipsGeoS">
+       <property name="text">
+        <string>Left button to draw foreground.
+Right button to draw background.
+Shift + Left button to erase.
 </string>
        </property>
       </widget>
@@ -824,7 +1315,7 @@ Alt + H to show/hide contour.
      <normaloff>:/resource/icons/voxel_draw_freehand.png</normaloff>:/resource/icons/voxel_draw_freehand.png</iconset>
    </property>
    <property name="text">
-    <string>FreeHand</string>
+    <string>Freehand</string>
    </property>
    <property name="toolTip">
     <string>Freehand</string>
@@ -854,10 +1345,10 @@ Alt + H to show/hide contour.
      <normaloff>:/resource/icons/voxel_draw_livewire.png</normaloff>:/resource/icons/voxel_draw_livewire.png</iconset>
    </property>
    <property name="text">
-    <string>LiveWire</string>
+    <string>Live Wire</string>
    </property>
    <property name="toolTip">
-    <string>Live wire</string>
+    <string>Live Wire</string>
    </property>
   </action>
   <action name="actionFill">
@@ -899,10 +1390,10 @@ Alt + H to show/hide contour.
      <normaloff>:/resource/icons/voxel_draw_colorpicker.png</normaloff>:/resource/icons/voxel_draw_colorpicker.png</iconset>
    </property>
    <property name="text">
-    <string>ColorPicker</string>
+    <string>Color Picker</string>
    </property>
    <property name="toolTip">
-    <string>Color picker</string>
+    <string>Color Picker</string>
    </property>
   </action>
   <action name="actionReplaceLabel">
@@ -932,6 +1423,36 @@ Alt + H to show/hide contour.
     <string>Clone Voxel</string>
    </property>
   </action>
+  <action name="actionAutoSeg">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="freeview.qrc">
+     <normaloff>:/resource/icons/voxel_draw_autoseg.png</normaloff>:/resource/icons/voxel_draw_autoseg.png</iconset>
+   </property>
+   <property name="text">
+    <string>Geodesic Matting</string>
+   </property>
+   <property name="toolTip">
+    <string>Geodesic Matting</string>
+   </property>
+  </action>
+  <action name="actionShift">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="freeview.qrc">
+     <normaloff>:/resource/icons/voxel_draw_move.png</normaloff>:/resource/icons/voxel_draw_move.png</iconset>
+   </property>
+   <property name="text">
+    <string>Move Label</string>
+   </property>
+   <property name="toolTip">
+    <string>Move Label</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -943,6 +1464,12 @@ Alt + H to show/hide contour.
     <signal>colorChanged(QColor)</signal>
     <signal>currentColorChanged(QColor)</signal>
    </slots>
+  </customwidget>
+  <customwidget>
+   <class>BusyIndicator</class>
+   <extends>QWidget</extends>
+   <header>BusyIndicator.h</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources>
@@ -956,12 +1483,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>128</x>
-     <y>294</y>
+     <x>150</x>
+     <y>556</y>
     </hint>
     <hint type="destinationlabel">
-     <x>44</x>
-     <y>325</y>
+     <x>45</x>
+     <y>588</y>
     </hint>
    </hints>
   </connection>
@@ -972,12 +1499,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>308</x>
-     <y>294</y>
+     <x>330</x>
+     <y>556</y>
     </hint>
     <hint type="destinationlabel">
-     <x>223</x>
-     <y>324</y>
+     <x>226</x>
+     <y>587</y>
     </hint>
    </hints>
   </connection>
@@ -988,12 +1515,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>184</x>
-     <y>294</y>
+     <x>206</x>
+     <y>556</y>
     </hint>
     <hint type="destinationlabel">
-     <x>110</x>
-     <y>324</y>
+     <x>111</x>
+     <y>587</y>
     </hint>
    </hints>
   </connection>
@@ -1004,12 +1531,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>242</x>
-     <y>294</y>
+     <x>264</x>
+     <y>556</y>
     </hint>
     <hint type="destinationlabel">
-     <x>157</x>
-     <y>325</y>
+     <x>160</x>
+     <y>588</y>
     </hint>
    </hints>
   </connection>
@@ -1020,12 +1547,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>161</x>
-     <y>353</y>
+     <x>183</x>
+     <y>617</y>
     </hint>
     <hint type="destinationlabel">
-     <x>110</x>
-     <y>383</y>
+     <x>111</x>
+     <y>648</y>
     </hint>
    </hints>
   </connection>
@@ -1036,12 +1563,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>78</x>
-     <y>353</y>
+     <x>100</x>
+     <y>617</y>
     </hint>
     <hint type="destinationlabel">
-     <x>44</x>
-     <y>384</y>
+     <x>45</x>
+     <y>649</y>
     </hint>
    </hints>
   </connection>
@@ -1052,12 +1579,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>204</x>
-     <y>353</y>
+     <x>226</x>
+     <y>617</y>
     </hint>
     <hint type="destinationlabel">
-     <x>157</x>
-     <y>384</y>
+     <x>160</x>
+     <y>649</y>
     </hint>
    </hints>
   </connection>
@@ -1068,12 +1595,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>158</x>
-     <y>424</y>
+     <x>176</x>
+     <y>690</y>
     </hint>
     <hint type="destinationlabel">
-     <x>106</x>
-     <y>455</y>
+     <x>123</x>
+     <y>722</y>
     </hint>
    </hints>
   </connection>
@@ -1084,12 +1611,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>295</x>
-     <y>353</y>
+     <x>317</x>
+     <y>617</y>
     </hint>
     <hint type="destinationlabel">
-     <x>223</x>
-     <y>383</y>
+     <x>226</x>
+     <y>648</y>
     </hint>
    </hints>
   </connection>
@@ -1100,28 +1627,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>241</x>
-     <y>424</y>
+     <x>259</x>
+     <y>690</y>
     </hint>
     <hint type="destinationlabel">
-     <x>188</x>
-     <y>455</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>comboBoxReference</sender>
-   <signal>currentIndexChanged(int)</signal>
-   <receiver>ToolWindowEdit</receiver>
-   <slot>OnComboReference(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>298</x>
-     <y>129</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>431</x>
-     <y>129</y>
+     <x>189</x>
+     <y>722</y>
     </hint>
    </hints>
   </connection>
@@ -1132,11 +1643,11 @@ Alt + H to show/hide contour.
    <slot>OnLineEditContourValue(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>163</x>
-     <y>188</y>
+     <x>201</x>
+     <y>228</y>
     </hint>
     <hint type="destinationlabel">
-     <x>442</x>
+     <x>431</x>
      <y>161</y>
     </hint>
    </hints>
@@ -1148,8 +1659,8 @@ Alt + H to show/hide contour.
    <slot>OnDrawRangeChanged(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>110</x>
-     <y>324</y>
+     <x>111</x>
+     <y>587</y>
     </hint>
     <hint type="destinationlabel">
      <x>427</x>
@@ -1164,8 +1675,8 @@ Alt + H to show/hide contour.
    <slot>OnDrawRangeChanged(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>223</x>
-     <y>324</y>
+     <x>226</x>
+     <y>587</y>
     </hint>
     <hint type="destinationlabel">
      <x>324</x>
@@ -1180,8 +1691,8 @@ Alt + H to show/hide contour.
    <slot>OnExcludeRangeChanged(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>110</x>
-     <y>383</y>
+     <x>111</x>
+     <y>648</y>
     </hint>
     <hint type="destinationlabel">
      <x>365</x>
@@ -1196,8 +1707,8 @@ Alt + H to show/hide contour.
    <slot>OnExcludeRangeChanged(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>223</x>
-     <y>383</y>
+     <x>226</x>
+     <y>648</y>
     </hint>
     <hint type="destinationlabel">
      <x>344</x>
@@ -1212,8 +1723,8 @@ Alt + H to show/hide contour.
    <slot>OnLineEditSmoothSD(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>188</x>
-     <y>455</y>
+     <x>189</x>
+     <y>722</y>
     </hint>
     <hint type="destinationlabel">
      <x>381</x>
@@ -1244,7 +1755,7 @@ Alt + H to show/hide contour.
    <slot>OnCheckReconEditing(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>290</x>
+     <x>330</x>
      <y>56</y>
     </hint>
     <hint type="destinationlabel">
@@ -1260,12 +1771,12 @@ Alt + H to show/hide contour.
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>241</x>
-     <y>55</y>
+     <x>380</x>
+     <y>69</y>
     </hint>
     <hint type="destinationlabel">
-     <x>217</x>
-     <y>89</y>
+     <x>325</x>
+     <y>100</y>
     </hint>
    </hints>
   </connection>
@@ -1276,12 +1787,12 @@ Alt + H to show/hide contour.
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>248</x>
-     <y>56</y>
+     <x>380</x>
+     <y>69</y>
     </hint>
     <hint type="destinationlabel">
-     <x>269</x>
-     <y>87</y>
+     <x>435</x>
+     <y>102</y>
     </hint>
    </hints>
   </connection>
@@ -1292,8 +1803,8 @@ Alt + H to show/hide contour.
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>234</x>
-     <y>56</y>
+     <x>380</x>
+     <y>69</y>
     </hint>
     <hint type="destinationlabel">
      <x>143</x>
@@ -1308,8 +1819,8 @@ Alt + H to show/hide contour.
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>275</x>
-     <y>56</y>
+     <x>434</x>
+     <y>70</y>
     </hint>
     <hint type="destinationlabel">
      <x>36</x>
@@ -1328,7 +1839,7 @@ Alt + H to show/hide contour.
      <y>97</y>
     </hint>
     <hint type="destinationlabel">
-     <x>497</x>
+     <x>431</x>
      <y>149</y>
     </hint>
    </hints>
@@ -1340,11 +1851,11 @@ Alt + H to show/hide contour.
    <slot>OnLineEditEraseValue(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>285</x>
-     <y>91</y>
+     <x>435</x>
+     <y>102</y>
     </hint>
     <hint type="destinationlabel">
-     <x>472</x>
+     <x>431</x>
      <y>177</y>
     </hint>
    </hints>
@@ -1356,12 +1867,12 @@ Alt + H to show/hide contour.
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>302</x>
+     <x>342</x>
      <y>58</y>
     </hint>
     <hint type="destinationlabel">
-     <x>179</x>
-     <y>353</y>
+     <x>201</x>
+     <y>617</y>
     </hint>
    </hints>
   </connection>
@@ -1372,12 +1883,12 @@ Alt + H to show/hide contour.
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>266</x>
-     <y>65</y>
+     <x>380</x>
+     <y>69</y>
     </hint>
     <hint type="destinationlabel">
-     <x>39</x>
-     <y>384</y>
+     <x>45</x>
+     <y>649</y>
     </hint>
    </hints>
   </connection>
@@ -1388,12 +1899,12 @@ Alt + H to show/hide contour.
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>265</x>
-     <y>60</y>
+     <x>380</x>
+     <y>69</y>
     </hint>
     <hint type="destinationlabel">
-     <x>110</x>
-     <y>383</y>
+     <x>111</x>
+     <y>648</y>
     </hint>
    </hints>
   </connection>
@@ -1404,12 +1915,12 @@ Alt + H to show/hide contour.
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>265</x>
-     <y>63</y>
+     <x>380</x>
+     <y>69</y>
     </hint>
     <hint type="destinationlabel">
-     <x>157</x>
-     <y>384</y>
+     <x>160</x>
+     <y>649</y>
     </hint>
    </hints>
   </connection>
@@ -1420,12 +1931,12 @@ Alt + H to show/hide contour.
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>262</x>
-     <y>62</y>
+     <x>380</x>
+     <y>69</y>
     </hint>
     <hint type="destinationlabel">
-     <x>223</x>
-     <y>383</y>
+     <x>226</x>
+     <y>648</y>
     </hint>
    </hints>
   </connection>
@@ -1436,12 +1947,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>69</x>
-     <y>241</y>
+     <x>91</x>
+     <y>512</y>
     </hint>
     <hint type="destinationlabel">
-     <x>32</x>
-     <y>267</y>
+     <x>45</x>
+     <y>543</y>
     </hint>
    </hints>
   </connection>
@@ -1452,12 +1963,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>89</x>
-     <y>248</y>
+     <x>111</x>
+     <y>512</y>
     </hint>
     <hint type="destinationlabel">
-     <x>85</x>
-     <y>265</y>
+     <x>111</x>
+     <y>543</y>
     </hint>
    </hints>
   </connection>
@@ -1468,12 +1979,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>199</x>
-     <y>245</y>
+     <x>221</x>
+     <y>512</y>
     </hint>
     <hint type="destinationlabel">
-     <x>191</x>
-     <y>271</y>
+     <x>226</x>
+     <y>543</y>
     </hint>
    </hints>
   </connection>
@@ -1484,12 +1995,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>144</x>
-     <y>242</y>
+     <x>166</x>
+     <y>512</y>
     </hint>
     <hint type="destinationlabel">
-     <x>142</x>
-     <y>271</y>
+     <x>160</x>
+     <y>543</y>
     </hint>
    </hints>
   </connection>
@@ -1500,12 +2011,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>44</x>
-     <y>301</y>
+     <x>66</x>
+     <y>572</y>
     </hint>
     <hint type="destinationlabel">
-     <x>21</x>
-     <y>328</y>
+     <x>45</x>
+     <y>603</y>
     </hint>
    </hints>
   </connection>
@@ -1516,12 +2027,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>66</x>
-     <y>301</y>
+     <x>88</x>
+     <y>572</y>
     </hint>
     <hint type="destinationlabel">
-     <x>64</x>
-     <y>323</y>
+     <x>111</x>
+     <y>603</y>
     </hint>
    </hints>
   </connection>
@@ -1532,12 +2043,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>154</x>
-     <y>302</y>
+     <x>176</x>
+     <y>572</y>
     </hint>
     <hint type="destinationlabel">
-     <x>150</x>
-     <y>325</y>
+     <x>160</x>
+     <y>603</y>
     </hint>
    </hints>
   </connection>
@@ -1548,12 +2059,12 @@ Alt + H to show/hide contour.
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>209</x>
-     <y>306</y>
+     <x>231</x>
+     <y>572</y>
     </hint>
     <hint type="destinationlabel">
-     <x>205</x>
-     <y>327</y>
+     <x>226</x>
+     <y>603</y>
     </hint>
    </hints>
   </connection>
@@ -1564,11 +2075,11 @@ Alt + H to show/hide contour.
    <slot>OnEraseRangeChanged(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>99</x>
-     <y>269</y>
+     <x>111</x>
+     <y>543</y>
     </hint>
     <hint type="destinationlabel">
-     <x>635</x>
+     <x>431</x>
      <y>332</y>
     </hint>
    </hints>
@@ -1580,11 +2091,11 @@ Alt + H to show/hide contour.
    <slot>OnEraseRangeChanged(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>218</x>
-     <y>270</y>
+     <x>226</x>
+     <y>543</y>
     </hint>
     <hint type="destinationlabel">
-     <x>610</x>
+     <x>431</x>
      <y>273</y>
     </hint>
    </hints>
@@ -1596,11 +2107,11 @@ Alt + H to show/hide contour.
    <slot>OnEraseExcludeRangeChanged(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>100</x>
-     <y>333</y>
+     <x>111</x>
+     <y>603</y>
     </hint>
     <hint type="destinationlabel">
-     <x>632</x>
+     <x>431</x>
      <y>373</y>
     </hint>
    </hints>
@@ -1612,12 +2123,60 @@ Alt + H to show/hide contour.
    <slot>OnEraseExcludeRangeChanged(QString)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>221</x>
-     <y>327</y>
+     <x>226</x>
+     <y>603</y>
     </hint>
     <hint type="destinationlabel">
-     <x>522</x>
+     <x>431</x>
      <y>364</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>comboBoxReference</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>ToolWindowEdit</receiver>
+   <slot>OnComboReference(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>203</x>
+     <y>129</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>431</x>
+     <y>129</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>checkBoxApplySmoothing</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>lineEditSmoothingStd</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>393</x>
+     <y>292</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>434</x>
+     <y>293</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>checkBoxMaxForegroundDistance</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>lineEditGeoMaxForegroundDistance</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>78</x>
+     <y>320</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>172</x>
+     <y>319</y>
     </hint>
    </hints>
   </connection>

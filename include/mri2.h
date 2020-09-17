@@ -1,15 +1,4 @@
-/**
- * @file  mri2.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2016/07/06 14:21:47 $
- *    $Revision: 1.70 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,10 +20,6 @@
 #ifndef MRI2_H
 #define MRI2_H
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 #include "mri.h"
 #include "mriTransform.h"
 #include "mrisurf.h"
@@ -44,7 +29,7 @@ MRI *mri_load_bvolume(char *bfstem);
 int  mri_save_as_bvolume(MRI *vol, char *stem, int svendian, int svtype);
 MRI *mri_load_bvolume_frame(char *bfstem, int frameno);
 int  mri_framepower(MRI *vol, float *framepower);
-MRI *mri_binarize(MRI *vol, float thresh, char *tail, int invert,
+MRI *mri_binarize(MRI *vol, float thresh, const char *tail, int invert,
                   MRI *volbin, int *nover);
 MRI *mri_rescale(MRI *invol, float min, float max, MRI *outvol);
 int  mri_save_as_cor(MRI *vol,  char *cordir, int frame, int rescale);
@@ -143,9 +128,22 @@ MRI *MRIunsegmentWM(MRI *seg, MRIS *lhw, MRIS *rhw, int *segidlist, int nlist, L
 MRI *MRIrelabelHypoHemi(MRI *seg, MRIS *lhw, MRIS *rhw, LTA *anat2seg, MRI *wmseg);
 MRI *MRIrelabelNonWMHypos(MRI *seg0, int *segidlist, int nsegs, int *outsegidlist);
 MRI *CTABcount2MRI(COLOR_TABLE *ct, MRI *seg);
+MRI *MRIreorientLIA2RAS(MRI *mriA, MRI *mriB);
 
-#if defined(__cplusplus)
-};
-#endif
+/*
+  converts vertices to the index space
+*/
+void MRIConvertSurfaceVertexCoordinates(MRIS* mris, MRI* vol);
+
+MATRIX *MRIvol2mat(MRI *vol, MRI *mask, int transposeFlag, MATRIX *M);
+MRI *MRImat2vol(MATRIX *M, MRI *mask, int transposeFlag, MRI *vol);
+MRI *MRImergeSegs(MRI *seg, int *seglist, int nsegs, int NewSegId, MRI *newseg);
+MRI *MRImatchSegs(MRI *seg, int *seglist, int nsegs, int MaskId, MRI *mask);
+HISTOGRAM *HISTOseg(MRI *seg, int segid, MRI *vol, double bmin, double bmax, double bdelta);
+int QuadEulerCharChange(MRI *vol, MRI *mask, int c, int r, int s);
+int QuadEulerCharChangeTest(int ForceFail);
+int QuadEulerCharChangeCheckReorder(MRI *mri, const char *testname, int decExpected);
+
+MRI *MRIfindBrightNonWM(MRI *mri_T1, MRI *mri_wm);
 
 #endif

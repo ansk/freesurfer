@@ -1,15 +1,10 @@
 /**
- * @file  lta_convert.cpp
  * @brief A programm to convert linear transform file formats
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: zkaufman $
- *    $Date: 2016/08/09 02:11:11 $
- *    $Revision: 1.10 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -27,12 +22,6 @@
 #include <iostream>
 #include <fstream>
 
-// all other software are all in "C"
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include "error.h"
 #include "macros.h"
 #include "mri.h"
@@ -40,10 +29,6 @@ extern "C"
 #include "resample.h"
 #include "registerio.h"
 #include "version.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 using namespace std;
 
@@ -74,9 +59,7 @@ static struct Parameters P =
 static void printUsage(void);
 static bool parseCommandLine(int argc, char *argv[], Parameters & P);
 
-static char vcid[] =
-    "$Id: lta_convert.cpp,v 1.10 2016/08/09 02:11:11 zkaufman Exp $";
-char *Progname = NULL;
+const char *Progname = NULL;
 
 LTA * shallowCopyLTA(const LTA * lta)
 {
@@ -637,10 +620,10 @@ void writeITK(const string& fname, const LTA * lta)
 
 int main(int argc, char *argv[])
 {
-  cout << vcid << endl << endl;
+  cout << getVersion() << endl << endl;
 
   // Default initialization
-  int nargs = handle_version_option(argc, argv, vcid, "$Name:  $");
+  int nargs = handleVersionOption(argc, argv, "lta_convert");
   if (nargs && argc - nargs == 1)
   {
     exit(0);

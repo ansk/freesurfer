@@ -1,5 +1,4 @@
 /**
- * @file  SurfaceOverlayProperty.h
  * @brief The common properties available to MRI layers
  *
  * An interface implemented by a collection. Layers will get
@@ -8,10 +7,6 @@
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2015/05/05 18:53:39 $
- *    $Revision: 1.9 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -126,6 +121,16 @@ public:
     m_bUsePercentile = bPercentile;
   }
 
+  bool GetIgnoreZeros()
+  {
+    return m_bIgnoreZeros;
+  }
+
+  void SetIgnoreZeros(bool b)
+  {
+    m_bIgnoreZeros = b;
+  }
+
 //  void MapOverlayColor( unsigned char* colordata, int nPoints );
   void MapOverlayColor( float* data, unsigned char* colordata, int nPoints );
   void MapOverlayColorSymmetric( float* data, unsigned char* colordata, int nPoints );
@@ -137,11 +142,6 @@ public:
   }
 
   void Reset();
-
-  void EmitColorMapChanged()
-  {
-    emit ColorMapChanged();
-  }
 
   void SetMask(SurfaceLabel* label);
 
@@ -157,6 +157,10 @@ public:
 
   void SetMaskInverse(bool b);
 
+  bool LoadCustomColorScale(const QString& filename);
+
+  bool SaveCustomColorScale(const QString& filename);
+
 signals:
   void ColorMapChanged();
   void SmoothChanged();
@@ -164,6 +168,10 @@ signals:
   void ComputeCorrelationChanged();
 
 public slots:
+  void EmitColorMapChanged()
+  {
+    emit ColorMapChanged();
+  }
   void OnLabelMaskDestroyed(QObject* label);
 
 private:
@@ -188,6 +196,7 @@ private:
   bool        m_bSmooth;
   int         m_nSmoothSteps;
   bool        m_bUsePercentile;
+  bool        m_bIgnoreZeros;
 
   SurfaceLabel* m_mask;
   unsigned char* m_maskData;

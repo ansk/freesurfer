@@ -1,14 +1,5 @@
-/**
- * @file  LayerTrack.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2011/12/05 20:03:33 $
- *    $Revision: 1.6 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -26,6 +17,7 @@
 
 #include "Layer.h"
 #include <QColor>
+#include <QVariantMap>
 
 class FSTrack;
 class LayerMRI;
@@ -39,10 +31,10 @@ class LayerTrack : public Layer
 {
   Q_OBJECT
 public:
-  LayerTrack(LayerMRI* ref, QObject* parent = NULL);
+  LayerTrack(LayerMRI* ref, QObject* parent = NULL, bool bCluster = false);
   ~LayerTrack();
 
-  bool LoadTrackFromFile();
+  bool LoadTrackFromFiles();
 
   void Append2DProps(vtkRenderer *renderer, int nPlane);
 
@@ -59,12 +51,33 @@ public:
 
   virtual void SetVisible( bool bVisible = true );
 
+  void SetFileName(const QString& filename);
+
+  void SetFileNames(const QStringList& filenames);
+
+  void SetClusterData(const QVariantMap& data);
+
+  bool IsCluster();
+
+  QVariantMap GetClusterData()
+  {
+    return m_mapCluster;
+  }
+
+  bool HasEmbeddedColor();
+
 signals:
   void Progress(int n);
 
 public slots:
   void RebuildActors();
   void UpdateColor(bool emitSignal = true);
+  void LoadTrackFromFiles(const QStringList& filenames)
+  {
+    SetFileNames(filenames);
+    LoadTrackFromFiles();
+  }
+  void UpdateOpacity(double val);
 
 protected:
   virtual void OnSlicePositionChanged(int nPlane);
@@ -75,6 +88,8 @@ protected:
   FSTrack*    m_trackData;
   LayerMRI*   m_layerMRIRef;
   QList<vtkActor*>  m_actors;
+  QStringList m_listFilenames;
+  QVariantMap m_mapCluster;
 };
 
 #endif // LAYERTRACK_H

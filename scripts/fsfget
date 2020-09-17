@@ -1,5 +1,5 @@
-#!/bin/sh
-# $Id: fsfget,v 1.5 2011/03/02 20:16:39 nicks Exp $
+#!/usr/bin/env tclsh
+
 # fsfget - extract params from fsl/feat design.fsf file
 # 
 # Elements of the fmri() struct
@@ -24,10 +24,6 @@
 
 #
 # Original Author: Doug Greve
-# CVS Revision Info:
-#    $Author: nicks $
-#    $Date: 2011/03/02 20:16:39 $
-#    $Revision: 1.5 $
 #
 # Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 #
@@ -40,9 +36,6 @@
 # Reporting: freesurfer@nmr.mgh.harvard.edu
 #
 #
-
-# the next line restarts using tclsh \
-exec fs_tclsh "$0" "$@"
 
 if { $argc != 2 } {
     puts "Usage: fsfget design.fsf paramname";

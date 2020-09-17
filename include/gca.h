@@ -1,5 +1,4 @@
 /**
- * @file  gca.h
  * @brief utilities for whole-brain segmentation
  *
  * Reference:
@@ -9,10 +8,6 @@
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2016/12/05 16:56:12 $
- *    $Revision: 1.137 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -30,10 +25,7 @@
 #ifndef GCA_H
 #define GCA_H
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
+#include "faster_variants.h"
 
 #include "mri.h"
 #include "transform.h"
@@ -105,7 +97,12 @@ typedef struct
   int    yp ;
   int    zp ;
   int    label ;
+#ifndef FASTER_MRI_EM_REGISTER
   float  prior ;
+#else
+  float  prior_access_via_setGetPrior;
+  double prior_log;   			/* the log of prior_access_via_setGetPrior */
+#endif
   float  *covars ;
   float  *means ;
   float  log_p ;      /* current log probability of this sample */
@@ -115,6 +112,26 @@ typedef struct
   int    tissue_class ;
 }
 GCA_SAMPLE, GCAS ;
+
+#ifndef FASTER_MRI_EM_REGISTER
+
+#define gcas_setPrior(GCAS,TO) {(GCAS).prior = (TO); }
+#define gcas_getPrior(GCAS)    ((GCAS).prior)
+#define gcas_getPriorLog(GCAS) log((GCAS).prior)
+
+#else
+
+// Calculating log(prior) was a major part of the execution time in mri_em_register
+// and it was being repeatedly calculated for the same GCA_SAMPLE, so it is more efficient 
+// to calculate it when the prior is set rather than later.  These macros, and the change of name
+// from 'prior' to 'prior_access_via_setGetPrior', make sure that the places where it is being set
+// also set the prior_log.
+//
+#define gcas_setPrior(GCAS,TO) {((GCAS).prior_access_via_setGetPrior) = (TO); (GCAS).prior_log = log((GCAS).prior_access_via_setGetPrior); }
+#define gcas_getPrior(GCAS)     ((GCAS).prior_access_via_setGetPrior)
+#define gcas_getPriorLog(GCAS)  ((GCAS).prior_log)
+
+#endif
 
 #define GIBBS_NEIGHBORHOOD   6
 #define GIBBS_NEIGHBORS      GIBBS_NEIGHBORHOOD
@@ -624,10 +641,19 @@ double gm_prior(GCA *gca, MRI *mri, TRANSFORM *transform, int x, int y, int z) ;
 MRI *GCAsampleToVol(MRI *mri, GCA *gca, TRANSFORM *transform, MRI **seg, MRI *out);
 MRI *GCAsampleToVolWMSAprob(MRI *mri, GCA *gca, TRANSFORM *transform, MRI *out);
 
-#if defined(__cplusplus)
-};
-#endif
-
+GCA *GCAsymmetrize(GCA *gca);
+int GCAisNotSymmetric(GCA *gca);
+int GCAPprint(FILE *fp, GCA_PRIOR *gcap);
+unsigned short *GCAmergeLabelLists(unsigned short *labels1, int nlabels1, unsigned short *labels2, int nlabels2, int *pnlist);
+GCA_PRIOR *GCAPcopy(GCA_PRIOR *gcap, int symmetrize, GCA_PRIOR *gcapcopy);
+GCA_PRIOR *GCAPmerge(GCA_PRIOR *gcap1, GCA_PRIOR *gcap2, GCA_PRIOR *gcapm);
+int GCAPfree(GCA_PRIOR **pgcap);
+int GC1Dprint(FILE *fp, GC1D *gc1d, int ninputs);
+GC1D *GC1Dcopy(GC1D *gc, int ninputs, int symmetrize, GC1D *gccopy);
+GC1D *GC1Dmerge(GC1D *gc1, GC1D *gc2, int ninputs, GC1D *gcm);
+int GC1Dfree(GC1D **pgc, int ninputs);
+int GCANprint(FILE *fp, GCA_NODE *node, int ninputs);
+GCA_NODE *GCANmerge(GCA_NODE *node1, GCA_NODE *node2, int ninputs, int symmetrize, GCA_NODE *nodem);
 
 
 #endif

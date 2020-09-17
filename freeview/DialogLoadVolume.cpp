@@ -1,14 +1,5 @@
-/**
- * @file  DialogLoadVolume.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/02 18:41:17 $
- *    $Revision: 1.32 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -32,10 +23,10 @@
 #include <QFileDialog>
 #include <QMessageBox>
 
-extern "C"
-{
+
+
 #include "mri.h"
-}
+
 
 DialogLoadVolume::DialogLoadVolume(QWidget *parent) :
   QDialog(parent),
@@ -204,4 +195,9 @@ void DialogLoadVolume::OnOK()
     return;
   }
   accept();
+}
+
+bool DialogLoadVolume::GetLoadAsVector()
+{
+  return ui->checkBoxAsVector->isChecked();
 }

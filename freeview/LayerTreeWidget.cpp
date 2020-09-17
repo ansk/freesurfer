@@ -1,14 +1,5 @@
-/**
- * @file  LayerTreeWidget.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/12/05 19:36:02 $
- *    $Revision: 1.24 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -50,7 +41,6 @@ QRect MyItemDelegate::GetCheckBoxRect(const QModelIndex &index, const QStyleOpti
   return CheckBox;
 }
 
-
 LayerTreeWidget::LayerTreeWidget(QWidget *parent) :
   QTreeWidget(parent)
 {
@@ -63,6 +53,7 @@ LayerTreeWidget::LayerTreeWidget(QWidget *parent) :
   //  connect(act, SIGNAL(triggered()), SLOT(selectAll()));
   //  this->addAction(act);
 
+  setMouseTracking(true);
   setDragEnabled(true);
   viewport()->setAcceptDrops(true);
   setDropIndicatorShown(true);
@@ -74,11 +65,15 @@ void LayerTreeWidget::drawRow( QPainter * painter, const QStyleOptionViewItem & 
   QTreeWidget::drawRow( painter, option, index );
 
   Layer* layer = reinterpret_cast<Layer*>( index.data( Qt::UserRole ).value<quintptr>() );
-  if ( layer && layer->IsLocked() )
+  QRect rc = option.rect;
+  rc.setLeft( rc.right() - 20 );
+  QTreeWidgetItem* item = itemAt(rc.center());
+  if (item)
+      item->setData(0, Qt::UserRole+10, rc);
+
+  if ( layer && layer->IsLocked())
   {
-    QImage img( ":resource/icons/volume_lock.png");
-    QRect rc = option.rect;
-    rc.setLeft( rc.right() - 20 );
+    QImage img(":resource/icons/volume_lock.png");
     int nsize = qMin(16, rc.height());
     painter->drawImage( rc.topLeft(),
                         img.scaled( nsize, nsize, Qt::KeepAspectRatio, Qt::SmoothTransformation) );
@@ -111,6 +106,15 @@ void LayerTreeWidget::mousePressEvent(QMouseEvent *event)
       m_bCheckBoxClicked = true;
       return;
     }
+
+    bool bClickToLock = MainWindow::GetMainWindow()->GetSetting("ClickToLock").toBool();
+    Layer* layer = NULL;
+    if (item)
+      layer = reinterpret_cast<Layer*>( item->data(0, Qt::UserRole ).value<quintptr>() );
+
+    if ( layer && (layer->IsLocked() || bClickToLock) && item->data(0, Qt::UserRole+10).toRect().contains(event->pos()))
+      return;
+
     QTreeWidget::mousePressEvent(event);
   }
 }
@@ -127,6 +131,18 @@ void LayerTreeWidget::mouseReleaseEvent(QMouseEvent *event)
       m_bCheckBoxClicked = false;
       return;
     }
+
+    bool bClickToLock = MainWindow::GetMainWindow()->GetSetting("ClickToLock").toBool();
+    Layer* layer = NULL;
+    if (item)
+      layer = reinterpret_cast<Layer*>( item->data(0, Qt::UserRole ).value<quintptr>() );
+
+    if ( layer && (layer->IsLocked() || bClickToLock) && item->data(0, Qt::UserRole+10).toRect().contains(event->pos()))
+    {
+      layer->Lock(!layer->IsLocked());
+      return;
+    }
+
     QTreeWidget::mouseReleaseEvent(event);
   }
   m_bCheckBoxClicked = false;
@@ -136,6 +152,21 @@ void LayerTreeWidget::mouseMoveEvent(QMouseEvent *event)
 {
   if (m_bCheckBoxClicked)
     return;
+
+  QTreeWidgetItem* item = itemAt(event->pos());
+  Layer* layer = NULL;
+  if (item)
+    layer = reinterpret_cast<Layer*>( item->data(0, Qt::UserRole ).value<quintptr>() );
+
+  bool bClickToLock = MainWindow::GetMainWindow()->GetSetting("ClickToLock").toBool();
+  if ( layer && (layer->IsLocked() || bClickToLock) && item->data(0, Qt::UserRole+10).toRect().contains(event->pos()) )
+  {
+    setCursor(Qt::PointingHandCursor);
+    return;
+  }
+  else
+    unsetCursor();
+
   QTreeWidget::mouseMoveEvent(event);
 }
 
@@ -175,6 +206,15 @@ void LayerTreeWidget::contextMenuEvent(QContextMenuEvent *e)
   //    menu->addSeparator();
   //  }
 
+  if (type == "MRI" || type == "Surface")
+  {
+    if (type == "MRI")
+      wnd->ui->actionViewLayerInfo->setText("View Volume Info...");
+    else if (type == "Surface")
+      wnd->ui->actionViewLayerInfo->setText("View Surface Info...");
+    menu->addAction(wnd->ui->actionViewLayerInfo);
+    menu->addSeparator();
+  }
   if (type == "MRI" || type.isEmpty())
   {
     menu->addAction(wnd->ui->actionNewVolume);
@@ -185,6 +225,10 @@ void LayerTreeWidget::contextMenuEvent(QContextMenuEvent *e)
       QAction* act = new QAction("Save All Checked Volumes", this);
       connect(act, SIGNAL(triggered()), this, SLOT(OnSaveVisibleVolumes()));
       menu->addAction(act);
+      menu->addSeparator();
+      menu->addAction(wnd->ui->actionLoadTransform);
+      if (layer && ((LayerMRI*)layer)->HasReg())
+        menu->addAction(wnd->ui->actionUnloadTransform);
     }
     menu->addSeparator();
   }
@@ -193,11 +237,19 @@ void LayerTreeWidget::contextMenuEvent(QContextMenuEvent *e)
     menu->addAction(wnd->ui->actionLoadSurface);
     menu->addAction(wnd->ui->actionReloadSurface);
     menu->addSeparator();
+    if (type == "Surface")
+    {
+      menu->addAction(wnd->ui->actionLoadPatch);
+      menu->addAction(wnd->ui->actionSavePatchAs);
+      menu->addSeparator();
+    }
   }
   if (type == "ROI" || type.isEmpty())
   {
     menu->addAction(wnd->ui->actionNewROI);
     menu->addAction(wnd->ui->actionLoadROI);
+    menu->addAction(wnd->ui->actionReloadROI);
+    menu->addSeparator();
     menu->addAction(wnd->ui->actionGoToROI);
     menu->addAction(wnd->ui->actionShowLabelStats);
     menu->addSeparator();
@@ -206,6 +258,7 @@ void LayerTreeWidget::contextMenuEvent(QContextMenuEvent *e)
   {
     menu->addAction(wnd->ui->actionNewPointSet);
     menu->addAction(wnd->ui->actionLoadPointSet);
+    menu->addAction(wnd->ui->actionReloadPointSet);
     menu->addSeparator();
   }
 
@@ -224,6 +277,28 @@ void LayerTreeWidget::contextMenuEvent(QContextMenuEvent *e)
     act = new QAction(layers.size() > 1 ? "Unlock All" : "Unlock", this );
     connect(act, SIGNAL(triggered()), this, SLOT(OnUnlockAll()));
     menu->addAction(act);
+
+    act = new QAction("Lock Others", this );
+    connect(act, SIGNAL(triggered()), this, SLOT(OnLockOthers()));
+    menu->addAction(act);
+    act = new QAction("Unlock Others", this );
+    connect(act, SIGNAL(triggered()), this, SLOT(OnUnlockOthers()));
+    menu->addAction(act);
+
+    if (layers[0]->IsTypeOf("MRI"))
+    {
+        menu->addSeparator();
+        if (layers.size() > 1)
+        {
+            act = new QAction("Link Volumes", this );
+            connect(act, SIGNAL(triggered()), this, SLOT(OnLinkVolumes()));
+            menu->addAction(act);
+        }
+        act = new QAction("Unlink Volumes", this );
+        connect(act, SIGNAL(triggered()), this, SLOT(OnUnlinkVolumes()));
+        menu->addAction(act);
+    }
+
     if (layers[0]->IsTypeOf("MRI") || layers[0]->IsTypeOf("Surface"))
     {
       menu->addSeparator();
@@ -290,6 +365,14 @@ void LayerTreeWidget::contextMenuEvent(QContextMenuEvent *e)
         connect(act, SIGNAL(triggered(bool)), MainWindow::GetMainWindow(), SLOT(OnApplyVolumeTransform()));
         menu->addAction(act);
       }
+
+      if (((LayerMRI*)layers[0])->GetProperty()->GetColorMap() == LayerPropertyMRI::LUT)
+      {
+          act = new QAction("Export label stats...", this);
+          connect(act, SIGNAL(triggered(bool)), MainWindow::GetMainWindow(), SLOT(OnExportLabelStats()));
+          menu->addSeparator();
+          menu->addAction(act);
+      }
     }
     else if (layers[0]->GetEndType() == "Surface")
     {
@@ -353,6 +436,52 @@ void LayerTreeWidget::OnUnlockAll()
   {
     Layer* layer = reinterpret_cast<Layer*>( item->data(0, Qt::UserRole ).value<quintptr>() );
     if (layer)
+      layer->Lock(false);
+  }
+}
+
+void LayerTreeWidget::OnLockOthers()
+{
+  QList<QTreeWidgetItem*> items = this->selectedItems();
+  QList<Layer*> selected_layers;
+  QString type;
+  foreach (QTreeWidgetItem* item, items)
+  {
+    Layer* layer = reinterpret_cast<Layer*>( item->data(0, Qt::UserRole ).value<quintptr>() );
+    if (layer)
+    {
+      layer->Lock(false);
+      selected_layers << layer;
+      type = layer->GetPrimaryType();
+    }
+  }
+  QList<Layer*> layers = MainWindow::GetMainWindow()->GetLayers(type);
+  foreach (Layer* layer, layers)
+  {
+    if (!selected_layers.contains(layer))
+      layer->Lock(true);
+  }
+}
+
+void LayerTreeWidget::OnUnlockOthers()
+{
+  QList<QTreeWidgetItem*> items = this->selectedItems();
+  QList<Layer*> selected_layers;
+  QString type;
+  foreach (QTreeWidgetItem* item, items)
+  {
+    Layer* layer = reinterpret_cast<Layer*>( item->data(0, Qt::UserRole ).value<quintptr>() );
+    if (layer)
+    {
+      layer->Lock(true);
+      selected_layers << layer;
+      type = layer->GetPrimaryType();
+    }
+  }
+  QList<Layer*> layers = MainWindow::GetMainWindow()->GetLayers(type);
+  foreach (Layer* layer, layers)
+  {
+    if (!selected_layers.contains(layer))
       layer->Lock(false);
   }
 }
@@ -445,6 +574,22 @@ void LayerTreeWidget::DeselectAll()
   foreach (QTreeWidgetItem* item, items)
   {
     item->setSelected(false);
+  }
+}
+
+void LayerTreeWidget::SetSelectedLayers(const QList<int>& layer_ids)
+{
+  QList<QTreeWidgetItem*> items;
+  for (int i = 0; i < topLevelItemCount(); i++)
+  {
+    QTreeWidgetItem* topItem = topLevelItem(i);
+    for (int j = 0; j < topItem->childCount(); j++)
+      items << topItem->child(j);
+  }
+  foreach (QTreeWidgetItem* item, items)
+  {
+    Layer* layer = reinterpret_cast<Layer*>( item->data(0, Qt::UserRole ).value<quintptr>() );
+    item->setSelected(layer && layer_ids.contains(layer->GetID()));
   }
 }
 
@@ -553,4 +698,23 @@ void LayerTreeWidget::dropEvent(QDropEvent *event)
   }
 
   //    QTreeWidget::dropEvent(event);
+}
+
+
+void LayerTreeWidget::OnLinkVolumes()
+{
+  QList<QTreeWidgetItem*> items = this->selectedItems();
+  m_linkedVolumes.clear();
+  foreach (QTreeWidgetItem* item, items)
+  {
+    Layer* layer = reinterpret_cast<Layer*>( item->data(0, Qt::UserRole ).value<quintptr>() );
+    LayerMRI* mri = qobject_cast<LayerMRI*>(layer);
+    if (mri)
+      m_linkedVolumes << mri;
+  }
+}
+
+void LayerTreeWidget::OnUnlinkVolumes()
+{
+    m_linkedVolumes.clear();
 }

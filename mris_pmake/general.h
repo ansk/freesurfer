@@ -1,14 +1,9 @@
 /**
- * @file  general.h
  * @brief Some functions shared between the various dijkstra_p1 components.
  *
  */
 /*
  * Original Author: Rudolph Pienaar / Christian Haselgrove
- * CVS Revision Info:
- *    $Author: rudolph $
- *    $Date: 2012/01/23 17:24:08 $
- *    $Revision: 1.9 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -26,12 +21,12 @@
 #ifndef __GENERAL_H__
 #define __GENERAL_H__
 
-using namespace std;
-
 #include <string.h>
 #include "env.h"
 #include "c_SMessage.h"
 #include "pathconvert.h"
+
+using namespace std;
 
 #define PENV  str_env.
 

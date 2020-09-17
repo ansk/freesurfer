@@ -1,4 +1,5 @@
-#!/autofs/space/vermis_001/users/ltirrell/anaconda/bin/python
+#!/usr/bin/env python2
+from __future__ import print_function
 
 import optparse
 import os
@@ -61,7 +62,7 @@ def options_parse():
     """
     Command line option parser for spherically_project.py
     """
-    parser = optparse.OptionParser(version='$Id: spherically_project,v 1.1 2017/01/30 20:42:08 ltirrell Exp $', usage=HELPTEXT)
+    parser = optparse.OptionParser(usage=HELPTEXT)
     parser.add_option('--input',  '-i', dest='input_surf', help=h_input)
     parser.add_option('--output', '-o', dest='output_surf', help=h_output)
     (options, args) = parser.parse_args()
@@ -262,7 +263,7 @@ if __name__=="__main__":
 
     print("Reading in surface: {} ...".format(surf_to_project))
     spherically_project_surface(surf_to_project, projected_surf)
-    print ("Outputing spherically projected surface: {}".format(projected_surf))
+    print("Outputing spherically projected surface: {}".format(projected_surf))
 
     sys.exit(0)
 

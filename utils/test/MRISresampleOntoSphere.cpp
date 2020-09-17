@@ -1,14 +1,9 @@
 /**
- * @file  MRISresampleOntoSphere.cpp
  * @brief utils
  *
  */
 /*
  * Original Author: Peng Yu
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:55 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -78,7 +73,7 @@ int
 main(int argc, char *argv[])
 {
   int           nargs, msec, order, i;
-  struct timeb  then ;
+  Timer then ;
   MRIS          *mris_in, *mris_out;
   double        volume; // T[5][5] the transformation matrx (using index 1-4)
 
@@ -97,7 +92,7 @@ main(int argc, char *argv[])
     ErrorExit(ERROR_BADPARM,
               "usage: %s <input sphere> <input surface> <int which> <output wavelets> ", Progname);
 
-  TimerStart(&then) ;
+  then.reset() ;
 
   //order = atoi (argv[3]);
   order = 7;
@@ -165,7 +160,7 @@ main(int argc, char *argv[])
     MRISfree(&mris_out) ;
   }
 
-  msec = TimerStop(&then) ;
+  msec = then.milliseconds() ;
   fprintf(stdout, "spherical sampling took %2.1f minutes\n", (float)msec/(1000.0f*60.0f));
   exit(0) ;
   return(0) ;

@@ -1,14 +1,9 @@
 /**
- * @file  gcalinearprior.hpp
  * @brief Class to hold a volume of GCA priors in linear memory
  *
  */
 /*
  * Original Authors: Richard Edgar
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2012/12/12 21:18:23 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011-2012 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -27,8 +22,7 @@
 
 #include <vector>
 
-#include "chronometer.hpp"
-
+#include "timer.h"
 #include "gca.h"
 
 // Forward declaration
@@ -61,10 +55,7 @@ public:
     maxLabels(),
     labels(),
     priors(),
-    totTraining(),
-    tExhume() {};
-
-
+    totTraining() {};
 
   // -----------------------------------------------------
 
@@ -314,10 +305,10 @@ private:
   //! Stores total_training field of GCA_PRIOR
   std::vector<int> totTraining;
 
-  //! Time required for exhumation of data
-  mutable SciGPU::Utilities::Chronometer tExhume;
-  //! Time require for inhumation of data
-  mutable SciGPU::Utilities::Chronometer tInhume;
+  //! Time for exhumation of data
+  mutable long exhumeTime;
+  //! Time for inhumation of data
+  mutable long inhumeTime;
 
   friend class const_GCAprior;
   friend class GPU::Classes::GCApriorGPU;

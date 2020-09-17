@@ -1,14 +1,5 @@
-/**
- * @file  TermWidget.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/03/29 15:34:15 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -76,11 +67,7 @@ TermWidget::TermWidget(QWidget *parent) :
   QSettings settings;
   this->restoreGeometry(settings.value("/CommandConsole/Geometry").toByteArray());
 
-#ifdef DEVELOPMENT
-  SetRedirectStdOutput(false); // for debugging
-#else
   SetRedirectStdOutput(true);
-#endif
   SetDuplicateStdOutput(true);
 
   Known_Shell_Cmds << "ls" << "pwd" << "cd" << "cp" << "dir" << "copy";
@@ -152,6 +139,13 @@ void TermWidget::OnCommandTriggered(const QString &cmd)
     return;
   }
 
+  if (strg == "abort")
+  {
+    MainWindow::GetMainWindow()->AbortScripts();
+    AppendErrorString("Script aborted");
+    return;
+  }
+
   if (strg[strg.size()-1] == '&')
   {
     strg.resize(strg.size()-1);
@@ -177,6 +171,7 @@ void TermWidget::OnCommandTriggered(const QString &cmd)
       MainWindow::GetMainWindow()->ParseCommand(QString("freeview ") + strg);
     else
       MainWindow::GetMainWindow()->AddScript(strg.split(" ", QString::SkipEmptyParts));
+
     if ( MainWindow::GetMainWindow()->IsBusy())
     {
       AppendErrorString("Still busy. Command is added to queue and will be executed later.\n");
@@ -261,14 +256,17 @@ void TermWidget::OnTimeOut()
     {
       m_bufferStdErr.clear();
     }
+    MainWindow::GetMainWindow()->SetHadError(true);
   }
 }
 
-void TermWidget::AppendErrorString(const QString &strg)
+void TermWidget::AppendErrorString(const QString &strg_in)
 {
+  QString strg = strg_in;
+  strg.replace("\n", "<br />");
   ui->textLog->append(QString("<span style=\"color:%1;\">%2</span>")
                       .arg(m_strErrorColor)
-                      .arg(strg).replace("\n", "<br />"));
+                      .arg(strg.trimmed()));
 }
 
 void TermWidget::SetDarkTheme(bool bDark)

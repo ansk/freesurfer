@@ -1,14 +1,9 @@
 /**
- * @file  VolumeFilterClose.cpp
  * @brief Base VolumeFilterClose class.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2014/03/01 04:50:50 $
- *    $Revision: 1.1 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,10 +24,10 @@
 #include <vtkImageData.h>
 #include "ProgressCallback.h"
 
-extern "C"
-{
+
+
 #include "utils.h"
-}
+
 
 VolumeFilterClose::VolumeFilterClose( LayerMRI* input, LayerMRI* output, QObject* parent ) :
   VolumeFilter( input, output, parent )

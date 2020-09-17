@@ -1,14 +1,9 @@
 /**
- * @file  affine.hpp
  * @brief Affine transformations
  *
  */
 /*
  * Original Authors: Richard Edgar
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:09 $
- *    $Revision: 1.6 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -25,21 +20,15 @@
 #ifndef AFFINE_H
 #define AFFINE_H
 
-#ifdef USE_SSE_MATHFUN
-#if __GNUC__ > 3
+#if (__GNUC__ > 3) && !defined(HAVE_MCHECK)     // mcheck does not understand _mm_alloc et. al.
 #define AFFINE_MATRIX_USE_SSE
 #endif
-#endif
-
 
 #ifdef AFFINE_MATRIX_USE_SSE
-#ifndef __CUDACC__
 #include <xmmintrin.h>
-#endif
 #endif
 
 #include "matrix.h"
-
 
 /*
   Apparently 'const' in C isn't quite the same as 'const' in C++
@@ -47,8 +36,6 @@
 */
 enum { kAffineVectorSize = 4 };
 enum { kAffineMatrixSize = 16 };
-
-// =====================================================
 
 typedef struct _av {
   float vec[kAffineVectorSize] __attribute__ ((aligned (16)));
@@ -88,15 +75,9 @@ void GetFloorAffineVector( const AffineVector* av,
 }
 
 
-
-
-// =====================================================
-
-
 typedef struct _am {
   float mat[kAffineMatrixSize] __attribute__ ((aligned (16)));
 } AffineMatrix;
-
 
 
 inline static
@@ -140,28 +121,19 @@ void GetAffineMatrix( MATRIX* dst,
 
 }
 
-
-#ifndef __CUDACC__
-
 inline static
 void AffineMatrixFree( AffineMatrix **am ) {
   if( *am != NULL ) {
-#ifdef AFFINE_MATRIX_USE_SSE
-    _mm_free( *am );
-#else
     free( *am );
-#endif
     *am = NULL;
   }
 }
 
 inline static
 void AffineMatrixAlloc( AffineMatrix **am ) {
-#ifdef AFFINE_MATRIX_USE_SSE
-  AffineMatrix* tmp = (AffineMatrix*)_mm_malloc( sizeof(AffineMatrix), 16 );
-#else
-  AffineMatrix* tmp = (AffineMatrix*)malloc( sizeof(AffineMatrix) );
-#endif
+
+  void* tmp = NULL;     // gcc complains otherwise
+  posix_memalign(&tmp, 16, sizeof(AffineMatrix));
 
   if( tmp == NULL ) {
     fprintf( stderr, "%s: FAILED\n", __FUNCTION__ );
@@ -170,7 +142,7 @@ void AffineMatrixAlloc( AffineMatrix **am ) {
   
   AffineMatrixFree( am );
 
-  *am = tmp;
+  *am = (AffineMatrix *)tmp;
 }
 
 
@@ -185,8 +157,6 @@ AffineMatrix* AffineMatrixCopy( const AffineMatrix *src,
 
   return( dst );
 }
-
-
 
 inline static
 void AffineMV( AffineVector * const y,
@@ -296,9 +266,5 @@ void AffineMM( AffineMatrix * const C,
   }
 #endif
 }
-#endif
-
-
-
 
 #endif

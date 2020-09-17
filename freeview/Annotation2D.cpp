@@ -1,14 +1,9 @@
 /**
- * @file  Annotation2D.cpp
  * @brief Coordinate annotation for 2D views.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/01 15:28:54 $
- *    $Revision: 1.25 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -55,7 +50,8 @@ Annotation2D::Annotation2D( QObject* parent ) : QObject( parent )
     m_actorCoordinates[i]->GetTextProperty()->ShadowOff();
     m_actorCoordinates[i]->GetTextProperty()->SetFontSize(11);
     m_actorCoordinates[i]->GetTextProperty()->ItalicOff();
-    // m_actorCoordinates[i]->GetTextProperty()->SetFontFamilyToTimes();
+    //     m_actorCoordinates[i]->GetTextProperty()->SetFontFamilyToTimes();
+    //    m_actorCoordinates[i]->SetTextScaleModeToViewport();
     m_actorsAll->AddItem( m_actorCoordinates[i] );
   }
   m_actorCoordinates[0]->SetPosition( 0.01, 0.5 );
@@ -86,7 +82,11 @@ Annotation2D::Annotation2D( QObject* parent ) : QObject( parent )
   // scale actors
   m_actorScaleLine = vtkSmartPointer<vtkActor2D>::New();
   m_actorScaleLine->SetMapper( vtkSmartPointer<vtkPolyDataMapper2D>::New() );
-  m_actorScaleLine->GetProperty()->SetLineWidth( 1 );
+  int line_w = 1;
+#if VTK_MAJOR_VERSION > 7
+  line_w = MainWindow::GetMainWindow()->devicePixelRatio();
+#endif
+  m_actorScaleLine->GetProperty()->SetLineWidth( line_w );
   m_actorScaleLine->GetPositionCoordinate()->
       SetCoordinateSystemToNormalizedViewport();
   m_actorScaleLine->SetPosition( 0.05, 0.05 );
@@ -105,6 +105,25 @@ Annotation2D::Annotation2D( QObject* parent ) : QObject( parent )
 
 Annotation2D::~Annotation2D()
 {}
+
+void Annotation2D::SetAutoScaleText(bool b)
+{
+  for ( int i = 0; i < NUMBER_OF_COORD_ANNOTATIONS; i++ )
+  {
+    if (b)
+      m_actorCoordinates[i]->SetTextScaleModeToViewport();
+    else
+      m_actorCoordinates[i]->SetTextScaleModeToNone();
+  }
+}
+
+void Annotation2D::SetTextSize(int nsize)
+{
+  for ( int i = 0; i < NUMBER_OF_COORD_ANNOTATIONS; i++ )
+  {
+    m_actorCoordinates[i]->GetTextProperty()->SetFontSize(nsize);
+  }
+}
 
 void Annotation2D::Update( vtkRenderer* renderer, int nPlane )
 {
@@ -493,7 +512,11 @@ void Annotation2D::UpdateScaleActors( double length,
   normCoords->SetCoordinateSystemToNormalizedViewport();
 
   vtkPolyDataMapper2D* pMapper = vtkPolyDataMapper2D::New();
-  pMapper->SetInput( poly );
+#if VTK_MAJOR_VERSION > 5
+  pMapper->SetInputData( poly );
+#else
+  pMapper->SetInput(poly);
+#endif
   pMapper->SetTransformCoordinate(normCoords);
   poly->Delete();
   normCoords->Delete();
@@ -506,15 +529,20 @@ void Annotation2D::UpdateScaleActors( double length,
   m_actorScaleTitle->SetInput( title );
 }
 
-void Annotation2D::AppendAnnotations( vtkRenderer* renderer )
+void Annotation2D::AppendAnnotations( vtkRenderer* renderer, bool bScaleBar )
 {
-  for ( int i = 0; i < NUMBER_OF_COORD_ANNOTATIONS; i++ )
+  if (!bScaleBar)
   {
-    renderer->AddViewProp( m_actorCoordinates[i] );
+    for ( int i = 0; i < NUMBER_OF_COORD_ANNOTATIONS; i++ )
+    {
+      renderer->AddViewProp( m_actorCoordinates[i] );
+    }
   }
-
-  renderer->AddViewProp( m_actorScaleLine );
-  renderer->AddViewProp( m_actorScaleTitle );
+  else
+  {
+    renderer->AddViewProp( m_actorScaleLine );
+    renderer->AddViewProp( m_actorScaleTitle );
+  }
 }
 
 void Annotation2D::ShowScaleLine( bool bShow )

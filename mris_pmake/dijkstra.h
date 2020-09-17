@@ -1,15 +1,10 @@
 /**
- * @file  dijkstra.h
  * @brief API for dijkstra related processing.
  *
  * Provides an API for dijkstra search through freesurfer structures.
  */
 /*
  * Original Author: Rudolph Pienaar / Christian Haselgrove
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/02/27 21:18:07 $
- *    $Revision: 1.3 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -23,9 +18,6 @@
  *
  */
 
-
-using namespace std;
-
 #ifndef __DIJKSTRA_H__
 #define __DIJKSTRA_H__
 
@@ -33,18 +25,12 @@ using namespace std;
 #include <iostream>
 #include <fstream>
 
-#ifdef __cplusplus
-extern  "C" {
-#endif
+using namespace std;
 
 #include "mri.h"
 #include "mrisurf.h"
 #include "label.h"
 #include "error.h"
-
-#ifdef __cplusplus
-}
-#endif
 
 #include "general.h"
 #include "env.h"

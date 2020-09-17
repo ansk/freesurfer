@@ -1,14 +1,5 @@
-/**
- * @file  GenericRenderView.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/01 15:28:54 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -23,8 +14,13 @@
  */
 #ifndef _GenericRenderView_h
 #define _GenericRenderView_h
+#include "vtkVersion.h"
 
+#if VTK_MAJOR_VERSION > 7
+#include "QVTKOpenGLNativeWidget.h"
+#else
 #include "QVTKWidget.h"
+#endif
 #include <vtkSmartPointer.h>
 #include <QPoint>
 #include <QPair>
@@ -46,7 +42,11 @@ class vtkRenderer;
 typedef QPair<QString, double> CameraOperation;
 typedef QList<CameraOperation> CameraOperations;
 
+#if VTK_MAJOR_VERSION > 7
+class GenericRenderView : public QVTKOpenGLNativeWidget
+#else
 class GenericRenderView : public QVTKWidget
+#endif
 {
   Q_OBJECT
 

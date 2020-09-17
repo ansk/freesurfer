@@ -1,14 +1,9 @@
 /**
- * @file  Annotation2D.h
  * @brief Annotation for 2D view.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2013/08/23 19:29:18 $
- *    $Revision: 1.15 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -45,7 +40,7 @@ public:
 
   void Update( vtkRenderer* renderer, int nPlane );
 
-  void AppendAnnotations( vtkRenderer* renderer );
+  void AppendAnnotations( vtkRenderer* renderer, bool bScaleBar = false );
 
   bool GetShowScaleLine();
 
@@ -53,6 +48,10 @@ public:
   bool IsVisible();
 
   QColor GetColor();
+
+  void SetAutoScaleText(bool b);
+
+  void SetTextSize(int nsize);
 
 public slots:
   void ShowScaleLine( bool bShow );

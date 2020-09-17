@@ -1,7 +1,7 @@
 #!/bin/tcsh -f
 # mergeseg
 
-set VERSION = '$Id: mergeseg,v 1.3 2016/02/16 17:17:20 zkaufman Exp $';
+set VERSION = 'mergeseg @FS_VERSION@';
 
 set outseg = ();
 set mergeseg = ();
@@ -79,6 +79,7 @@ set cmd = (mri_mask $srcseg $notmergeseg $srcsegnotmerge)
 echo $cmd | tee -a $LF
 $cmd | tee -a $LF
 if($status) goto error_exit;
+if($cleanup) rm $notmergeseg
 
 if($#segid) then
   set mergeseg2 = $tmpdir/mergeseg.mgh
@@ -86,6 +87,7 @@ if($#segid) then
   echo $cmd | tee -a $LF
   $cmd | tee -a $LF
   if($status) goto error_exit;
+  if($cleanup) rm $mergeseg
 else
   set mergeseg2 = $mergeseg
 endif

@@ -1,14 +1,9 @@
 /**
- * @file  LayerMRI.h
  * @brief Layer class for MRI volume.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/01/20 19:58:46 $
- *    $Revision: 1.101 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,10 +26,11 @@
 #include <QString>
 #include <QList>
 
-extern "C"
-{
+
+
 #include "colortab.h"
-}
+#include "nifti1.h"
+
 
 class vtkImageReslice;
 class vtkImageMapToColors;
@@ -59,6 +55,8 @@ class SurfaceRegion;
 class SurfaceRegionGroups;
 class LayerMRIWorkerThread;
 class LayerSurface;
+class LayerROI;
+class GeoSWorker;
 
 #ifndef IntList
 typedef QList<int> IntList;
@@ -84,6 +82,8 @@ public:
   bool LoadVolumeFromFile();
   bool Create( LayerMRI* mri, bool bCopyVoxel, int data_type = -1, int voxel_option = -1 );
   bool CreateFromMRIData(void* mri);  // hack
+  bool LoadVolumeTransform();
+  void UnloadVolumeTransform();
 
   virtual void Append2DProps( vtkRenderer* renderer, int nPlane );
   virtual void Append3DProps( vtkRenderer* renderer, bool* bPlaneVisibility = NULL );
@@ -164,10 +164,7 @@ public:
 
   void SetReorient( bool bReorient );
 
-  void SetSampleMethod( int nSampleMethod )
-  {
-    m_nSampleMethod = nSampleMethod;
-  }
+  void SetSampleMethod( int nSampleMethod );
 
   void SetConform( bool bConform );
 
@@ -179,9 +176,9 @@ public:
 
   bool GetVoxelsOnLine( const double* pt0, const double* pt1, int nPlane, int*& indice_out, double*& value_out, int* cnt_out );
 
-  bool GetVoxelStats(QList<int>& indices, double* mean_out, double* sd_out = NULL);
+  bool GetVoxelStats(QVector<int>& indices, double* mean_out, double* sd_out = NULL);
 
-  bool GetVoxelStatsByTargetRAS(QList<float> &coords, double* mean_out, double *sd_out = NULL);
+  bool GetVoxelStatsByTargetRAS(QVector<float> &coords, double* mean_out, double *sd_out = NULL);
 
   void ResetWindowLevel();
 
@@ -197,8 +194,6 @@ public:
   vtkImageData* GetSliceImageData( int nPlane );
 
   bool FloodFillByContour2D( double* ras, Contour2D* c2d );
-
-  virtual void SetModified();
 
   bool SaveContourToFile(const QString& fn);
 
@@ -320,8 +315,30 @@ public:
   bool IsWindowAdjustable();
   
   bool IsObscuring();
+
+  bool GeodesicSegmentation(LayerMRI* seeds, double lambda, int wsize, double max_dist, double smoothing_std, LayerMRI* mask, double max_foreground_dist = 0);
+
+  void GeodesicSegmentationAbort();
+
+  void GeodesicSegmentationApply(LayerMRI* filled);
+
+  void GetVolumeInfo(int* dim, double* voxel_size);
+
+  void SetIgnoreHeader(bool b)
+  {
+    m_bIgnoreHeader = b;
+  }
+
+  QVector<double> GetVoxelList(int nVal);
+
+  QVariantMap GetTimeSeriesInfo();
+
+  QString GetGeoSegErrorMessage();
+
+  bool ExportLabelStats(const QString& fn);
   
 public slots:
+  virtual void SetModified();
   void SetActiveFrame( int nFrame );
   void SetActiveFrameOneBase( int nFrame )
   {
@@ -342,6 +359,9 @@ Q_SIGNALS:
   void IsoSurfaceUpdated();
   void LabelStatsReady();
   void CorrelationSurfaceChanged(LayerSurface*);
+  void GeodesicSegmentationApplied();
+  void GeodesicSegmentationFinished(double time_in_secs);
+  void GeodesicSegmentationProgress(double percentage);
 
 protected slots:
   void UpdateDisplayMode();
@@ -371,9 +391,12 @@ protected slots:
   void ResetRef();
 
   void OnLabelContourChanged(int n = -1);
-  void OnContourSmoothIterationChanged();
+  void RebuildContour();
 
+  void UpdateLabelInformation();
   void OnLabelInformationReady();
+
+  void UpdateVectorLineWidth(double val);
 
 protected:
   virtual void DoTransform(double *mat, int sample_method);
@@ -388,6 +411,7 @@ protected:
   void ConnectProperty();
   void UpdateTensorActor( int nPlane, vtkImageData* imagedata = NULL );
   void GetColorWheelColor(double* v, int plane, unsigned char* c_out);
+  void UpdateNiftiHeader();
 
   std::vector<int> GetVoxelIndicesBetweenPoints( int* n0, int* n1 );
   void BuildTensorGlyph( vtkImageData* imagedata,
@@ -406,7 +430,7 @@ protected:
   vtkSmartPointer<vtkImageMapToColors>  mColorMap[3];
   vtkSmartPointer<vtkImageMapToColors>  mColorMapMaxProjection[3];
   vtkSmartPointer<vtkSimpleLabelEdgeFilter>   mEdgeFilter[3];
-  vtkSmartPointer<vtkImageResample>     mResample[3];
+  vtkSmartPointer<vtkImageReslice>     mResample[3];
 
   FSVolume*   m_volumeSource;
   FSVolume*   m_volumeRef;
@@ -415,6 +439,7 @@ protected:
   int     m_nSampleMethod;
   bool    m_bConform;
   bool    m_bWriteResampled;
+  bool    m_bIgnoreHeader;
 
   vtkImageActor*  m_sliceActor2D[3];
   vtkImageActor*  m_sliceActor3D[3];
@@ -456,9 +481,14 @@ private:
   LayerMRIWorkerThread* m_worker;
   QList<int>  m_nAvailableLabels;
   QMap<int, QList<double> > m_listLabelCenters;
+  QMap<int, QVector<double> > m_voxelLists;
 
   QMap<QObject*, double>  m_mapMaskThresholds;
   double      m_dMaskThreshold;
+
+  nifti_1_header    m_niftiHeader;
+
+  GeoSWorker* m_geos;
 };
 
 

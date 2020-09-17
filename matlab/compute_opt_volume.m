@@ -1,6 +1,13 @@
 use_fisher = 1 ;
 use_air = 0 ;
 
+str = getenv('fluidthresh');
+if (length(str) > 0)
+  fluidthresh = sscanf(str, '%f')
+else
+  fluidthresh = 30
+end
+
 base = getenv('base');
 
 recon=sprintf('%s',base);
@@ -209,28 +216,42 @@ end
 % keep track of zero locations and reset them to 0 later after we scale
 %zind = find(opt_vol == 0);  
 
-gm_label = read_label('', sprintf('%s/gm.label',ldir));
+[gm_label,coords] = read_label('', sprintf('%s/gm.label',ldir));
 ras = gm_label(:,2:5)';
 ras(4,:) = ones(size(ras(4,:)));
-Mr2v = inv(mri.tkrvox2ras);
+if (strcmp(coords, 'scanner'))
+  Mr2v = inv(mri.vox2ras);   % for scanner ras labels (new as of 11/1/2017)
+else
+  Mr2v = inv(mri.tkrvox2ras);   % for tkreg ras labels (old)
+end
+
 vox = Mr2v*ras;
 gsub =  [vox(2,:)+1; vox(1,:)+1; vox(3,:)+1];
 gsub =  round([vox(1,:)+1; vox(2,:)+1; vox(3,:)+1]);
 gind = sub2ind(size(v), gsub(1,:), gsub(2,:),gsub(3,:)) ;
 
-wm_label = read_label('', sprintf('%s/wm.label', ldir));
+[wm_label,coords] = read_label('', sprintf('%s/wm.label', ldir));
 ras = wm_label(:,2:5)';
 ras(4,:) = ones(size(ras(4,:)));
-Mr2v = inv(mri.tkrvox2ras);
+if (strcmp(coords, 'scanner'))
+  Mr2v = inv(mri.vox2ras);
+else
+  Mr2v = inv(mri.tkrvox2ras);
+end
+
 vox = Mr2v*ras;
 wsub =  [vox(2,:)+1; vox(1,:)+1; vox(3,:)+1];
 wsub =  round([vox(1,:)+1; vox(2,:)+1; vox(3,:)+1]);
 wind = sub2ind(size(v), wsub(1,:), wsub(2,:),wsub(3,:)) ;
 
-fluid_label = read_label('', sprintf('%s/fluid.label',ldir));
+[fluid_label,coords] = read_label('', sprintf('%s/fluid.label',ldir));
 ras = fluid_label(:,2:5)';
 ras(4,:) = ones(size(ras(4,:)));
-Mr2v = inv(mri.tkrvox2ras);
+if (strcmp(coords, 'scanner'))
+  Mr2v = inv(mri.vox2ras);
+else
+  Mr2v = inv(mri.tkrvox2ras);
+end
 vox = Mr2v*ras;
 flsub =  [vox(2,:)+1; vox(1,:)+1; vox(3,:)+1];
 flsub =  round([vox(1,:)+1; vox(2,:)+1; vox(3,:)+1]);
@@ -256,12 +277,12 @@ fl_mean = mean(fluid_mask_vol(flind)) ;
 m = 100 / (gm_mean - fl_mean) ;
 b = 100 - gm_mean * (100/(gm_mean-fl_mean));
 fluid_mask_vol = fluid_mask_vol * m + b ;
-nind = find(fluid_mask_vol < 30) ;
+nind = find(fluid_mask_vol < fluidthresh) ;
 opt_vol(nind) = zeros(size(nind)) ;
 
 Nopen = 1;
-mind = find(fluid_mask_vol > 30);
-nind = find(fluid_mask_vol <= 30);
+mind = find(fluid_mask_vol > fluidthresh);
+nind = find(fluid_mask_vol <= fluidthresh);
 mask = fluid_mask_vol;
 mask(mind) = ones(size(mind));
 mask(nind) = zeros(size(nind));
@@ -269,8 +290,13 @@ mask_opened = dilate3d(erode3d(mask,Nopen),Nopen);
 fmask = fluid_mask_vol;                            
 ind = find(mask_opened ==0);
 fmask(ind) = zeros(size(ind));
-ind = find(fmask < 30) ;
+ind = find(fmask < fluidthresh) ;
 fmask(ind) = zeros(size(ind));
+
+% don't let things get too bright and compress the rest of the values
+hi_thresh = 300 ;
+ind = find(fmask > hi_thresh) ;
+fmask(ind) = hi_thresh*ones(size(ind));
 ind = find(fmask == 0) ;
 opt_vol(ind) = zeros(size(ind)) ;
 

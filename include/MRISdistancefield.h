@@ -1,13 +1,8 @@
 /**
- * @file  MRISdistancefield.h
  * @brief Given a MRIS surface, generate a distance field where the value at a voxel is the 
  * distance between the voxel and the closest point on the surface
  *
  * Original Author: Krish Subramaniam 
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2015/07/27 15:01:45 $
- *    $Revision: 1.3 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -28,24 +23,11 @@
 #ifndef mrisdistancefield_h
 #define mrisdistancefield_h
 
-// The following is usable from C
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include "mri.h"
 #include "mrisurf.h"
 #include "diag.h"
 
-  MRI *MRISdistancefield(MRIS *mris, MRI *mri_tmp, double max_distance, int signedfield);
-
-#ifdef __cplusplus
-}
-#endif
-
-// C++ portion starts here
-#ifdef __cplusplus
+MRI *MRISdistancefield(MRIS *mris, MRI *mri_tmp, double max_distance, int signedfield);
 
 #include <iostream>
 #include "utilsmath.h"
@@ -186,6 +168,5 @@ class MRISDistanceField
 
 };
 
-#endif
 #endif
 

@@ -1,5 +1,4 @@
 /**
- * @file  mris_resample.cpp
  * @brief resample one surface to another, given their spherical regs
  *
  * This is a stripped-down version of mris_indirect_morph
@@ -20,10 +19,6 @@
  */
 /*
  * Original Author: Gheorghe Postelnicu, 2006
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:33 $
- *    $Revision: 1.4 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -40,20 +35,21 @@
 // STL includes
 #include <iostream>
 #include <string>
-
-// utilities
-#include <boost/program_options.hpp>
-#include <ANN/ANN.h>
-
 #include <stdio.h>
 
+// utilities
+#include <ANN/ANN.h>
+
 // FS includes
-extern "C"
-{
+#include "argparse.h"
+ 
 #include "error.h"
 #include "mrisurf.h"
-};
-char* Progname;
+
+
+#include "mris_resample.help.xml.h"
+
+const char* Progname;
 
 // local fct declarations
 
@@ -94,11 +90,11 @@ struct IoParams
   std::string strOutput;
   std::string strOutAnnotation;
 
-  void parse(int ac, char* av[]);
+  void parse(int ac, char** av);
 };
 
 int
-main(int ac, char* av[])
+main(int ac, char** av)
 {
   // parse cmd-line
   IoParams params;
@@ -152,91 +148,39 @@ main(int ac, char* av[])
 }
 
 void
-IoParams::parse(int ac,
-                char* av[])
+IoParams::parse(int ac, char** av)
 {
-  namespace po = boost::program_options;
+  ArgumentParser parser;
+  // required
+  parser.addArgument("--atlas_reg", 1, String, true);
+  parser.addArgument("--subject_reg", 1, String, true);
+  parser.addArgument("--subject_surf", 1, String, true);
+  parser.addArgument("--out", 1, String, true);
+  // optional
+  parser.addArgument("--annot_in", 1, String);
+  parser.addArgument("--annot_out", 1, String);
+  // help text
+  parser.addHelp(mris_resample_help_xml, mris_resample_help_xml_len);
+  parser.parse(ac, av);
 
-  // std::vector<std::string> vstrAnnotation;
-  std::string strAnnotationIn;
-  std::string strAnnotationOut;
+  strAtlasReg = parser.retrieve<std::string>("atlas_reg");
+  strSubjectReg = parser.retrieve<std::string>("subject_reg");
+  strSubjectSurf = parser.retrieve<std::string>("subject_surf");
+  strOutput = parser.retrieve<std::string>("out");
 
-  po::options_description desc("mris_resample cmd-line interface");
-  desc.add_options()
-  ("help", " produce help message")
-  ("atlas_reg", po::value(&strAtlasReg),
-   " atlas spherical registration file")
-    /*("annot", po::value(&vstrAnnotation)->multitoken(),
-   " annotation - optional - if present needs 2 args "
-   "- input and output (input for the subject and "
-   "output for the resampled atlas")*/
-  ("annot_in", po::value(&strAnnotationIn),
-   " input annotation - optional - if present, output annotation needs to be present as well "
-   "- (input for the subject) ")
-  ("annot_out", po::value(&strAnnotationOut),
-   " output annotation - optional - if present, input annotation needs to be present as well "
-   "- (output for the resampled atlas) ")
-  ("subject_reg", po::value(&strSubjectReg),
-   " subject spherical registration file")
-  ("subject_surf", po::value(&strSubjectSurf),
-   " subject actual surface")
-  ("out", po::value(&strOutput),
-   " output resampled surface");
-
-  po::variables_map vm;
-  po::store( po::parse_command_line(ac,av,desc), vm);
-  po::notify(vm);
-
-  if ( vm.count("help") )
-  {
-    std::cout << desc << std::endl;
-    exit(0);
-  }
-
-  // basic check-up on the provided options
-  if ( strAtlasReg.empty() ||
-       strSubjectReg.empty() ||
-       strSubjectSurf.empty() ||
-       strOutput.empty() )
-    {
-      std::cout << "\n *** Missing arguments in cmd-line! *** \n" << std::endl;
-      std::cout << desc << std::endl;
-      exit(0);
-      //throw std::length_error(" Missing arguments in cmd-line");
-    }
+  std::string strAnnotationIn = parser.retrieve<std::string>("annot_in");
+  std::string strAnnotationOut = parser.retrieve<std::string>("annot_out");
 
   annotation = false;
 
-  if (strAnnotationOut.empty() && !strAnnotationIn.empty())
-    {
-      std::cout << "\n *** Missing --annot_out in cmd-line! *** \n" << std::endl;
-      std::cout << desc << std::endl;
-      exit(0);
-    }
+  if (strAnnotationOut.empty() && !strAnnotationIn.empty()) fs::fatal() << "missing --annot_out flag";
+  if (!strAnnotationOut.empty() && strAnnotationIn.empty()) fs::fatal() << "missing --annot_in flag";
 
-  if (!strAnnotationOut.empty() && strAnnotationIn.empty())
-    {
-      std::cout << "\n *** Missing --annot_in in cmd-line! *** \n" << std::endl;
-      std::cout << desc << std::endl;
-      exit(0);
-    }
-
-  if (!strAnnotationOut.empty() && !strAnnotationIn.empty())
-    {
-      annotation = true;
-      strSubjectAnnot = strAnnotationIn;
-      strOutAnnotation = strAnnotationOut;
-    }
-
-  /*  if ( vm.count("annot") )
-      {
-      annotation = true;
-    if ( vstrAnnotation.size() != 2 )
-    throw std::length_error(" Incorect number of arguments for "
-    "--annot parameter");
-    strSubjectAnnot = vstrAnnotation[0];
-    strOutAnnotation = vstrAnnotation[1];
-    }*/
+  if (!strAnnotationOut.empty() && !strAnnotationIn.empty()) {
+    annotation = true;
+    strSubjectAnnot = strAnnotationIn;
+    strOutAnnotation = strAnnotationOut;
+  }
 }
 
 
@@ -286,11 +230,13 @@ resampleSurface( MRIS* mrisAtlasReg,
                  MRIS* mrisSubject,
                  bool passAnnotation )
 {
+  cheapAssert(mrisAtlasReg->origxyz_status == mrisSubject->origxyz_status);
+
   /* this function assumes the mapping function is stored
      as the "INFLATED vertex" of mris_template */
 
   int index, k, facenumber, closestface=-1;
-  double sopt, topt, tmps, tmpt; /* triangle parametrization parameters */
+  double tmps, tmpt; /* triangle parametrization parameters */
   double value, distance;
   double Radius, length, scale;
   double sumx, sumy, sumz, sumweight, weight;
@@ -334,12 +280,12 @@ resampleSurface( MRIS* mrisAtlasReg,
   }
 
   numVertices = mrisAtlasReg->nvertices;
-  vertex = &( mrisAtlasReg->vertices[0] );
   for (int index = 0;
        index < numVertices;
-       ++index, ++vertex)
+       ++index)
   {
-    //vertex = &mrisSubject->vertices[index];
+    vertex = &mrisAtlasReg->vertices[index];
+    
     QueryPt[0][0] = vertex->x;
     QueryPt[0][1] = vertex->y;
     QueryPt[0][2] = vertex->z;
@@ -361,11 +307,12 @@ resampleSurface( MRIS* mrisAtlasReg,
     if ( passAnnotation )
       vertex->annotation = mrisSubject->vertices[annIndex[0]].annotation;
 
-    for (k=0; k < mrisSubject->vertices[annIndex[0]].num; k++)
+    VERTEX_TOPOLOGY const * const vt = &mrisSubject->vertices_topology[annIndex[0]];
+    
+    for (k=0; k < vt->num; k++)
     {
 
-      facenumber =
-        mrisSubject->vertices[annIndex[0]].f[k]; /* index of the k-th face */
+      facenumber = vt->f[k]; /* index of the k-th face */
       if (facenumber < 0 || facenumber >= mrisSubject->nfaces) continue;
       value = v_to_f_distance(vertex, 
                               mrisSubject, 
@@ -378,8 +325,6 @@ resampleSurface( MRIS* mrisAtlasReg,
       {
         distance = value;
         closestface = facenumber;
-        sopt = tmps;
-        topt = tmpt;
       }
     }
 
@@ -417,25 +362,27 @@ resampleSurface( MRIS* mrisAtlasReg,
     sumz += weight*V3->origz;
     sumweight += weight;
 
-    vertex->origx = sumx /(sumweight + 1e-30);
-    vertex->origy = sumy /(sumweight + 1e-30);
-    vertex->origz = sumz /(sumweight + 1e-30);
+    float origx = sumx /(sumweight + 1e-30);
+    float origy = sumy /(sumweight + 1e-30);
+    float origz = sumz /(sumweight + 1e-30);
 
     if (normflag)
     {
-      length = sqrt(vertex->origx *vertex->origx + vertex->origy*vertex->origy
-                    + vertex->origz*vertex->origz);
+      length = sqrt(origx*origx + origy*origy + origz*origz);
       scale = Radius/(length + 1e-20);
-      vertex->origx *= scale;
-      vertex->origy *= scale;
-      vertex->origz *= scale;
+      origx *= scale;
+      origy *= scale;
+      origz *= scale;
     }
 
+    MRISsetOriginalXYZ(
+      mrisAtlasReg, index,
+      origx, origy, origz);
   }
 
   if (annkdTree) delete annkdTree;
-  if (annIndex) delete annIndex;
-  if (annDist) delete annDist;
+  if (annIndex) delete[] annIndex;
+  if (annDist) delete[] annDist;
   if (QueryPt) delete QueryPt;
 
   return;
@@ -457,7 +404,7 @@ double v_to_f_distance(VERTEX *P0,
   VERTEX *V1, *V2, *V3;
   FACE *face;
 
-  VERTEX E0, E1, D;
+  struct { float x,y,z; } E0, E1, D;
 
   face = &mri_surf->faces[face_number];
   V1 = &mri_surf->vertices[face->v[0]];

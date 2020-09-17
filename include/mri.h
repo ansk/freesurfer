@@ -1,15 +1,10 @@
 /**
- * @file  mri.h
  * @brief prototypes and structures for working with MRI volumes.
  *
  *  prototypes and structures for working with MRI volumes.
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2016/12/26 15:30:02 $
- *    $Revision: 1.484 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -26,17 +21,22 @@
 #ifndef MRI_H
 #define MRI_H
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+#include <vector>
+#include <array>
+#include <string>
 
-#include "minc_volume_io.h"
+#include "faster_variants.h"
+
+#include "minc.h"
 #include "const.h"
 #include "matrix.h"
+#include "dmatrix.h"
 #include "machine.h"
 #include "colortab.h"
-
 #include "affine.h"
+#include "fnvhash.h"
+#include "itkImage.h"
+
 
 #define BUFTYPE  unsigned char
 
@@ -79,6 +79,9 @@ extern "C" {
 
 #define MB_RADIAL 0
 #define MB_TANGENTIAL 1
+
+// standard itk image type
+typedef itk::Image<float, 3> ITKImageType;
 
 typedef struct
 {
@@ -142,7 +145,6 @@ typedef struct
 } MRI_FRAME ;
 
 
-
 typedef struct
 {
   int  x ;
@@ -154,102 +156,134 @@ typedef struct
 }
 MRI_REGION ;
 
-typedef struct
+
+class MRI
 {
-  int           width ;
-  int           height ;
-  int           depth ;     /* # of slices */
-  int           type ;      /* data type for slices below */
-  int           imnr0 ;     /* starting image # */
-  int           imnr1 ;     /* ending image # */
-  int           ptype ;     /* not used */
-  float         fov ;
-  float         thick ;
-  float         ps ;
-  float         location ;  /* not used */
-  float         xsize ;     /* size of a voxel in the x direction */
-  float         ysize ;     /* size of a voxel in the y direction */
-  float         zsize ;     /* size of a voxel in the z direction */
-  float         xstart ;    /* start x (in xsize units) */
-  float         xend ;      /* end x  (in xsize units) */
-  float         ystart ;    /* start y   (in ysize units) */
-  float         yend ;      /* end y (in ysize units) */
-  float         zstart ;    /* start z */
-  float         zend ;      /* end z */
-  float         tr ;        /* time to recovery */
-  float         te ;        /* time to echo */
-  float         ti ;        /* time to inversion */
-  char          fname[STR_LEN] ;
+public:
 
-  float         x_r, x_a, x_s; /* these are the RAS distances
-                                          across the whole volume */
-  float         y_r, y_a, y_s; /* in x, y, and z */
-  float         z_r, z_a, z_s; /* c_r, c_a, and c_s are the
-                                          center ras coordinates */
-  float         c_r, c_a, c_s; /* ras_good_flag tells if
-                                          these coordinates are set */
-  int           ras_good_flag; /* and accurate for the volume */
+  class Shape
+  {
+  public:
+    Shape() {};
+    Shape(const std::vector<int>& shape);
+    Shape(const std::vector<ssize_t>& shape) : Shape(std::vector<int>(shape.begin(), shape.end())) {};
+    Shape(const std::initializer_list<int>& shape) : Shape(std::vector<int>(shape)) {}
+    ssize_t width, height, depth, nframes, size;
 
-  /*  for bshorts and bfloats */
-  int           brightness;
-  char          subject_name[STRLEN];
-  MATRIX        *register_mat;
-  char          path_to_t1[STRLEN];
-  char          fname_format[STRLEN];
+    operator std::vector<ssize_t>() const { return {width, height, depth, nframes}; }
 
-  /* for gdf volumes */
-  char          gdf_image_stem[STRLEN];
+    friend bool operator == (const Shape &l, const Shape &r) { return (std::vector<ssize_t>(l) == std::vector<ssize_t>(r)); }
+    friend bool operator != (const Shape &l, const Shape &r) { return !(l == r); }
+  };
 
-  /*
-     each slice is an array of rows (mri->height of them) each of which is
-     mri->width long.
-  */
-  BUFTYPE       ***slices ;
-  int           scale ;
-  char          transform_fname[STR_LEN] ;
-  General_transform transform ;   /* the next two are from this struct */
-  Transform         *linear_transform ;
-  Transform         *inverse_linear_transform ;
-  int           free_transform ;   /* are we responsible for freeing it? */
-  int           nframes ;          /* # of concatenated images */
+  MRI(const Shape volshape, int dtype, bool alloc = true);
+  MRI(const std::string& filename);
+  ~MRI();
 
-  /* these are used to handle boundary conditions (arrays of indices) */
-  int           *xi ;
-  int           *yi ;
-  int           *zi ;
-  int           yinvert ;  /* for converting between MNC and coronal slices */
-  MRI_REGION    roi ;
-  int           dof ;
-  double        mean ;
-  double        flip_angle ;  /* in radians */
-  float   FieldStrength;
-  char          *pedir; /* phase enc direction: ROW, COL, etc*/
+  void initIndices();
+  void initSlices();
+  void write(const std::string& filename);
+  FnvHash hash();
 
-  void*         tag_data; /* saved tag data */
-  int           tag_data_size; /* size of saved tag data */
-  AffineMatrix *i_to_r__; /* cache */
-  MATRIX *r_to_i__;
-  char   *cmdlines[MAX_CMDS] ;
-  int    ncmds;
-  double outside_val ; // 0 by default, but could be something else
+  // ITK image conversions
+  ITKImageType::Pointer toITKImage(int frame = 0);
+  void loadITKImage(ITKImageType::Pointer image, int frame = 0);
 
-  MATRIX *AutoAlign; // For Andre
-  MATRIX *bvals, *bvecs;
-  int bvec_space; // 0=unknown, 1=scanner, 2=voxel
+  // ---- image geometry ----
+  int width;        // number of columns
+  int height;       // number of rows
+  int depth;        // number of slices
+  int nframes;      // number of frames
+  Shape shape;      // volume shape
+  int imnr0;        // starting image number
+  int imnr1;        // ending image number
+  float xstart;     // starting x (in xsize units)
+  float ystart;     // starting y (in ysize units)
+  float zstart;     // starting z (in zsize units)
+  float xend;       // ending x (in xsize units)
+  float yend;       // ending y (in ysize units)
+  float zend;       // ending z (in zsize units)
+  float xsize = 1;  // size of a voxel in the x direction
+  float ysize = 1;  // size of a voxel in the y direction
+  float zsize = 1;  // size of a voxel in the z direction
+  float thick = 1;
+  int scale = 1;
+  float ps = 1;
+  float fov;
 
-  // "Chunking" memory management. "Chunking" is where the entire 4D
-  // volume is allocated one big buffer.
-  int    ischunked; // 1 means alloc is one big chunk
-  void   *chunk; // pointer to the one big chunk of buffer
-  size_t    bytes_per_vox; // # bytes per voxels
-  size_t    bytes_per_row; // # bytes per row
-  size_t    bytes_per_slice; // # bytes per slice
-  size_t    bytes_per_vol; // # bytes per volume/timepoint
-  size_t    bytes_total; // # total number of pixel bytes in the struct
-  COLOR_TABLE *ct ;
-  MRI_FRAME   *frames ;
-}
-MRI_IMAGE, MRI ;
+  // ---- indices to handle boundary conditions ----
+  int *xi = nullptr;
+  int *yi = nullptr;
+  int *zi = nullptr;
+
+  // ---- RAS distances ----
+  float x_r = -1, x_a = 0, x_s =  0;
+  float y_r =  0, y_a = 0, y_s = -1;
+  float z_r =  0, z_a = 1, z_s =  0;
+  float c_r =  0, c_a = 0, c_s =  0;
+  int ras_good_flag = 0;  // indicates whether the RAS coordinates are accurate
+  
+  // ---- transforms ----
+  char transform_fname[STRLEN];
+  General_transform transform;
+  Transform *linear_transform = nullptr;
+  Transform *inverse_linear_transform = nullptr;
+  int free_transform = 0;
+  AffineMatrix *i_to_r__ = nullptr;  // cached i->r transform
+  MATRIX *r_to_i__ = nullptr;        // cached r->i transform
+  MATRIX *register_mat = nullptr;
+  MATRIX *AutoAlign = nullptr;       // for Andre
+
+  // ---- volume metadata ----
+  double outside_val = 0;
+  double mean;
+  int brightness = 1;
+  int yinvert = 1;              // for converting between MNC and coronal slices
+  int dof = 1;
+  MRI_FRAME *frames = nullptr;
+  COLOR_TABLE *ct = nullptr;
+  MRI_REGION roi;
+
+  // ---- scan parameters ----
+  float tr = 0;                 // time to recovery
+  float te = 0;                 // time to echo
+  float ti = 0;                 // time to inversion
+  double flip_angle = 0;        // flip angle in radians
+  float FieldStrength = 0;      // field strength
+  char *pedir = nullptr;        // phase enc direction: ROW, COL, etc
+  float location = 0;           // NOT USED
+
+  // ---- DTI ----
+  int bvec_space = 0;           // 0: unknown, 1: scanner, 2: voxel
+  MATRIX *bvals = nullptr;
+  MATRIX *bvecs = nullptr;
+
+  // ---- file metadata ----
+  char fname[STRLEN];           // filename
+  char fname_format[STRLEN];    // file extension
+  char subject_name[STRLEN];    // fs subject name
+  char path_to_t1[STRLEN];      // NOT USED
+  char gdf_image_stem[STRLEN];
+  char *cmdlines[MAX_CMDS];     // command line provenance
+  int ncmds = 0;                // number of commands run previously
+  void *tag_data = nullptr;     // saved tag data
+  int tag_data_size = 0;        // size of tag data
+
+  // ---- image buffer ----
+  int type;                     // image data type
+  int ptype = 2;                // NOT USED
+  size_t bytes_per_vox = 0;     // bytes per voxel
+  size_t bytes_total = 0;       // total bytes in buffer
+  size_t vox_per_row = 0;       // number of voxels per volume row
+  size_t vox_per_slice = 0;     // number of voxels per volume slice
+  size_t vox_per_vol = 0;       // number of voxels per volume frame
+  size_t vox_total = 0;         // total number of voxels in the volume
+  int ischunked;                // indicates whether the buffer is chunked (contiguous)
+  bool owndata = true;          // indicates ownership of the chunked buffer data
+  BUFTYPE ***slices = nullptr;  // fallback non-contiguous storage for 3D-indexed image data
+  void *chunk = nullptr;        // default contiguous storage for image data
+};
+
 
 typedef struct
 {
@@ -266,7 +300,6 @@ typedef struct
   MRI *dmin;  // Image of start distance (cut off)
   MRI *nd;    // Image of number of samples
 } MOTIONBLUR2D, MB2D;
-
 
 
 MRI *MRImotionBlur2D(MRI *src, MB2D *mb, MRI *out);
@@ -307,21 +340,15 @@ float  MRIgetVoxDx(MRI *mri, int c, int r, int s, int f);
 float  MRIgetVoxDy(MRI *mri, int c, int r, int s, int f);
 float  MRIgetVoxDz(MRI *mri, int c, int r, int s, int f);
 
-#ifdef __cplusplus
 float  MRIgetVoxVal( const MRI *mri, int c, int r, int s, int f);
 int    MRIsetVoxVal(MRI *mri, int c, int r, int s, int f, float voxval);
 void   MRIdbl2ptr(double v, void *pmric, int mritype);
 double MRIptr2dbl(void *pmric, int mritype);
-#else
-inline float  MRIgetVoxVal(const MRI *mri, int c, int r, int s, int f);
-inline int    MRIsetVoxVal(MRI *mri, int c, int r, int s, int f, float voxval);
-inline void   MRIdbl2ptr(double v, void *pmric, int mritype);
-inline double MRIptr2dbl(void *pmric, int mritype);
-#endif
+
 size_t MRIsizeof(int mritype);
 
-char * MRIprecisionString(int PrecisionCode);
-int MRIprecisionCode(char *PrecisionString);
+const char * MRIprecisionString(int PrecisionCode);
+int MRIprecisionCode(const char *PrecisionString);
 
 MRI *MRImakeMosaic(MRI **mri, int nimages, int rectify) ;
 
@@ -380,15 +407,11 @@ int    MRIwriteInfo(MRI *mri,const char *fpref) ;
 
 /* memory allocation routines */
 int   MRIfree(MRI **pmri) ;
-int   MRIfreeFrames(MRI *mri, int start_frame) ;
 MRI   *MRIalloc(int width, int height, int depth, int type) ;
 MRI   *MRIallocSequence(int width, int height,int depth,int type,int nframes);
 MRI   *MRIallocHeader(int width, int height, int depth, int type, int nframes) ;
-int   MRIallocIndices(MRI *mri) ;
 int   MRIsetResolution(MRI *mri, float xres, float yres, float zres) ;
 int   MRIsetTransform(MRI *mri,   General_transform *transform) ;
-MRI * MRIallocChunk(int width, int height, int depth, int type, int nframes);
-int   MRIchunk(MRI **pmri);
 
 
 /* correlation routines */
@@ -400,7 +423,7 @@ long  MRIcorrelate(MRI *mri_ref, MRI *mri_in, int xoff, int yoff, int zoff) ;
 
 
 int   MRIpeak(MRI *mri, int *px, int *py, int *pz) ;
-int   MRIcompareHeaders(MRI *mri1, MRI *mri2) ;
+int   MRIcompareHeaders(MRI const *mri1, MRI const *mri2) ;
 MRI   *MRIcopyHeader( const MRI *mri_src, MRI *mri_dst) ;
 int   MRIcopyPulseParameters(MRI *mri_src, MRI *mri_dst) ;
 MRI   *MRIcopy(MRI *mri_src, MRI *mri_dst) ;
@@ -436,8 +459,8 @@ MRI   *MRIapplyRASlinearTransformInterp(MRI *mri_src, MRI *mri_dst,
 MRI   *MRIapplyRASinverseLinearTransformInterp(MRI *mri_src, MRI *mri_dst,
     MATRIX *mA, int interpMethod) ;
 
-int MRIinterpCode(char *InterpString);
-char * MRIinterpString(int InterpCode);
+int MRIinterpCode(const char *InterpString);
+const char * MRIinterpString(int InterpCode);
 MRI   *MRIinterpolate(MRI *mri_src, MRI *mri_dst) ;
 MRI   *MRIconfThresh(MRI *mri_src, MRI *mri_probs, MRI *mri_classes,
                      MRI *mri_dst,float thresh, int min_target,int max_target);
@@ -734,7 +757,6 @@ int   MRIcheckSize(MRI *mri_src, MRI *mri_check, int width, int height,
 /*
   MRI   *MRIreadRaw(FILE *fp, int width, int height, int depth, int type) ;
 */
-int   MRIinitHeader(MRI *mri) ;
 int   MRIreInitCache(MRI *mri); /* when header is modified,
                                    you must call this function
                                    to update cached info */
@@ -761,6 +783,7 @@ int   MRIvoxelToTalairach(MRI *mri, double xv, double yv, double zv,
                           double *pxt, double *pyt, double *pzt) ;
 int   MRItalairachToVoxel(MRI *mri, double xt, double yt, double zt,
                           double *pxv, double *pyv, double *pzv) ;
+int MRIworldToTalairach(MRI *mri, double xw, double yw, double zw, double *pxt, double *pyt, double *pzt);
 
 int   MRItransformRegion(MRI *mri_src, MRI *mri_dst, MRI_REGION *src_region,
                          MRI_REGION *dst_region) ;
@@ -784,8 +807,9 @@ int   MRIerasePlane(MRI *mri, float x0, float y0, float z0,
 int   MRIeraseBorders(MRI *mri, int width) ;
 int   MRIindexNotInVolume( const MRI *mri,
 			   const double col, const double row, const double slice );
-int   MRIsampleVolume( const MRI *mri,
-                       double x, double y, double z, double *pval );
+int   MRIsampleVolume( const MRI *mri,double x, double y, double z, double *pval );
+DMATRIX *MRIgradTrilinInterp(const MRI *mri, double x, double y, double z, DMATRIX *grad);
+
 double *MRItrilinKernel(MRI *mri,
                         double c,
                         double r,
@@ -821,11 +845,25 @@ int   MRIsampleVolumeFrame( const MRI *mri,
 			    double x, double y, double z,
 			    const int frame,
 			    double *pval);
+#ifdef FASTER_MRI_EM_REGISTER
+int   MRIsampleVolumeFrame_xyzInt_nRange_floats(const MRI *mri,
+                            int x, int y, int z, 
+			    const int frameBegin,
+			    const int frameEnd,		// [frameBegin] .. [frameEnd-1] done
+			    float *valForEachFrame);	// vals loaded into [0] .. [frameEnd-1 - frameBegin]
+#endif
 int   MRIsampleVolumeFrameType( const MRI *mri,
 				const double x, const double y, const double z,
 				const int frame,
 				int interp_type,
 				double *pval );
+#ifdef FASTER_MRI_EM_REGISTER
+int   MRIsampleVolumeFrameType_xyzInt_nRange_SAMPLE_NEAREST_floats(const MRI *mri,
+                            int x, int y, int z, 
+			    const int frameBegin,
+			    const int frameEnd,		// [frameBegin] .. [frameEnd-1] done
+			    float *valForEachFrame);	// vals loaded into [0] .. [frameEnd-1 - frameBegin]
+#endif
 int   MRIsampleVolumeGradient(MRI *mri, double x, double y, double z,
                               double *pdx, double *pdy, double *pdz) ;
 int   MRIsampleVolumeGradientFrame( const MRI *mri,
@@ -867,9 +905,10 @@ MRI   *MRIresize(MRI *mri, double xsize, double ysize, double zsize, int nframes
 /* surfaceRAS and voxel routines */
 MATRIX *surfaceRASFromVoxel_(MRI *mri);
 MATRIX *voxelFromSurfaceRAS_(MRI *mri);
-MATRIX *surfaceRASFromRAS_(MRI *mri);
-MATRIX *RASFromSurfaceRAS_(MRI *mri);
+MATRIX *surfaceRASFromRAS_(MRI const *mri);
+MATRIX *RASFromSurfaceRAS_(MRI const *mri);
 
+  int MRIscannerRASToVoxel(MRI *mri, double xr, double yr, double zr, double *xv, double *yv, double *zv);
 int MRIvoxelToSurfaceRAS(MRI *mri, double xv, double yv, double zv,
                          double *xs, double *ys, double *zs);
 int MRIsurfaceRASToVoxel(MRI *mri, double xr, double yr, double zr,
@@ -956,6 +995,7 @@ extern float ic_z_vertices[]  ;
 #define MGH_MORPH                     29 // .m3z, .m3d
 #define MGH_AUTOENCODER               30
 #define ITK_MORPH                     31 // ITK (e.g., ANTs synWarp)
+#define MGH_LABEL_FILE                32
 
 int        MRImatchDimensions(MRI *mri1, MRI *mri2) ;
 int        MRImatch(MRI *mri1, MRI *mri2) ;
@@ -1093,6 +1133,11 @@ MRI   *MRIthresholdMask(MRI *mri_src, MRI *mri_mask, MRI *mri_dst,
 #define WM_EDITED_ON_VAL                 255
 #define WM_EDITED_OFF_VAL                1
 
+// For labeling bright voxels and neighbors of bright voxels
+#define BRIGHT_LABEL 130
+#define BRIGHT_BORDER_LABEL 100
+
+
 MRI *MRIreduceMeanAndStd(MRI *mri_src, MRI *mri_dst) ;
 MRI *MRIreduceMeanAndStdByte(MRI *mri_src, MRI *mri_dst) ;
 MRI *MRIstdsToVariances(MRI *mri_std, MRI *mri_var, int source_frame) ;
@@ -1191,6 +1236,8 @@ int   MRIclassifyAmbiguous(MRI *mri_src, MRI *mri_labeled, MRI *mri_border,
 MRI   *MRIremoveBrightStuff(MRI *mri_src, MRI *mri_dst, int threshold) ;
 int   MRIreclassify(MRI *mri_src, MRI *mri_labeled,
                     MRI *mri_dst, float wm_low, float gray_hi, int wsize) ;
+MRI *MRIreclassifyWMCtxNonPar(MRI *norm, MRI *seg, int nitersmax, MRI *newseg);
+MRI *MRIclassifyAmbiguousNonPar(MRI *norm, MRI *seg, MRI *statseg, double Qwm, double Qctx, int NdilWM, int NdilCtx);
 MRI *MRImaskThreshold(MRI *mri_src, MRI *mri_mask, MRI *mri_dst,
                       float threshold, int out_label) ;
 int MRIgrowLabel(MRI *mri, MRI *mri_bg, int in_label, int out_label) ;
@@ -1220,7 +1267,7 @@ MRI *MRIsoapBubbleLabel(MRI *mri_src, MRI *mri_label, MRI *mri_dst,
                         int niter);
 MRI    *MRIsetLabelValues(MRI *mri_src, MRI *mri_label, MRI *mri_dst,
                           int label, float val);
-int    MRIwriteImageViews(MRI *mri, char *base_name, int target_size) ;
+int    MRIwriteImageViews(MRI *mri, const char *base_name, int target_size) ;
 int MRIsetValues(MRI *mri, float val) ;
 int MRIsetFrameValues(MRI *mri, int frame, float val) ;
 MRI    *MRIwindow(MRI *mri_src, MRI *mri_dst, int which, float x0, float y0,
@@ -1229,10 +1276,9 @@ int  MRIcomputeClassStatistics(MRI *mri_T1, MRI *mri_labeled,
                                float gray_low, float gray_hi,
                                float *pmean_wm, float *psigma_wm,
                                float *pmean_gm, float *psigma_gm) ;
-
+int MRIcomputeClassStatisticsSeg(MRI *norm, MRI *seg, float *wmmean, float *wmstd, float *ctxmean, float *ctxstd);
 int MRIcomputeNbhdMeansandCovariances(MRI *mri_inputs, MRI *mri_labeled, int label, int x, int y, int z, int nbhd, MATRIX **p_mcov, VECTOR **p_vmeans) ;
-int MRIcomputeLabelMeansandCovariances(MRI *mri_inputs, MRI *mri_labeled, MATRIX **p_mcov, VECTOR **p_vmeans, int *labels, int nbhd) ;
-int MRIcomputeLabelMeansandCovariances2(MRI *mri_inputs, MRI *mri_labeled, MATRIX **p_mcov, VECTOR **p_vmeans, int *labels, int nlabels, int nbhd);
+int MRIcomputeLabelMeansandCovariances(MRI *mri_inputs, MRI *mri_labeled, MATRIX **p_mcov, VECTOR **p_vmeans, int *labels, int nlabels, int nbhd);
 int MRIcomputeWMMeansandCovariances(MRI *mri_inputs, MRI *mri_labeled, MATRIX **p_mcov, VECTOR **p_vmeans) ;
 int MRIcomputeWMSAMeansandCovariances(MRI *mri_inputs, MRI *mri_labeled, MATRIX **p_mcov, VECTOR **p_vmeans) ;
 int MRIcomputeCaudateMeansandCovariances(MRI *mri_inputs, MRI *mri_labeled, MATRIX **p_mcov, VECTOR **p_vmeans) ;
@@ -1283,6 +1329,7 @@ MRI *MRISeqchangeType(MRI *vol, int dest_type, float f_low,
 
 MRI *MRIresample(MRI *src, MRI *template_vol, int resample_type);
 MATRIX *MRIgetResampleMatrix(MRI *src, MRI *template_vol);
+void MRIlimitsMultipleTimes(MRI *mri_src, float *psrc_min, float *psrc_max, int ntimes);
 int MRIlimits(MRI *mri, float *min, float *max);
 int MRIprintStats(MRI *mri, FILE *stream);
 int MRIstats(MRI *mri, float *min, float *max, int *n_voxels,
@@ -1291,7 +1338,6 @@ int MRIstats(MRI *mri, float *min, float *max, int *n_voxels,
 float MRIvolumeDeterminant(MRI *mri);
 
 int mriio_command_line(int argc, char *argv[]);
-int mriio_set_subject_name(const char *name);
 void mriio_set_gdf_crop_flag(int new_gdf_crop_flag);
 int MRIgetVolumeName(const char *string, char *name_only);
 MRI *MRIread(const char *fname);
@@ -1359,6 +1405,10 @@ int MRIsincSampleVolume( const MRI *mri,
 int MRIcubicSampleVolume( const MRI *mri,
                           double x, double y, double z,
                           double *pval ); /*E*/
+DMATRIX *MRIgradCubicInterp(const MRI *mri, double x, double y, double z, DMATRIX *grad);
+double MRIcubicCoeff(double x, int iter);
+double MRIgradCubicCoeff(double x, int iter);
+
 MRI *MRIsincTransform(MRI *mri_src, MRI *mri_dst, MATRIX *mA, int hw);
 int MRIlabelOverlap(MRI *mri1, MRI *mri2, int label) ;
 int MRIlabelUnion(MRI *mri1, MRI *mri2, int label) ;
@@ -1431,8 +1481,8 @@ extern int MRIIO_Strip_Pound;
 
 float MRIfovCol(MRI *mri);
 int MRIdircosToOrientationString(MRI *mri, char *ostr);
-int MRIorientationStringToDircos(MRI *mri, char *ostr);
-char *MRIcheckOrientationString(char *ostr);
+int MRIorientationStringToDircos(MRI *mri, const char *ostr);
+char *MRIcheckOrientationString(const char *ostr);
 char *MRIsliceDirectionName(MRI *mri);
 MRI *MRIreverseSliceOrder(MRI *invol, MRI *outvol);
 MRI *MRIconformSliceOrder(MRI *mri);
@@ -1449,7 +1499,7 @@ MRI *MRIconformSliceOrder(MRI *mri);
     Please use MRIextractDistanceMap in fastmarching.h instead */
 MRI *MRIdistanceTransform(MRI *mri_src, MRI *mri_dist,
                           int label, float max_dist, int mode, MRI *mri_mask);
-int MRIaddCommandLine(MRI *mri, char *cmdline) ;
+int MRIaddCommandLine(MRI *mri, const std::string& cmdline);
 MRI *MRInonMaxSuppress(MRI *mri_src, MRI *mri_sup,
                        float thresh, int thresh_dir) ;
 MRI *MRIextractRegionAndPad(MRI *mri_src, MRI *mri_dst,
@@ -1551,23 +1601,11 @@ int MRIcomputeVolumeFractions(MRI *mri_src, MATRIX *m_vox2vox,
 			      MRI *mri_seg, MRI *mri_fractions) ;
 
 MRI *MRInbrThresholdLabel(MRI *mri_src, MRI *mri_dst,  int label, int out_label, int whalf,  float thresh) ;
+MRI *MRIsolveLaplaceEquation(MRI *mri_interior, MRI *mri_seg, int source_label, int target_label,
+			       float source_val,float target_val, float outside_val);
 
-#ifdef FS_CUDA
-  void MRImarkLabelBorderVoxelsGPU( const MRI* mri_src,
-				    MRI* mri_dst,
-				    int label,
-				    int mark,
-				    int six_connected );
+int MRIsampleVolumeFrameMasked(const MRI *mri, const MRI *mri_mask, double x, double y, double z, const int frame, double *pval);
 
-  float MRIvoxelsInLabelWithPartialVolumeEffectsGPU( const MRI *mri,
-						     const MRI *mri_vals,
-						     const int label,
-						     MRI *mri_mixing_coef,
-						     MRI *mri_nbr_labels );
-#endif
-
-#if defined(__cplusplus)
-};
-#endif
+int MRIclipBrightWM(MRI *mri_T1, const MRI *mri_wm);
 
 #endif

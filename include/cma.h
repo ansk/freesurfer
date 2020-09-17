@@ -1,5 +1,4 @@
 /**
- * @file  cma.h
  * @brief constants for neuroanatomical structures.
  *
  * constants and macros for neuroanatomical and some vascular structures.
@@ -7,10 +6,6 @@
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2015/11/24 17:49:36 $
- *    $Revision: 1.78 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -28,11 +23,6 @@
 #ifndef CMA_H
 #define CMA_H
 
-
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 #include "stats.h"
 #include "mri2.h"
 
@@ -49,8 +39,9 @@ extern "C" {
 #define Left_Cerebellum_Exterior       6
 #define Left_Cerebellum_White_Matter   7
 #define Left_Cerebellum_Cortex         8
-#define Left_Thalamus                  9
+// 9 used to be thalamus and 10 thalamus_proper
 #define Left_Thalamus_Proper          10
+#define Left_Thalamus                 10
 #define Left_Caudate                  11
 #define Left_Putamen                  12
 #define Left_Pallidum                 13
@@ -88,8 +79,9 @@ extern "C" {
 #define Right_Cerebellum_Exterior     45
 #define Right_Cerebellum_White_Matter 46
 #define Right_Cerebellum_Cortex       47
-#define Right_Thalamus                48
+// 48 used to be thalamus and 49 thalamus_proper
 #define Right_Thalamus_Proper         49
+#define Right_Thalamus                49
 #define Right_Caudate                 50
 #define Right_Putamen                 51
 #define Right_Pallidum                52
@@ -133,6 +125,9 @@ extern "C" {
 #define Left_Amygdala_Anterior        96
 #define Right_Amygdala_Anterior       97
 
+#define Left_Claustrum                138  //                          65  135 20  0
+#define Right_Claustrum               139 //                          65  135 20  0
+
 #define IS_FUTURE_WMSA(l) (((l) == Left_future_WMSA) || ((l) == Right_future_WMSA) || ((l) == future_WMSA))
 
 /*
@@ -159,6 +154,7 @@ extern "C" {
 #define Globe            134
 #define Teeth            135
 
+#define Skull            165
 #define Right_Temporal_Cerebral_White_Matter 186
 #define Left_Temporal_Cerebral_White_Matter  187
 #define Fat              189
@@ -336,6 +332,11 @@ extern "C" {
 #define rh_slfp 5115 //                                 204 204 204 0
 #define rh_slft 5116 //                                 153 255 255 0
 #define rh_unc 5117 //                                  102 153 255 0
+#define lh_ifof 5118 //                                 153 255 255 0
+#define rh_ifof 5119 //                                 153 255 255 0
+#define lh_fornix 5120 //                               204 102 153 0
+#define rh_fornix 5121 //                               204 102 153 0
+
 
 /*
 # Below is the color table for the cortical labels of the seg volume
@@ -354,6 +355,10 @@ extern "C" {
 
 */
 
+#define wm_lh_unknown        3000
+#define wm_rh_unknown        4000
+#define Left_Unsegmented_WM  5001
+#define Right_Unsegmented_WM 5002
 #define MIN_CORTICAL_PARCELLATION   1000
 
 #define    ctx_lh_unknown  1000 //                      25  5   25  0
@@ -446,7 +451,7 @@ extern "C" {
 #define IS_HYPO(label) (((label) == WM_hypointensities)  || ((label) == Left_WM_hypointensities)  || ((label) == Right_WM_hypointensities) || IS_FUTURE_WMSA(label))
 #define IS_WMSA(label) IS_HYPO(label)
 #define IS_WMH(label) (IS_WM(label) || IS_HYPO(label))
-#define IS_THALAMUS(label)  (((label) == Left_Thalamus) || ((label) == Left_Thalamus_Proper) || ((label) == Right_Thalamus) || ((label) == Right_Thalamus_Proper))
+#define IS_THALAMUS(label)  (((label) == Left_Thalamus) || ((label) == Left_Thalamus) || ((label) == Right_Thalamus) || ((label) == Right_Thalamus))
 #define IS_GM(label) (((label) == Left_Cerebral_Cortex) || ((label) == Right_Cerebral_Cortex))
 #define IS_VENTRAL_DC(l)  (((l) == Left_VentralDC) || ((l) == Right_VentralDC))
 
@@ -454,6 +459,7 @@ extern "C" {
 
 #define IS_CEREBELLAR_WM(label) (((label) == Left_Cerebellum_White_Matter) || ((label) == Right_Cerebellum_White_Matter))
 #define IS_CEREBELLAR_GM(label) (((label) == Left_Cerebellum_Cortex) || ((label) == Right_Cerebellum_Cortex))
+#define IS_CEREBELLUM(label) (IS_CEREBELLAR_WM(label) || IS_CEREBELLAR_GM(label))
 
 #define IS_HIPPO(l) (((l) == Left_Hippocampus) || ((l) == Right_Hippocampus))
 #define IS_AMYGDALA(l) (((l) == Left_Amygdala) || ((l) == Right_Amygdala))
@@ -470,6 +476,7 @@ extern "C" {
 #define IS_VENTRICLE(l)  (IS_LAT_VENT(l) || IS_INF_LAT_VENT(l) || ((l) == Third_Ventricle) || ((l) == Fourth_Ventricle))
 #define IS_CAUDATE(l) (((l) == Left_Caudate) || ((l) == Right_Caudate))
 #define IS_PUTAMEN(l) (((l) == Left_Putamen) || ((l) == Right_Putamen))
+#define IS_CLAUSTRUM(l) (((l) == Left_Claustrum) || ((l) == Right_Claustrum))
 #define IS_ACCUMBENS(l) (((l) == Left_Accumbens_area) || ((l) == Right_Accumbens_area))
 #define IS_PALLIDUM(l) (((l) == Left_Pallidum) || ((l) == Right_Pallidum))
 
@@ -540,13 +547,17 @@ int CMAaddWeightedTotals(CMAoutlineClaim *claim,
                          float weight, float *claim_totals);
 
 int CMAzeroOutlines(CMAoutlineField *field);
-char *cma_label_to_name(int label) ;
+const char *cma_label_to_name(int label) ;
 int IsSubCorticalGray(int SegId);
 #include "mri.h"
 double SupraTentorialVolCorrection(MRI *aseg, MRI *ribbon);
 double CorticalGMVolCorrection(MRI *aseg, MRI *ribbon, int hemi);
-double *ComputeBrainVolumeStats(char *subject, char *suffix, char *sdir);
 MRI *MRIfixAsegWithRibbon(MRI *aseg, MRI *ribbon, MRI *asegfixed);
+
+std::vector<double> ComputeBrainVolumeStats(const std::string& subject, const std::string& subjdir);
+std::vector<double> ComputeBrainVolumeStats2(const std::string& subject, const std::string& subjdir, const int KeepCSF);
+void CacheBrainVolumeStats(const std::vector<double>& stats, const std::string& subject, const std::string& subjdir);
+std::vector<double> ReadCachedBrainVolumeStats(const std::string& subject, const std::string& subjdir);
 
 #define IS_FIMBRIA(l) ((l) == left_fimbria || (l) == right_fimbria || (l) == fimbria)
 #define CSF_CLASS        0
@@ -600,7 +611,7 @@ MRI *MRIfixAsegWithRibbon(MRI *aseg, MRI *ribbon, MRI *asegfixed);
    ((l) == Left_Inf_Lat_Vent) || \
    ((l) == Left_Cerebellum_Cortex) || \
    ((l) == Left_Cerebellum_White_Matter) || \
-   ((l) == Left_Thalamus_Proper) || \
+   ((l) == Left_Thalamus) || \
    ((l) == Left_vessel) || \
    ((l) == Left_choroid_plexus) || \
    ((l) == Left_VentralDC) || \
@@ -618,7 +629,7 @@ MRI *MRIfixAsegWithRibbon(MRI *aseg, MRI *ribbon, MRI *asegfixed);
    ((l) == Right_Inf_Lat_Vent) || \
    ((l) == Right_Cerebellum_Cortex) || \
    ((l) == Right_Cerebellum_White_Matter) || \
-   ((l) == Right_Thalamus_Proper) || \
+   ((l) == Right_Thalamus) || \
    ((l) == Right_vessel) || \
    ((l) == Right_choroid_plexus) || \
    ((l) == Right_VentralDC) || \
@@ -638,6 +649,7 @@ MRI *MRIfixAsegWithRibbon(MRI *aseg, MRI *ribbon, MRI *asegfixed);
 int insert_ribbon_into_aseg(MRI *mri_src_aseg, MRI *mri_aseg,
                             MRI_SURFACE *mris_white, MRI_SURFACE *mris_pial,
                             int hemi) ;
+int MRIasegContraLatLabel(int id);
 MRI *MRIlrswapAseg(MRI *aseg);
 MRI *MRIseg2TissueType(MRI *seg, COLOR_TABLE *ct, MRI *tt);
 int CheckSegTissueType(MRI *seg, COLOR_TABLE *ct);
@@ -645,11 +657,5 @@ MRI *MRIextractTissueTypeSeg(MRI *seg, COLOR_TABLE *ct, int tt, MRI *ttseg);
 MRI **MRIdilateSegWithinTT(MRI *seg, int nDils, COLOR_TABLE *ct, MRI **r);
 SEGSTAT *Seg2NbrNonBrain(MRI *seg, COLOR_TABLE *ctab, double threshmm);
 int Seg2NbrNonBrainWrapper(char *subject, char *segname, COLOR_TABLE *ctab, char *statname, double threshmm);
-
-#if defined(__cplusplus)
-};
-#endif
-
-
 
 #endif

@@ -1,15 +1,4 @@
-/**
- * @file  randomfields.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2016/12/06 20:25:48 $
- *    $Revision: 1.12 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -24,7 +13,6 @@
  */
 
 
-// $Id: randomfields.h,v 1.12 2016/12/06 20:25:48 greve Exp $
 
 #ifndef RANDOMFIELDS_H
 #define RANDOMFIELDS_H
@@ -53,7 +41,6 @@ typedef struct
 RANDOM_FIELD_SPEC, RFS;
 
 
-const char *RFSrcVersion(void);
 RFS *RFspecInit(unsigned long int seed, sc_rng_type *rngtype);
 int RFspecFree(RFS **prfs);
 int RFname2Code(RFS *rfs);

@@ -14,16 +14,11 @@ function [XtX C vrf] = fast_idealXtX(NrepsPer,TR,Ntrs,psdwin)
 % There is a simulation at the end of this file (after return) to
 % check the accuracy.
 %
-% $Id: fast_idealXtX.m,v 1.3 2011/03/02 00:04:04 nicks Exp $
 
 %
 % fast_idealXtX
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:04 $
-%    $Revision: 1.3 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

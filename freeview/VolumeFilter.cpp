@@ -1,14 +1,9 @@
 /**
- * @file  VolumeFilter.cpp
  * @brief Base VolumeFilter class.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2014/01/30 22:08:25 $
- *    $Revision: 1.11 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,10 +26,10 @@
 #include "MyVTKUtils.h"
 #include <QTimer>
 
-extern "C"
-{
+
+
 #include "utils.h"
-}
+
 
 VolumeFilter::VolumeFilter( LayerMRI* input, LayerMRI* output, QObject* parent ) :
   QObject( parent ),
@@ -92,7 +87,7 @@ bool VolumeFilter::Update()
 
   if (m_volumeInput == m_volumeOutput)
   {
-    m_volumeInput->SaveForUndo(-1);
+    m_volumeInput->SaveForUndo(-1, -1);
   }
 
   if ( Execute() )
@@ -251,7 +246,8 @@ void VolumeFilter::MapMRIToVolume( MRI* mri, LayerMRI* layer )
 void VolumeFilter::TriggerFakeProgress(int interval)
 {
   m_nTimerCount = 0;
-  m_timerProgress->start(interval);
+  m_timerProgress->setInterval(interval);
+  QTimer::singleShot(0, m_timerProgress, SLOT(start()));
 }
 
 void VolumeFilter::OnTimeout()

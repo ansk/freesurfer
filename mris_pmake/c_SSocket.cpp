@@ -1,14 +1,9 @@
 /**
- * @file  c_SSocket.cpp
  * @brief defines a simple wrapper class around standard Berkeley sockets.
  *
  */
 /*
  * Original Author: Rudolph Pienaar
- * CVS Revision Info:
- *    $Author: rudolph $
- *    $Date: 2012/07/02 20:18:09 $
- *    $Revision: 1.4 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -22,7 +17,6 @@
  *
  */
 
-
 #include <iostream>
 using namespace std;
 
@@ -31,9 +25,6 @@ using namespace std;
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#if defined __linux__ || defined __sun__
-#include <libio.h>
-#endif
 #include <errno.h>
 
 #include <sys/types.h>
@@ -640,12 +631,15 @@ c_SSocket_UDP_receive::c_SSocket_UDP_receive(
   STsin_name.sin_family         = AF_INET;
   STsin_name.sin_addr.s_addr    = INADDR_ANY;
   STsin_name.sin_port           = htons(port);
+
+#if 0
   if (bind(sockID, (struct sockaddr *)&STsin_name, sizeof(STsin_name))) {
     char pch_error[1024];
     sprintf(pch_error, "Problem binding to socket %d", port);
     perror("System error");
     error(pch_error);
   }
+#endif
 
   // Find assigned port
   length = sizeof(STsin_name);
@@ -681,5 +675,4 @@ void c_SSocket_UDP_receive::print() {
   cout << "timeoutUsec:\t\t"   << timeoutUsec  << endl;
   cout << "Using port:\t\t"   << port  << endl;
 }
-
 

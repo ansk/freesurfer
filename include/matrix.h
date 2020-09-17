@@ -1,14 +1,9 @@
 /**
- * @file  matrix.h
  * @brief matrix manipulation utils
  *
  */
 /*
  * Original Author: Bruce Fischl
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2015/03/31 20:27:34 $
- *    $Revision: 1.90 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -26,16 +21,11 @@
 #ifndef MATRIX_H
 #define MATRIX_H
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
-
 #ifdef X
 #undef X
 #endif
 
-#include <stdio.h>
+#include "base.h"
 
 /* matrices and vectors are the same data type, vector will only
    have one column (by default) or one row.
@@ -43,6 +33,7 @@ extern "C" {
 typedef struct
 {
   short   type ;
+  char    inBuf;	// The matrix is in a stack buffer (see below)
   int     rows ;
   int     cols ;
   float **rptr;    /* pointer to an array of rows */
@@ -50,6 +41,20 @@ typedef struct
   FILE *mmapfile;
 }
 MATRIX, VECTOR ;
+
+
+typedef struct MatrixBuffer {
+  MATRIX  matrix;
+  float * rptr[5];
+  float   data[5*5+2];
+} MatrixBuffer;		// Upto 4x4 are so common and so small they should be stack allocated
+			// so MatrixFree will just NULL the pointer
+
+typedef struct		// This case is so important it should be optimized 
+{
+  float x,y,z;
+} XYZ;
+
 
 typedef struct
 {
@@ -80,15 +85,31 @@ int     MatrixIsZero(MATRIX *m) ;
 int     MatrixIsIdentity(MATRIX *m) ;
 MATRIX  *MatrixReshape(MATRIX *m_src, MATRIX *m_dst, int rows, int cols) ;
 int     MatrixCheck(MATRIX *m) ;
+int     MatrixQRdecomposition(const MATRIX *iMatrix, MATRIX *oQ, MATRIX *oR);
 MATRIX  *MatrixInverse( const MATRIX *mIn, MATRIX *mOut) ;
 MATRIX  *MatrixPseudoInverse(MATRIX *m, MATRIX *m_pseudo_inv) ;
 MATRIX  *MatrixSVDPseudoInverse(MATRIX *m, MATRIX *m_pseudo_inv) ;
 MATRIX  *MatrixRightPseudoInverse(MATRIX *m, MATRIX *m_pseudo_inv) ;
 #define MatrixLeftPseudoInverse MatrixPseudoInverse
-MATRIX  *MatrixAlloc( const int rows, const int cols, const int type);
+
+MATRIX  *MatrixAlloc_wkr ( const int rows, const int cols, const int type,
+    	                    const char* callSiteFile, int callSiteLine);
+MATRIX  *MatrixAlloc2_wkr( const int rows, const int cols, const int type, MatrixBuffer* buf, 
+    	    	    	    const char* callSiteFile, int callSiteLine);
+#define MatrixAlloc(ROWS,COLS,TYPE)      MatrixAlloc_wkr ((ROWS),(COLS),(TYPE),       __FILE__,__LINE__)
+#define MatrixAlloc2(ROWS,COLS,TYPE,BUF) MatrixAlloc2_wkr((ROWS),(COLS),(TYPE),(BUF), __FILE__,__LINE__)
+
 int     MatrixFree(MATRIX **pmat) ;
 MATRIX  *MatrixMultiplyD( const MATRIX *m1, const MATRIX *m2, MATRIX *m3); // use this one
-MATRIX  *MatrixMultiply( const MATRIX *m1, const MATRIX *m2, MATRIX *m3) ;
+MATRIX  *MatrixMultiply_wkr( const MATRIX *m1, const MATRIX *m2, MATRIX *m3, 
+    	    	    	    const char* callSiteFile, int callSiteLine) ;
+#define MatrixMultiply(M1,M2,M3) MatrixMultiply_wkr((M1),(M2),(M3),__FILE__,__LINE__)
+    	// (r1 x c1) * (r2 x c2) = (r1 x c2)
+	// c1 must equal r2
+
+MATRIX *MatrixMultiplyElts(MATRIX *m1, MATRIX *m2, MATRIX *m12); // like matlab m1.*m2
+MATRIX *MatrixDivideElts(MATRIX *num, MATRIX *den, MATRIX *quotient); // like matlab num./den
+MATRIX *MatrixReplicate(MATRIX *mIn, int nr, int nc, MATRIX *mOut); // like matlab repmat()
 MATRIX  *MatrixCopy( const MATRIX *mIn, MATRIX *mOut );
 int     MatrixWriteTxt(const char *fname, MATRIX *mat) ;
 MATRIX  *MatrixReadTxt(const char *fname, MATRIX *mat) ;
@@ -99,7 +120,7 @@ int     MatrixPrint(FILE *fp, const MATRIX *mat) ;
 int     MatrixPrintFmt(FILE *fp,const char *fmt, MATRIX *mat);
 int     MatrixPrintOneLine(FILE *fp, MATRIX *mat) ;
 int     MatrixPrintTranspose(FILE *fp, MATRIX *mat) ;
-int     MatrixPrintWithString(FILE *fp, MATRIX *m, char *Pre, char *Post);
+int     MatrixPrintWithString(FILE *fp, MATRIX *m, const char *Pre, const char *Post);
 MATRIX  *MatrixTranspose(MATRIX *mIn, MATRIX *mOut) ;
 MATRIX  *MatrixAdd( const MATRIX *m1, const MATRIX *m2, MATRIX *mOut) ;
 MATRIX  *MatrixSubtract( const MATRIX *m1, const MATRIX *m2, MATRIX *mOut) ;
@@ -187,6 +208,19 @@ MATRIX *MatrixReadFrom(FILE *fp, MATRIX *m) ;
 #define VECTOR_LOAD   VECTOR3_LOAD
 #define V3_LOAD       VECTOR3_LOAD
 
+#include <math.h>
+#include "macros.h"
+
+#define XYZ_LOAD(v,x,y,z)             do { XYZ* xyz = &v; xyz.x=x, xyz.y=y, xyz.z=z; } while 0
+void XYZ_NORMALIZED_LOAD(XYZ* xyz, float* xyz_length, float x, float y, float z);
+
+float XYZApproxAngle(
+    XYZ const * normalizedXYZ, float x2, float y2, float z2);
+    
+float XYZApproxAngle_knownLength(
+    XYZ const * normalizedXYZ, 
+    float x2, float y2, float z2, float length2);
+
 double Vector3Angle(VECTOR *v1, VECTOR *v2) ;
 float  VectorLen( const VECTOR *v ) ;
 float  VectorAngle( const VECTOR *v1, const VECTOR *v2) ;
@@ -198,6 +232,7 @@ double MatrixTransformDistance(MATRIX *m1, MATRIX *m2, double radius);
 VECTOR *MatrixColumn(MATRIX *m, VECTOR *v, int col) ;
 MATRIX *VectorOuterProduct(VECTOR *v1, VECTOR *v2, MATRIX *m) ;
 VECTOR *VectorCrossProduct( const VECTOR *v1, const VECTOR *v2, VECTOR *vdst) ;
+VECTOR *VectorCrossProductD(const VECTOR *v1, const VECTOR *v2, VECTOR *vdst);
 float  VectorTripleProduct( const VECTOR *v1,
                             const VECTOR *v2,
                             const VECTOR *v3) ;
@@ -312,10 +347,6 @@ MATRIX *MatrixKurtosis(MATRIX *y, MATRIX *k);
 double MatrixMaxAbsDiff(MATRIX *m1, MATRIX *m2, double dthresh);
 MATRIX *MatrixColNullSpace(MATRIX *M, int *err);
 MATRIX *MatrixResidualForming(MATRIX *X, MATRIX *R);
-
-#if defined(__cplusplus)
-};
-#endif
-
+MATRIX *MatrixGlmFit(MATRIX *y, MATRIX *X, double *pRVar, MATRIX *beta);
 
 #endif

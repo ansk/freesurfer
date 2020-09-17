@@ -1,14 +1,9 @@
 /**
- * @file  gcalinearnode.hpp
  * @brief Class to hold a volume of GCA nodes in linear memory
  *
  */
 /*
  * Original Authors: Richard Edgar
- * CVS Revision Info:
- *    $Author: zkaufman $
- *    $Date: 2016/02/26 20:01:43 $
- *    $Revision: 1.12 $
  *
  * Copyright © 2011-2012 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -26,8 +21,7 @@
 
 #include <vector>
 
-#include "chronometer.hpp"
-
+#include "timer.h"
 #include "gca.h"
 
 
@@ -63,8 +57,7 @@ public:
 			  means(), variances(),
 			  nJustPriors(), nTraining(), regularised(),
 			  gc1dDirecLabelPriors(),
-			  gc1dDirecLabels(),
-			  tExhume(), tInhume() {};
+			  gc1dDirecLabels() {};
   
   // -------------------------------------------------
   bool hasGibbsNeighbourhood;
@@ -437,10 +430,10 @@ private:
 
   // -------------------------------------------------
 
-  //! Timer for exhumation
-  mutable SciGPU::Utilities::Chronometer tExhume;
-  //! Inhumation timer
-  mutable SciGPU::Utilities::Chronometer tInhume;
+  //! Exhumation time
+  mutable long exhumeTime;
+  //! Inhumation time
+  mutable long inhumeTime;
 
   // -------------------------------------------------
 

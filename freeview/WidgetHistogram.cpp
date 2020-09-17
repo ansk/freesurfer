@@ -1,14 +1,5 @@
-/**
- * @file  WidgetHistogram.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2014/03/27 20:13:34 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -28,6 +19,7 @@
 #include <QMouseEvent>
 #include <QColorDialog>
 #include <QMessageBox>
+#include <QPalette>
 
 WidgetHistogram::WidgetHistogram(QWidget *parent) :
   QWidget(parent)
@@ -35,7 +27,6 @@ WidgetHistogram::WidgetHistogram(QWidget *parent) :
   m_dInputData = NULL;
   m_nInputSize = 0;
   m_nOutputData = NULL;
-  m_nOutputSize = 0;
   m_bAutoRange = true;
   m_nNumberOfBins = 100;
   m_colorBackground = Qt::white;
@@ -44,6 +35,7 @@ WidgetHistogram::WidgetHistogram(QWidget *parent) :
   m_nColorTable = NULL;
   m_bMarkerEditable = false;
   m_bUsePercentile = false;
+  m_dOutputArea = NULL;
 
   m_rectGraph = QRect( 50, 20, 100, 100 );
 }
@@ -77,6 +69,7 @@ void WidgetHistogram::SetOutputRange( double* dRange )
 {
   m_dOutputRange[0] = dRange[0];
   m_dOutputRange[1] = dRange[1];
+  m_bAutoRange = false;
   UpdateData();
 }
 
@@ -107,14 +100,9 @@ void WidgetHistogram::SetNumberOfBins( int nBins )
   UpdateData();
 }
 
-int WidgetHistogram::GetOutputSize()
-{
-  return m_nOutputSize;
-}
-
 void WidgetHistogram::GetOutputData( int* buffer_out )
 {
-  memcpy( buffer_out, m_nOutputData, m_nOutputSize * sizeof( int ) );
+  memcpy( buffer_out, m_nOutputData, m_nNumberOfBins * sizeof( int ) );
 }
 
 void WidgetHistogram::UpdateData( bool bRepaint )
@@ -129,9 +117,12 @@ void WidgetHistogram::UpdateData( bool bRepaint )
   {
     delete[] m_nOutputData;
   }
+  if ( m_dOutputArea)
+    delete[] m_dOutputArea;
 
   m_nOutputData = new int[m_nNumberOfBins];
-  if ( !m_nOutputData )
+  m_dOutputArea = new double[m_nNumberOfBins];
+  if ( !m_nOutputData || !m_dOutputArea)
   {
     qCritical() << "Can not allocate memory.";
     return;
@@ -139,6 +130,7 @@ void WidgetHistogram::UpdateData( bool bRepaint )
 
   // calculate histogram data
   memset( m_nOutputData, 0, m_nNumberOfBins * sizeof( int ) );
+  memset( m_dOutputArea, 0, m_nNumberOfBins * sizeof( double ) );
   for ( long i = 0; i < m_nInputSize; i++ )
   {
     int n = (int)( ( m_dInputData[i] - m_dOutputRange[0] ) / m_dBinWidth );
@@ -152,6 +144,7 @@ void WidgetHistogram::UpdateData( bool bRepaint )
   for (int i = 0; i < m_nNumberOfBins; i++)
   {
     m_dOutputTotalArea += m_nOutputData[i];
+    m_dOutputArea[i] = m_dOutputTotalArea;
   }
 
   // find max and second max
@@ -222,11 +215,12 @@ void WidgetHistogram::paintEvent(QPaintEvent* event)
 
     // draw y metrics
     int nMetricInterval = 25;
+    QPalette pal = palette();
     double dMetricStep = ((double)m_nMaxCount) / ( nCavHeight / nMetricInterval );
     dMetricStep = MyUtils::RoundToGrid( dMetricStep );
     double dMetricStart = 0;
     y = m_rectGraph.bottom();
-    painter.setPen( QPen(Qt::black) );
+    painter.setPen( QPen(pal.color(QPalette::WindowText)) );
     while ( y > m_rectGraph.top() && dMetricStep > 0 )
     {
       if( y < m_rectGraph.bottom() )
@@ -252,6 +246,7 @@ void WidgetHistogram::paintEvent(QPaintEvent* event)
     // draw bars
     double dStepWidth = ( (double) nCavWidth) / m_nNumberOfBins;
     x = nOrigin[0];
+    int nLastPos = x;
     for ( int i = 0; i < m_nNumberOfBins; i++ )
     {
       painter.setPen( QPen( QColor( m_nColorTable[i*4],  m_nColorTable[i*4+1], m_nColorTable[i*4+2] ) ) );
@@ -266,12 +261,50 @@ void WidgetHistogram::paintEvent(QPaintEvent* event)
       int x2 = (int)( nOrigin[0] + dStepWidth * (i+1) );
 
       painter.drawRect( x, y, x2-x, h );
+
+      if (m_bUsePercentile)
+      {
+        bool bDraw = false;
+        double dVal = 0;
+        int nPos = x;
+        if (i == 0 || i == m_nNumberOfBins-1)
+        {
+            bDraw = true;
+            if (i == m_nNumberOfBins-1)
+            {
+              dVal = 100;
+              nPos = m_rectGraph.right();
+            }
+        }
+        else
+        {
+            double val1 = 100.0*m_dOutputArea[i-1]/m_dOutputTotalArea,
+                val2 = 100.0*m_dOutputArea[i]/m_dOutputTotalArea;
+            if (((int)val1) != ((int)val2) && x-nLastPos > 40)
+            {
+              nLastPos = x;
+              bDraw = true;
+              dVal = (int)val2;
+              nPos = (x2-x)*(((int)val2)-val1)/(val2-val1) + x - (x2-x)/2.0;
+            }
+        }
+        if (bDraw)
+        {
+          painter.setPen(pal.color(QPalette::WindowText));
+          if (i > 0 && i < m_nNumberOfBins-1)
+            painter.drawLine( nPos, m_rectGraph.bottom(), nPos, m_rectGraph.bottom()+4 );
+          QString value_strg = QString::number( (int)dVal );
+          QRect tmp_rc = painter.boundingRect( QRect(), Qt::AlignCenter, value_strg );
+          tmp_rc.moveCenter( QPoint((x+x2)/2, m_rectGraph.bottom()+5+tmp_rc.height()/2));
+          painter.drawText( tmp_rc, value_strg );
+        }
+      }
       x = x2;
     }
 
     // draw axis
     painter.setBrush( QBrush(Qt::NoBrush) );
-    painter.setPen( QPen(Qt::black) );
+    painter.setPen( QPen(pal.color(QPalette::WindowText)) );
     painter.drawRect( m_rectGraph );
 
     // draw zero line
@@ -295,38 +328,41 @@ void WidgetHistogram::paintEvent(QPaintEvent* event)
     }
 
     // draw x metrics
-    painter.setPen(QPen(Qt::black));
-    nMetricInterval = 50;
-    dMetricStep = ( m_dOutputRange[1] - m_dOutputRange[0] ) / ( nCavWidth / nMetricInterval );
-    dMetricStep = MyUtils::RoundToGrid( dMetricStep );
-    dMetricStart = (int)( ( m_dOutputRange[0] / dMetricStep ) ) * dMetricStep;
-    if ( m_dOutputRange[0] < 0 )
+    if (!m_bUsePercentile)
     {
-      dMetricStart -= dMetricStep;
-    }
-    x = ( int )( nOrigin[0] + ( dMetricStart - m_dOutputRange[0] ) / ( m_dOutputRange[1] - m_dOutputRange[0] )
-        *nCavWidth );
-    while ( x < m_rectGraph.right() && dMetricStep > 0 )
-    {
-      if( x >= m_rectGraph.left() )
+      painter.setPen(QPen(pal.color(QPalette::WindowText)));
+      nMetricInterval = 50;
+      dMetricStep = ( m_dOutputRange[1] - m_dOutputRange[0] ) / ( nCavWidth / nMetricInterval );
+      dMetricStep = MyUtils::RoundToGrid( dMetricStep );
+      dMetricStart = (int)( ( m_dOutputRange[0] / dMetricStep ) ) * dMetricStep;
+      if ( m_dOutputRange[0] < 0 )
       {
-        painter.drawLine( x, m_rectGraph.bottom(), x, m_rectGraph.bottom()+4 );
+        dMetricStart -= dMetricStep;
       }
-      QString value_strg = QString::number( dMetricStart );
-      QRect tmp_rc = painter.boundingRect( QRect(), Qt::AlignCenter, value_strg );
-      if ( x - tmp_rc.width() / 2 > 0 )
+      x = ( int )( nOrigin[0] + ( dMetricStart - m_dOutputRange[0] ) / ( m_dOutputRange[1] - m_dOutputRange[0] )
+          *nCavWidth );
+      while ( x <= m_rectGraph.right() && dMetricStep > 0 )
       {
-        tmp_rc.moveCenter( QPoint(x, m_rectGraph.bottom()+5+tmp_rc.height()/2));
-        painter.drawText( tmp_rc, value_strg );
-      }
+        if( x >= m_rectGraph.left() )
+        {
+          painter.drawLine( x, m_rectGraph.bottom(), x, m_rectGraph.bottom()+4 );
+        }
+        QString value_strg = QString::number( dMetricStart );
+        QRect tmp_rc = painter.boundingRect( QRect(), Qt::AlignCenter, value_strg );
+        if ( x - tmp_rc.width() / 2 > 0 )
+        {
+          tmp_rc.moveCenter( QPoint(x, m_rectGraph.bottom()+5+tmp_rc.height()/2));
+          painter.drawText( tmp_rc, value_strg );
+        }
 
-      dMetricStart += dMetricStep;
-      if ( fabs( dMetricStart ) < 1e-10 )
-      {
-        dMetricStart = 0;
-      }
+        dMetricStart += dMetricStep;
+        if ( fabs( dMetricStart ) < 1e-10 )
+        {
+          dMetricStart = 0;
+        }
 
-      x = ( int )(m_rectGraph.left() + ( dMetricStart - m_dOutputRange[0] ) / ( m_dOutputRange[1] - m_dOutputRange[0] )*nCavWidth );
+        x = ( int )(m_rectGraph.left() + ( dMetricStart - m_dOutputRange[0] ) / ( m_dOutputRange[1] - m_dOutputRange[0] )*nCavWidth );
+      }
     }
   }
 }
@@ -550,7 +586,7 @@ void WidgetHistogram::mouseDoubleClickEvent(QMouseEvent * event)
     if (c.isValid())
     {
       m_markers[n].color = c;
-      this->repaint();
+      this->update();
       emit MarkerChanged();
     }
   }
@@ -643,51 +679,8 @@ void WidgetHistogram::FlipMarkers()
   emit MarkerChanged();
 }
 
-void WidgetHistogram::SetUsePercentile(bool bUsePercentile)
+void WidgetHistogram::SetMarkerEditable(bool bFlag)
 {
-  if (m_bUsePercentile == bUsePercentile)
-    return;
-
-  m_bUsePercentile = bUsePercentile;
-
-  emit MarkerChanged();
-}
-
-double WidgetHistogram::PositionToPercentile(double pos)
-{
-  double dArea = 0;
-  double dPos = m_dOutputRange[0];
-  int n = 0;
-  while (dPos < pos && n < m_nNumberOfBins)
-  {
-    dArea += m_nOutputData[n];
-    dPos += m_dBinWidth;
-    n++;
-  }
-  if (dPos > pos && n > 0)
-  {
-    dArea -= (dPos-pos)*m_nOutputData[n-1]/m_dBinWidth;
-  }
-
-  return dArea/m_dOutputTotalArea;
-}
-
-double WidgetHistogram::PercentileToPosition(double percentile)
-{
-  double dArea = 0;
-  double dPos = m_dOutputRange[0];
-  int n = 0;
-  while (dArea/m_dOutputTotalArea < percentile && n < m_nNumberOfBins)
-  {
-    dArea += m_nOutputData[n];
-    dPos += m_dBinWidth;
-    n++;
-  }
-
-  if (dArea > percentile*m_dOutputTotalArea && n > 0)
-  {
-    dPos -= (dArea-percentile*m_dOutputTotalArea)*m_dBinWidth/m_nOutputData[n-1];
-  }
-
-  return dPos;
+  m_bMarkerEditable = bFlag;
+  setToolTip(bFlag?"Double-click on the sliding markers to edit.\r\nShift+Click to delete":"");
 }

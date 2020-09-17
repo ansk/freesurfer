@@ -1,15 +1,4 @@
-/**
- * @file  mrivariables.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:25 $
- *    $Revision: 1.4 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -28,17 +17,8 @@
 // mrivariables.h
 //
 
-// these functions are only in "C"
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <mri.h>
-#include <mrisurf.h>
-
-#ifdef __cplusplus
-}
-#endif
+#include "mri.h"
+#include "mrisurf.h"
 
 #ifndef c_mrivariables_h
 #define c_mrivariables_h

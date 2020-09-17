@@ -1,12 +1,10 @@
 
 // STL includes
-#include <cmath>
+#include <math.h>
 #include <fstream>
 #include <iostream>
 #include <vector>
-
-// BOOST includes
-#include <boost/shared_ptr.hpp>
+#include <iterator>
 
 // PETSC include
 #include "petscksp.h"
@@ -19,7 +17,10 @@
 #include "surf_powell.h" // use Powell to compute the best lin. transform to
 // do rigid registration of the surfaces.
 
-#include "simple_timer.h"
+// the isfinite defined in utils conflicts with vnl
+#undef isfinite
+
+#include "timer.h"
 #include "transformUtils.h"
 #include "morph.h"
 
@@ -37,16 +38,16 @@
 #define MORPH_WITH_MESH 1
 #define DO_MORPH_REGRESSION 0
 
-extern "C"
-{
+
+
 #include "error.h"
 #include "mri.h"
 #include "mrinorm.h"
 #include "mrisurf.h"
-};
+;
 
 
-char *Progname;
+const char *Progname;
 static char help[] = "Diffuse surface deformation to volumes";
 
 #define USE_SURF_SUBSAMPLING 1
@@ -270,7 +271,7 @@ main(int argc,
      char* argv[])
 {
 
-  SimpleTimer timer;
+  Timer timer;
 
   PetscErrorCode    ierr;
 
@@ -465,6 +466,7 @@ main(int argc,
 
   std::cout << " srcPoints size = " << srcPoints.size() << std::endl;
 
+  printf("baseline %g",timer.minutes()); PrintMemUsage(stdout);
   try
   {
     Transform3SPointer ptransform(new gmp::IdentityTransform3d);
@@ -473,8 +475,8 @@ main(int argc,
     // allow to do some extra steps to finish converging
     for ( int step = noSteps; step > params.iEndStep; --step )
     {
-      std::cout << " ======================\n step = " << step
-                << "\n===============\n";
+      std::cout << " ======================\n step = " << step  << "\n===============\n";
+      printf("step %d %g ",step,timer.minutes());PrintMemUsage(stdout);
       TSolver<Constructor,3> solver;
 
       // linearly vary the element volume in the given range
@@ -484,17 +486,21 @@ main(int argc,
                          - (params.eltVolMax - params.eltVolMin) * (noSteps - step) / (noSteps-1)
                        );
       std::cout << "elt_vol= " << deltVol << std::endl;
-      DelaunayMesh creator(  srcPoints,
-                             cmin, cmax,
-                             deltVol , params.YoungModulus, //10,
-                             params.poissonRatio);
-      CMesh3d* pmesh = creator.get();
+
+      DelaunayMesh dmesh(srcPoints, cmin, cmax,deltVol , params.YoungModulus, params.poissonRatio);
+
+      printf("preget %g ",timer.minutes()); PrintMemUsage(stdout);
+      CMesh3d* pmesh = dmesh.get();
+      printf("postget %g",timer.minutes()); PrintMemUsage(stdout);
 
       // print basic information about the mesh
       std::cout << " mesh nodes = " << pmesh->get_no_nodes()
       << " mesh elts = " << pmesh->get_no_elts() << std::endl;
 
+      printf("prebuild %g ",timer.minutes()); PrintMemUsage(stdout);
       pmesh->build_index_src();
+      printf("postbuild %g ",timer.minutes()); PrintMemUsage(stdout);
+
 
       solver.set_mesh(pmesh);
 
@@ -504,11 +510,10 @@ main(int argc,
 
       // todo - the next timer shows time that could be saved (most of it)
       // namely at the first iteration the time is what it should always be
-      SimpleTimer t1;
+      Timer t1;
 
       update_sources( srcPoints, pmesh );
-      std::cout << " c0324 time elapsed updating the sources (seconds) = "
-      << t1.elapsed()  << std::endl;
+      std::cout << " c0324 time elapsed updating the sources (seconds) = " << t1.seconds() << std::endl;
 
 
       if ( !pmesh->orientation_pb(both) )
@@ -564,7 +569,7 @@ main(int argc,
       {
         std::cout << " compressing morph\n";
         FemTransform3SPointer pTmpTransform(new gmp::FemTransform3d);
-        pTmpTransform->set_mesh( boost::shared_ptr<TMesh3d>(pmesh) );
+        pTmpTransform->set_mesh( std::shared_ptr<TMesh3d>(pmesh) );
         Transform3SPointer pBufTransform(pTmpTransform->convert_to_delta());
 
         // set a name for the mesh - useful for tracking
@@ -601,7 +606,7 @@ main(int argc,
         os << "step_" << step;
         pBufTransform->m_strName = os.str();
 
-        pBufTransform->set_mesh( boost::shared_ptr<TMesh3d>(pmesh) );
+        pBufTransform->set_mesh( std::shared_ptr<TMesh3d>(pmesh) );
 
         update_bc_container(container,
                             pBufTransform);
@@ -616,7 +621,7 @@ main(int argc,
       // if dbg option, save the mesh as a volumetric transform
       if ( !params.strDebug.empty() )
       {
-        boost::shared_ptr<gmp::AffineTransform3d > paffine( new gmp::AffineTransform3d(inv_t) );
+        std::shared_ptr<gmp::AffineTransform3d > paffine( new gmp::AffineTransform3d(inv_t) );
 
         gmp::VolumeMorph morph;
         morph.set_volGeom_fixed( mri_fixed );
@@ -629,13 +634,13 @@ main(int argc,
         morph.save(os.str().c_str());
       }
 
-      compute_fem_error(ptransform,
-                        initContainer);
+      compute_fem_error(ptransform,initContainer);
 
     } // next step
+    printf("loopdone ");PrintMemUsage(stdout);
 
     {
-      boost::shared_ptr<gmp::AffineTransform3d> paffine(new gmp::AffineTransform3d(inv_t));
+      std::shared_ptr<gmp::AffineTransform3d> paffine(new gmp::AffineTransform3d(inv_t));
 
       std::cout << " axe\n";
       gmp::VolumeMorph morph;
@@ -675,7 +680,7 @@ main(int argc,
       morph.set_volGeom_moving( mri_moving );
       
       morph.m_transforms.push_back(ptransform);
-      boost::shared_ptr<gmp::AffineTransform3d>
+      std::shared_ptr<gmp::AffineTransform3d>
 	paffine( new gmp::AffineTransform3d(inv_t));
       morph.m_transforms.push_back( paffine );	      
       morph.save(os.str().c_str());
@@ -692,7 +697,7 @@ main(int argc,
       if( !params.strGcam.empty() ) {
 	// write the m3z version of the morph
 	try {
-	  boost::shared_ptr<gmp::AffineTransform3d> paffine(new gmp::AffineTransform3d(inv_t));
+	  std::shared_ptr<gmp::AffineTransform3d> paffine(new gmp::AffineTransform3d(inv_t));
 	  gmp::VolumeMorph morph;
 	  morph.set_volGeom_fixed( mri_fixed );
 	  morph.set_volGeom_moving(mri_moving);
@@ -723,7 +728,7 @@ main(int argc,
     if( !params.strOutputAffine.empty() ) {
       // write the affine morpehd version of the input 
       try {
-	boost::shared_ptr<gmp::AffineTransform3d> paffine(new gmp::AffineTransform3d(inv_t));
+	std::shared_ptr<gmp::AffineTransform3d> paffine(new gmp::AffineTransform3d(inv_t));
 	
 	gmp::VolumeMorph morph;
 	morph.m_template = mri_fixed;
@@ -760,8 +765,10 @@ main(int argc,
   ierr = PetscFinalize();
   CHKERRQ(ierr);
   
-  std::cout << " process performed in " << timer.elapsed()/60. << " minutes\n";
-  
+  std::cout << " process performed in " << timer.minutes() << " minutes\n";
+  printf("surf2vol done ");PrintMemUsage(stdout);  
+  printf("#VMPC# fsurf2vol VmPeak  %d\n",GetVmPeak());
+
   return 0;
 }
 
@@ -1118,8 +1125,8 @@ static MRI* compute_morph( Transform3SPointer ptransform,
 
   try
   {
-    boost::shared_ptr<gmp::Transform<3> > bpTransform(ptransform);
-    boost::shared_ptr<gmp::AffineTransform3d>
+    std::shared_ptr<gmp::Transform<3> > bpTransform(ptransform);
+    std::shared_ptr<gmp::AffineTransform3d>
     paffine( new gmp::AffineTransform3d(plin));
 
     gmp::VolumeMorph volMorph;
@@ -1236,7 +1243,6 @@ IoParams::IoParams()
   bUsePialForSurf = false;
 }
 
-#if 1
 int
 IoParams::parse(std::string& errMsg)
 {
@@ -1488,92 +1494,6 @@ IoParams::parse(std::string& errMsg)
   return 0;
 
 }
-#else
-std::string
-IoParams::parse(int ac, char* av[])
-{
-  std::string errMsg;
-
-  namespace po = boost::program_options;
-
-  po::options_description desc("Allowed options");
-
-  desc.add_options()
-  ("help", " produce help message")
-  ("fixed_mri", po::value<std::string>(&strFixedMri),
-   " fixed volume (MGH/Z format) - mandatory")
-  ("moving_mri", po::value<std::string>(&strMovingMri),
-   " moving volume (MGH/Z forma) - mandatory")
-  ("aseg", po::value<std::string>(&strAseg),
-   " Aseg volume (MGH)")
-  ("fixed_surf", po::value<StringVectorType>(&vstrFixedSurf),
-   " Surfaces of the FIXED volume (multiple arguments) - at least one required")
-  ("aparc", po::value<StringVectorType>(&vstrAparc),
-   " Aparc surfaces - number should match the fixed surfaces")
-  ("moving_surf", po::value<StringVectorType>(&vstrMovingSurf),
-   " Surfaces of the MOVING volume - # should match with fixed_surf - mandatory")
-  ("out", po::value<std::string>(&strOutput),
-   " Output volume (morphed)")
-  ("out_affine", po::value<std::string>(&strOutputAffine),
-   " Affine Registration (surface-based)" )
-  ("gcam", po::value<std::string>(&strGcam),
-   " GCAM export of the transform")
-  ("spacing", po::value<double>(&pixelsPerElt(0)),
-   " spacing for the parametric mesh X Y Z")
-  ("poisson", po::value<float>(&poissonRatio),
-   " poisson ratio")
-  ("young", po::value<float>(&YoungModulus),
-   " Young modulus")
-  ("cache_transform",po::value<std::string>(&strTransform),
-   " store linear transform for subsequent use ")
-  ("fem_steps", po::value<int>(&iSteps),
-   " number of steps for the incremental model")
-  ("aparc", po::value<StringVectorType>(&vstrAparc),
-   " aparc surfaces - corresponding to the fixed volume")
-  ;
-
-  po::variables_map vm;
-
-  try
-  {
-    po::store(po::parse_command_line(ac,av,desc), vm);
-  }
-  catch (std::exception& excp)
-  {
-    std::cerr << " boost exception = " << excp.what() << std::endl;
-  }
-
-  // minimal processing
-  if ( vm.count("help") )
-  {
-    std::cout << desc << std::endl;
-    exit(0);
-  }
-
-  // verify that required options are present
-  if ( strFixedMri.empty() )
-    errMsg += " No fixed volume present\n";
-  if ( strMovingMri.empty() )
-    errMsg += " No moving volume present\n";
-  if ( vstrFixedSurf.empty() )
-    errMsg += " No fixed surface present\n";
-  if ( vstrMovingSurf.empty() )
-    errMsg += " No moving surface present\n";
-
-  if ( vstrFixedSurf.size() && vstrMovingSurf.size() &&
-       (vstrFixedSurf.size()!=vstrMovingSurf.size()) )
-    errMsg += " Size mismatch between fixed and moving surfaces";
-
-  if ( vstrAparc.size() )
-  {
-    hasAparc = true;
-    if ( vstrAparc.size() != vstrFixedSurf.size() )
-      errMsg += " Size mismatch between fixed and moving surfaces";
-  }
-
-  return errMsg;
-}
-#endif
 
 
 void
@@ -1650,7 +1570,6 @@ private:
 {};
 
   std::vector<int> m_vecAparcIgnored;
-  int ctIndex;
   MRIS* m_psurf;
 
   void
@@ -1856,7 +1775,7 @@ static void surf_forward_morph(const CMesh3d* pmesh, std::string strName,
 
   // create the transforms
   gmp::FemTransform3d femTransform;
-  femTransform.set_mesh( boost::shared_ptr<TMesh3d>(&meshInverse) );
+  femTransform.set_mesh( std::shared_ptr<TMesh3d>(&meshInverse) );
 
   femTransform.m_signalTopology = true;
 

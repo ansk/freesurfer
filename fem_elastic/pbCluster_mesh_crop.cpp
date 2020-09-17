@@ -122,7 +122,7 @@ TopologySolver::BuildClusters()
         cit != vecOrigProblems.end(); ++cit)
   {
     m_clusterContainer.push_back(
-      boost::shared_ptr<IndexVectorType>(new IndexVectorType ) );
+      std::shared_ptr<IndexVectorType>(new IndexVectorType ) );
     bfs.Visit( *cit,
                m_radius,
                std::back_inserter<IndexVectorType>(
@@ -138,7 +138,7 @@ class IntersectsWith : public std::unary_function<VectorType, bool>
 {
   TopologySolver::IndexVectorPointer& m_container;
 public:
-  IntersectsWith(TopologySolver::IndexVectorPointer c) : m_container(c)
+  IntersectsWith(TopologySolver::IndexVectorPointer& c) : m_container(c)
   {}
 
   bool operator()(const TopologySolver::IndexVectorPointer other) const

@@ -1,14 +1,9 @@
 /**
- * @file  RenderView3D.cpp
  * @brief 3D view
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/08 21:01:00 $
- *    $Revision: 1.97 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -65,11 +60,17 @@
 #include <QFileInfo>
 #include "MyUtils.h"
 #include "FSSurface.h"
+#include "Interactor3DPathEdit.h"
+#include <QElapsedTimer>
+#include "vtkInteractorStyleMyTrackballCamera.h"
+#include <vtkCubeAxesActor.h>
 
 #define SLICE_PICKER_PIXEL_TOLERANCE  15
 
 RenderView3D::RenderView3D( QWidget* parent ) : RenderView( parent )
 {
+  m_interactorStyle = vtkSmartPointer<vtkInteractorStyleMyTrackballCamera>::New();
+  this->GetRenderWindow()->GetInteractor()->SetInteractorStyle(m_interactorStyle);
   this->GetRenderWindow()->GetInteractor()->SetDesiredUpdateRate(30);
   this->GetRenderWindow()->GetInteractor()->SetStillUpdateRate(0.01);
 
@@ -80,7 +81,9 @@ RenderView3D::RenderView3D( QWidget* parent ) : RenderView( parent )
   GetRenderer()->SetOcclusionRatio(0);
 
   m_bShowSliceFrames = true;
-  m_bShowAxes = true;
+  m_bShowAxes = false;
+  m_bShowCursor = true;
+  m_bFocalPointAtCursor = false;
   for ( int i = 0; i < 3; i++ )
   {
     m_actorSliceFrames[i] = vtkSmartPointer<vtkActor>::New();
@@ -105,6 +108,7 @@ RenderView3D::RenderView3D( QWidget* parent ) : RenderView( parent )
   m_interactorMeasure = new Interactor3DMeasure( this );
   m_interactorVolumeCrop = new Interactor3DVolumeCrop(this);
   m_interactorROIEdit = new Interactor3DROIEdit(this);
+  m_interactorPathEdit = new Interactor3DPathEdit(this);
   connect(m_cursor3D, SIGNAL(Updated()), this, SLOT(RequestRedraw()));
 
   m_cursorInflatedSurf = new Cursor3D(this);
@@ -141,6 +145,10 @@ void RenderView3D::SetInteractionMode( int nMode )
   case IM_ROIEdit:
     m_interactor = m_interactorROIEdit;
     break;
+  case IM_SurfacePath:
+  case IM_SurfaceCut:
+    m_interactor = m_interactorPathEdit;
+    break;
   default:
     m_interactor = m_interactorNavigate;
     break;
@@ -151,11 +159,13 @@ void RenderView3D::OnSlicePositionChanged(bool bCenter)
 {
   Q_UNUSED(bCenter);
   LayerCollection* lc = MainWindow::GetMainWindow()->GetLayerCollection( "MRI" );
-//  LayerSurface* surf = (LayerSurface*)MainWindow::GetMainWindow()->GetActiveLayer("Surface");
-//  m_cursorInflatedSurf->Show(m_cursor3D->IsShown() && surf && surf->IsInflated());
+  //  LayerSurface* surf = (LayerSurface*)MainWindow::GetMainWindow()->GetActiveLayer("Surface");
+  //  m_cursorInflatedSurf->Show(m_cursor3D->IsShown() && surf && surf->IsInflated());
   m_cursor3D->SetPosition( lc->GetSlicePosition() );
   UpdateSliceFrames();
   UpdateSurfaceCorrelationData();
+  if (m_bFocalPointAtCursor)
+    m_interactorStyle->SetRotateByPoint(true, lc->GetSlicePosition());
 
   RenderView::OnSlicePositionChanged();
 }
@@ -164,7 +174,8 @@ void RenderView3D::OnIdle()
 {
   if ( m_bToUpdateRASPosition )
   {
-    DoUpdateRASPosition( m_nPickCoord[0], m_nPickCoord[1] );
+    if (QApplication::mouseButtons() == Qt::NoButton)
+      DoUpdateRASPosition( m_nPickCoord[0], m_nPickCoord[1], false, m_bSlicePickOnly);
     m_bToUpdateRASPosition = false;
   }
   if ( m_bToUpdateCursorPosition )
@@ -212,7 +223,11 @@ void RenderView3D::UpdateSliceFrames()
   vtkSmartPointer<vtkPolyData> polydata = vtkSmartPointer<vtkPolyData>::New();
   polydata->SetPoints( points );
   polydata->SetLines( lines );
+#if VTK_MAJOR_VERSION > 5
+  vtkPolyDataMapper::SafeDownCast(m_actorSliceFrames[0]->GetMapper())->SetInputData( polydata );
+#else
   vtkPolyDataMapper::SafeDownCast(m_actorSliceFrames[0]->GetMapper())->SetInput( polydata );
+#endif
 
   points = vtkSmartPointer<vtkPoints>::New();
   points->InsertPoint( 0, bounds[0], slicepos[1], bounds[4] );
@@ -222,7 +237,11 @@ void RenderView3D::UpdateSliceFrames()
   polydata = vtkSmartPointer<vtkPolyData>::New();
   polydata->SetPoints( points );
   polydata->SetLines( lines );
+#if VTK_MAJOR_VERSION > 5
+  vtkPolyDataMapper::SafeDownCast(m_actorSliceFrames[1]->GetMapper())->SetInputData( polydata );
+#else
   vtkPolyDataMapper::SafeDownCast(m_actorSliceFrames[1]->GetMapper())->SetInput( polydata );
+#endif
 
   points = vtkSmartPointer<vtkPoints>::New();
   points->InsertPoint( 0, bounds[0], bounds[2], slicepos[2] );
@@ -232,7 +251,11 @@ void RenderView3D::UpdateSliceFrames()
   polydata = vtkSmartPointer<vtkPolyData>::New();
   polydata->SetPoints( points );
   polydata->SetLines( lines );
+#if VTK_MAJOR_VERSION > 5
+  vtkPolyDataMapper::SafeDownCast(m_actorSliceFrames[2]->GetMapper())->SetInputData( polydata );
+#else
   vtkPolyDataMapper::SafeDownCast(m_actorSliceFrames[2]->GetMapper())->SetInput( polydata );
+#endif
 
   for ( int i = 0; i < 3; i++ )
   {
@@ -253,77 +276,6 @@ void RenderView3D::UpdateSliceFrames()
 
 void RenderView3D::UpdateViewByWorldCoordinate()
 {
-  ResetViewLeft();
-  m_renderer->GetActiveCamera()->SetViewAngle(30);
-  m_renderer->ResetCameraClippingRange();
-}
-
-void RenderView3D::ResetViewAnterior()
-{
-  vtkCamera* cam = m_renderer->GetActiveCamera();
-  double wcenter[3];
-  for ( int i = 0; i < 3; i++ )
-  {
-    wcenter[i] = m_dWorldOrigin[i] + m_dWorldSize[i] / 2;
-  }
-  cam->SetFocalPoint( wcenter );
-  cam->SetPosition( wcenter[0],
-      wcenter[1] + qMax(m_dWorldSize[0], m_dWorldSize[2]) * 2.5,
-      wcenter[2]);
-  cam->SetViewUp( 0, 0, 1 );
-  m_renderer->ResetCameraClippingRange();
-}
-
-void RenderView3D::ResetViewPosterior()
-{
-  vtkCamera* cam = m_renderer->GetActiveCamera();
-  double wcenter[3];
-  for ( int i = 0; i < 3; i++ )
-  {
-    wcenter[i] = m_dWorldOrigin[i] + m_dWorldSize[i] / 2;
-  }
-  cam->SetFocalPoint( wcenter );
-  cam->SetPosition( wcenter[0],
-      wcenter[1] - qMax(m_dWorldSize[0], m_dWorldSize[2]) * 2.5,
-      wcenter[2]);
-  cam->SetViewUp( 0, 0, 1 );
-  m_renderer->ResetCameraClippingRange();
-}
-
-void RenderView3D::ResetViewInferior()
-{
-  vtkCamera* cam = m_renderer->GetActiveCamera();
-  double wcenter[3];
-  for ( int i = 0; i < 3; i++ )
-  {
-    wcenter[i] = m_dWorldOrigin[i] + m_dWorldSize[i] / 2;
-  }
-  cam->SetFocalPoint( wcenter );
-  cam->SetPosition( wcenter[0],
-      wcenter[1],
-      wcenter[2] - qMax(m_dWorldSize[0], m_dWorldSize[1]) * 2.5);
-  cam->SetViewUp( 0, 1, 0 );
-  m_renderer->ResetCameraClippingRange();
-}
-
-void RenderView3D::ResetViewSuperior()
-{
-  vtkCamera* cam = m_renderer->GetActiveCamera();
-  double wcenter[3];
-  for ( int i = 0; i < 3; i++ )
-  {
-    wcenter[i] = m_dWorldOrigin[i] + m_dWorldSize[i] / 2;
-  }
-  cam->SetFocalPoint( wcenter );
-  cam->SetPosition( wcenter[0],
-      wcenter[1],
-      wcenter[2] + qMax(m_dWorldSize[0], m_dWorldSize[1]) * 2.5);
-  cam->SetViewUp( 0, 1, 0 );
-  m_renderer->ResetCameraClippingRange();
-}
-
-void RenderView3D::ResetViewLeft()
-{
   vtkCamera* cam = m_renderer->GetActiveCamera();
   double wcenter[3];
   for ( int i = 0; i < 3; i++ )
@@ -335,25 +287,76 @@ void RenderView3D::ResetViewLeft()
       wcenter[1],
       wcenter[2]);
   cam->SetViewUp( 0, 0, 1 );
+  m_renderer->GetActiveCamera()->SetViewAngle(30);
   m_renderer->ResetCameraClippingRange();
+}
+
+void RenderView3D::ResetViewAnterior()
+{
+  Reset();
+  Azimuth(-90);
+}
+
+void RenderView3D::ResetViewPosterior()
+{
+  Reset();
+  Azimuth(90);
+}
+
+void RenderView3D::ResetViewInferior()
+{
+  ResetViewAnterior();
+  Elevation(-90);
+}
+
+void RenderView3D::ResetViewSuperior()
+{
+  ResetViewPosterior();
+  Elevation(90);
+}
+
+void RenderView3D::ResetViewLeft()
+{
+  Reset();
 }
 
 void RenderView3D::ResetViewRight()
 {
-  vtkCamera* cam = m_renderer->GetActiveCamera();
-  double wcenter[3];
-  for ( int i = 0; i < 3; i++ )
-  {
-    wcenter[i] = m_dWorldOrigin[i] + m_dWorldSize[i] / 2;
-  }
-  cam->SetFocalPoint( wcenter );
-  cam->SetPosition( wcenter[0] + qMax(m_dWorldSize[1], m_dWorldSize[2]) *2.5,
-      wcenter[1],
-      wcenter[2]);
-  cam->SetViewUp( 0, 0, 1 );
-  m_renderer->ResetCameraClippingRange();
+  Reset();
+  Azimuth(180);
 }
 
+void RenderView3D::ResetViewLateral()
+{
+  QList<Layer*> layers = MainWindow::GetMainWindow()->GetLayers("Surface");
+  foreach (Layer* layer, layers)
+  {
+    if (layer->IsVisible())
+    {
+      if (((LayerSurface*)layer)->GetHemisphere() == 0)
+        ResetViewLeft();
+      else
+        ResetViewRight();
+      break;
+    }
+  }
+}
+
+void RenderView3D::ResetViewMedial()
+{
+  QList<Layer*> layers = MainWindow::GetMainWindow()->GetLayers("Surface");
+  foreach (Layer* layer, layers)
+  {
+    if (layer->IsVisible())
+    {
+      if (((LayerSurface*)layer)->GetHemisphere() == 0)
+        ResetViewRight();
+      else
+        ResetViewLeft();
+      break;
+    }
+  }
+}
 
 void RenderView3D::RefreshAllActors(bool bForScreenShot)
 {
@@ -397,8 +400,8 @@ void RenderView3D::RefreshAllActors(bool bForScreenShot)
     }
   }
 
-  //  if (m_bShowAxes)
-  //    m_renderer->AddViewProp(m_actorAxesActor);
+  if (m_bShowAxes)
+    m_renderer->AddViewProp(m_actorAxesActor);
 
   //    mainwnd->GetConnectivityData()->AppendProps( m_renderer );
   mainwnd->GetVolumeCropper()->Append3DProps( m_renderer );
@@ -408,7 +411,7 @@ void RenderView3D::RefreshAllActors(bool bForScreenShot)
   RenderView::RefreshAllActors(bForScreenShot);
 }
 
-void RenderView3D::DoUpdateRASPosition( int posX, int posY, bool bCursor )
+void RenderView3D::DoUpdateRASPosition( int posX, int posY, bool bCursor, bool bSlicePickOnly )
 {
   LayerCollection* lc_mri = MainWindow::GetMainWindow()->GetLayerCollection( "MRI" );
   LayerCollection* lc_roi = MainWindow::GetMainWindow()->GetLayerCollection( "ROI" );
@@ -428,18 +431,21 @@ void RenderView3D::DoUpdateRASPosition( int posX, int posY, bool bCursor )
   {
     picker->InitializePickList();
 
-    vtkPropCollection* props = GetRenderer()->GetViewProps();
-    if ( props )
+    if (!bSlicePickOnly)
     {
-      props->InitTraversal();
-      vtkProp* prop = props->GetNextProp();
-      while ( prop )
+      vtkPropCollection* props = GetRenderer()->GetViewProps();
+      if ( props )
       {
-        if ( vtkActor::SafeDownCast( prop ) )
+        props->InitTraversal();
+        vtkProp* prop = props->GetNextProp();
+        while ( prop )
         {
-          picker->AddPickList( prop );
+          if ( vtkActor::SafeDownCast( prop ) )
+          {
+            picker->AddPickList( prop );
+          }
+          prop = props->GetNextProp();
         }
-        prop = props->GetNextProp();
       }
     }
     // add bounding box for slice frame picking
@@ -449,7 +455,15 @@ void RenderView3D::DoUpdateRASPosition( int posX, int posY, bool bCursor )
     }
 
     double pos[3];
-    picker->Pick( posX, rect().height() - posY, 0, GetRenderer() );
+    posY = this->rect().height() - posY;
+  #if VTK_MAJOR_VERSION > 7
+    if (devicePixelRatio() > 1)
+    {
+        posX *= devicePixelRatio();
+        posY *= devicePixelRatio();
+    }
+  #endif
+    picker->Pick( posX, posY, 0, GetRenderer() );
     picker->GetPickPosition( pos );
 
     vtkProp* prop = picker->GetViewProp();
@@ -514,19 +528,19 @@ void RenderView3D::DoUpdateRASPosition( int posX, int posY, bool bCursor )
       }
     }
 
-    if ( !bFramePicked )
-    {
-      //  if ( !lc_surface->IsEmpty() && !lc_surface->HasProp( prop ) )
-      {
-        for ( int i = 0; i < 3; i++ )
-        {
-          picker->DeletePickList( m_actorSliceBoundingBox[i] );
-        }
+    if ( !bFramePicked)
+      HighlightSliceFrame( -1 );
 
-        picker->Pick( posX, rect().height() - posY, 0, GetRenderer() );
-        picker->GetPickPosition( pos );
-        prop = picker->GetViewProp();
+    if ( !bFramePicked && !bSlicePickOnly )
+    {
+      for ( int i = 0; i < 3; i++ )
+      {
+        picker->DeletePickList( m_actorSliceBoundingBox[i] );
       }
+
+      picker->Pick( posX, posY, 0, GetRenderer() );
+      picker->GetPickPosition( pos );
+      prop = picker->GetViewProp();
 
       if ( lc_mri->HasProp( prop ) || lc_roi->HasProp( prop ) )
       {
@@ -582,8 +596,6 @@ void RenderView3D::DoUpdateRASPosition( int posX, int posY, bool bCursor )
         else
           lc_mri->SetCurrentRASPosition( pos );
       }
-
-      HighlightSliceFrame( -1 );
     }
   }
 }
@@ -595,7 +607,7 @@ bool RenderView3D::MapInflatedCoords(LayerSurface *surf, double *pos_in, double 
     surf->SetCurrentVertex(nVertex);
   else
     surf->SetMouseVertex(nVertex);
-  if (QFileInfo(surf->GetFileName()).fileName().contains("inflated"))
+  if (QFileInfo(surf->GetFileName()).fileName().contains("inflated") || surf->GetActiveSurface() == FSSurface::SurfaceInflated)
   {
     if (m_cursor3D->IsShown())
       m_cursorInflatedSurf->Show();
@@ -696,6 +708,7 @@ int RenderView3D::PickCurrentSurfaceVertex(int posX, int posY, LayerSurface* cur
     return -1;
   }
 
+  posY = this->rect().height() - posY;
   int nvo = -1;
   vtkCellPicker* picker = vtkCellPicker::SafeDownCast( this->GetRenderWindow()->GetInteractor()->GetPicker() );
   if ( picker )
@@ -718,7 +731,14 @@ int RenderView3D::PickCurrentSurfaceVertex(int posX, int posY, LayerSurface* cur
     }
 
     double pos[3];
-    picker->Pick( posX, rect().height() - posY, 0, GetRenderer() );
+  #if VTK_MAJOR_VERSION > 7
+    if (devicePixelRatio() > 1)
+    {
+        posX *= devicePixelRatio();
+        posY *= devicePixelRatio();
+    }
+  #endif
+    picker->Pick( posX, posY, 0, GetRenderer() );
     picker->GetPickPosition( pos );
 
     vtkProp* prop = picker->GetViewProp();
@@ -757,14 +777,18 @@ void RenderView3D::HighlightSliceFrame( int n )
   }
 
   double colors[][3] = { { 1, 0.1, 0.1}, { 0.1, 1, 0.1 }, { 0.1, 0.1, 1 } };
+  double ratio = 1;
+#if VTK_MAJOR_VERSION > 7
+  ratio = devicePixelRatio();
+#endif
   for ( int i = 0; i < 3; i++ )
   {
-    m_actorSliceFrames[i]->GetProperty()->SetLineWidth( 2 );
+    m_actorSliceFrames[i]->GetProperty()->SetLineWidth( 2*ratio );
     m_actorSliceFrames[i]->GetProperty()->SetColor( colors[i] );
   }
   if ( n >= 0 && n <= 2 )
   {
-    m_actorSliceFrames[n]->GetProperty()->SetLineWidth( 4 );
+    m_actorSliceFrames[n]->GetProperty()->SetLineWidth( 4*ratio );
     m_actorSliceFrames[n]->GetProperty()->SetColor( 1, 1, 1 );
   }
   m_nSliceHighlighted = n;
@@ -815,9 +839,10 @@ void RenderView3D::UpdateCursorRASPosition( int posX, int posY )
   m_nCursorCoord[1] = posY;
 }
 
-void RenderView3D::UpdateMouseRASPosition( int posX, int posY )
+void RenderView3D::UpdateMouseRASPosition( int posX, int posY, bool bSlicePickOnly )
 {
   m_bToUpdateRASPosition = true;
+  m_bSlicePickOnly = bSlicePickOnly;
   m_nPickCoord[0] = posX;
   m_nPickCoord[1] = posY;
 }
@@ -977,7 +1002,15 @@ vtkProp* RenderView3D::PickProp( int posX, int posY, double* pos_out )
       prop = props->GetNextProp();
     }
   }
-  picker->Pick( posX, rect().height() - posY, 0, GetRenderer() );
+  posY = this->rect().height() - posY;
+#if VTK_MAJOR_VERSION > 7
+  if (devicePixelRatio() > 1)
+  {
+      posX *= devicePixelRatio();
+      posY *= devicePixelRatio();
+  }
+#endif
+  picker->Pick( posX, posY, 0, GetRenderer() );
   if ( pos_out )
   {
     picker->GetPickPosition( pos_out );
@@ -1108,7 +1141,7 @@ SurfaceROI* RenderView3D::InitializeSurfaceROI( int posX, int posY )
 
   if ( !surf )
   {
-    return false;
+    return NULL;
   }
 
   lc_surf->SetActiveLayer( surf );
@@ -1141,23 +1174,20 @@ bool RenderView3D::UpdateBounds()
 {
   MainWindow* mainwnd = MainWindow::GetMainWindow();
   double bounds[6] = { 1000000, -1000000, 1000000, -1000000, 1000000, -1000000 };
-  for ( int n = 0; n < 1; n++ )
+  LayerCollection* lc = mainwnd->GetLayerCollection("MRI");
+  for ( int i = 0; i < lc->GetNumberOfLayers(); i++ )
   {
-    LayerCollection* lc = mainwnd->GetLayerCollection( (n == 0 ? "MRI" : "Surface") );
-    for ( int i = 0; i < lc->GetNumberOfLayers(); i++ )
+    double bd[6];
+    lc->GetLayer( i )->GetDisplayBounds( bd );
+    for ( int j = 0; j < 3; j++ )
     {
-      double bd[6];
-      lc->GetLayer( i )->GetDisplayBounds( bd );
-      for ( int j = 0; j < 3; j++ )
+      if ( bounds[j*2] > bd[j*2] )
       {
-        if ( bounds[j*2] > bd[j*2] )
-        {
-          bounds[j*2] = bd[j*2];
-        }
-        if ( bounds[j*2+1] < bd[j*2+1] )
-        {
-          bounds[j*2+1] = bd[j*2+1];
-        }
+        bounds[j*2] = bd[j*2];
+      }
+      if ( bounds[j*2+1] < bd[j*2+1] )
+      {
+        bounds[j*2+1] = bd[j*2+1];
       }
     }
   }
@@ -1180,12 +1210,28 @@ bool RenderView3D::UpdateBounds()
   if (dMaxLength > 0)
     m_cursor3D->RebuildActor(dMaxLength/256);
 
-  // update axis
-  m_actorAxesActor->SetBounds(m_dBounds);
-
   return true;
 }
 
+void RenderView3D::UpdateAxesActor()
+{
+  LayerSurface* surf = (LayerSurface*)MainWindow::GetMainWindow()->GetActiveLayer("Surface");
+  if (surf && surf->IsVisible())
+  {
+    vtkActor* prop = surf->GetMainActor();
+    double bounds[6];
+    prop->GetBounds(bounds);
+    m_actorAxesActor->SetXAxisRange(0, bounds[1]-bounds[0]);
+    m_actorAxesActor->SetYAxisRange(0, bounds[3]-bounds[2]);
+    m_actorAxesActor->SetZAxisRange(0, bounds[5]-bounds[4]);
+    m_actorAxesActor->SetBounds(bounds);
+    m_actorAxesActor->VisibilityOn();
+  }
+  else
+  {
+    m_actorAxesActor->VisibilityOff();
+  }
+}
 
 bool RenderView3D::PickCroppingBound( int nX, int nY )
 {
@@ -1270,6 +1316,35 @@ void RenderView3D::SnapToNearestAxis()
   RequestRedraw();
 }
 
+void RenderView3D::Azimuth(double degrees)
+{
+  vtkCamera* cam = m_renderer->GetActiveCamera();
+  cam->OrthogonalizeViewUp();
+  cam->Azimuth(degrees);
+  m_renderer->ResetCameraClippingRange();
+  RequestRedraw();
+}
+
+void RenderView3D::Elevation(double degrees)
+{
+  vtkCamera* cam = m_renderer->GetActiveCamera();
+  cam->OrthogonalizeViewUp();
+  cam->Elevation(degrees);
+  cam->OrthogonalizeViewUp();
+  m_renderer->ResetCameraClippingRange();
+  RequestRedraw();
+}
+
+void RenderView3D::Rotate90()
+{
+  Azimuth(90);
+}
+
+void RenderView3D::Rotate180()
+{
+  Azimuth(180);
+}
+
 void RenderView3D::UpdateScalarBar()
 {
   //    LayerSurface* surf = (LayerSurface*) MainWindow::GetMainWindow()->GetActiveLayer( "Surface" );
@@ -1293,24 +1368,37 @@ void RenderView3D::TriggerContextMenu( QMouseEvent* event )
   layers << mainwnd->GetLayers("PointSet");
 
   QMenu* submenu = menu->addMenu("Reset View");
-  QAction* act = new QAction("Right", this);
-  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewRight()));
-  submenu->addAction(act);
-  act = new QAction("Left", this);
-  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewLeft()));
-  submenu->addAction(act);
-  act = new QAction("Anterior", this);
-  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewAnterior()));
-  submenu->addAction(act);
-  act = new QAction("Posterior", this);
-  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewPosterior()));
-  submenu->addAction(act);
-  act = new QAction("Superior", this);
-  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewSuperior()));
-  submenu->addAction(act);
-  act = new QAction("Inferior", this);
-  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewInferior()));
-  submenu->addAction(act);
+  //  QAction* act = new QAction("Right", this);
+  //  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewRight()));
+  //  submenu->addAction(act);
+  //  act = new QAction("Left", this);
+  //  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewLeft()));
+  //  submenu->addAction(act);
+  //  act = new QAction("Anterior", this);
+  //  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewAnterior()));
+  //  submenu->addAction(act);
+  //  act = new QAction("Posterior", this);
+  //  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewPosterior()));
+  //  submenu->addAction(act);
+  //  act = new QAction("Superior", this);
+  //  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewSuperior()));
+  //  submenu->addAction(act);
+  //  act = new QAction("Inferior", this);
+  //  connect(act, SIGNAL(triggered()), this, SLOT(ResetViewInferior()));
+  //  submenu->addAction(act);
+  submenu->addAction(mainwnd->ui->actionResetViewLeft);
+  submenu->addAction(mainwnd->ui->actionResetViewRight);
+  submenu->addAction(mainwnd->ui->actionResetViewAnterior);
+  submenu->addAction(mainwnd->ui->actionResetViewPosterior);
+  submenu->addAction(mainwnd->ui->actionResetViewSuperior);
+  submenu->addAction(mainwnd->ui->actionResetViewInferior);
+  menu->addSeparator();
+
+  QAction* act = new QAction("Rotate Around Cursor", this);
+  act->setCheckable(true);
+  act->setChecked(GetFocalPointAtCursor());
+  connect(act, SIGNAL(toggled(bool)), SLOT(SetFocalPointAtCursor(bool)));
+  menu->addAction(act);
   menu->addSeparator();
 
   act = new QAction("Show All Slices", this);
@@ -1340,6 +1428,7 @@ void RenderView3D::TriggerContextMenu( QMouseEvent* event )
   {
     menu->addAction(MainWindow::GetMainWindow()->ui->actionShowSliceFrames);
   }
+
   if (!layers.isEmpty())
   {
     QMenu* menu2 = menu->addMenu("Show Color Bar");
@@ -1355,6 +1444,12 @@ void RenderView3D::TriggerContextMenu( QMouseEvent* event )
       ag->addAction(act);
     }
     connect(ag, SIGNAL(triggered(QAction*)), this, SLOT(SetScalarBarLayer(QAction*)));
+
+    QAction* act = new QAction("Show 3D Scale", this);
+    act->setCheckable(true);
+    act->setChecked(GetShowAxes());
+    connect(act, SIGNAL(toggled(bool)), SLOT(SetShowAxes(bool)));
+    menu->addAction(act);
   }
   LayerMRI* mri = qobject_cast<LayerMRI*>(mainwnd->GetActiveLayer("MRI"));
   if (mri && mri->GetProperty()->GetShowAsContour())
@@ -1372,6 +1467,15 @@ void RenderView3D::TriggerContextMenu( QMouseEvent* event )
     QAction* act = new QAction("Go To Contralateral Point", this);
     menu->addAction(act);
     connect(act, SIGNAL(triggered()), mainwnd, SLOT(GoToContralateralPoint()));
+  }
+
+  if (!mainwnd->IsEmpty() && mainwnd->GetMainView() == this)
+  {
+      menu->addSeparator();
+      QAction* action = new QAction("Copy", this);
+      connect(action, SIGNAL(triggered(bool)), mainwnd, SLOT(OnCopyView()));
+      menu->addAction(action);
+      menu->addAction(mainwnd->ui->actionSaveScreenshot);
   }
   menu->exec(event->globalPos());
 }
@@ -1438,6 +1542,11 @@ void RenderView3D::SetCamera(const QVariantMap &info)
     //    cam->SetClippingRange(clip_range);
     m_renderer->ResetCameraClippingRange();
     Render();
+    if (info.contains("ViewSize"))
+    {
+      map = info["ViewSize"].toMap();
+      MainWindow::GetMainWindow()->SetViewSize(map["width"].toInt(), map["height"].toInt());
+    }
   }
 }
 
@@ -1472,6 +1581,10 @@ QVariantMap RenderView3D::GetCamera()
     //    map["near"] = clip_range[0];
     //    map["far"] = clip_range[1];
     //    info["ClippingRange"] = map;
+    map.clear();
+    map["width"] = width();
+    map["height"] = height();
+    info["ViewSize"] = map;
   }
   return info;
 }
@@ -1502,6 +1615,7 @@ void RenderView3D::ShowCursor(bool bshow)
 {
   m_cursor3D->Show(bshow);
   m_cursorInflatedSurf->Show(bshow);
+  m_bShowCursor = bshow;
 }
 
 void RenderView3D::OnLayerVisibilityChanged()
@@ -1519,12 +1633,24 @@ void RenderView3D::OnLayerVisibilityChanged()
     foreach (Layer* layer, list)
     {
       LayerSurface* surf = (LayerSurface*)layer;
-      if (!surf->IsInflated() && surf->IsVisible())
+      if (!surf->IsInflated() && surf->IsVisible() && surf->GetVisibleIn3D() && m_bShowCursor)
         m_cursor3D->Show();
-      else if (surf->IsInflated() && surf->IsVisible())
+      else if (surf->IsInflated() && surf->IsVisible() && surf->GetVisibleIn3D() && m_bShowCursor)
         m_cursorInflatedSurf->Show();
     }
   }
   if (bShowCursor != m_cursor3D->IsShown() || bShowInflated != m_cursorInflatedSurf->IsShown())
     RequestRedraw();
+}
+
+void RenderView3D::SetFocalPointAtCursor(bool b)
+{
+  m_bFocalPointAtCursor = b;
+  m_interactorStyle->SetRotateByPoint(b, b?m_cursor3D->GetPosition():NULL);
+}
+
+void RenderView3D::SetShowAxes(bool b)
+{
+  m_bShowAxes = b;
+  RefreshAllActors();
 }

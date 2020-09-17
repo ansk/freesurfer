@@ -1,15 +1,10 @@
 /**
- * @file  MRISOBBTree.h
  * @brief Constructs an Oriented Bounding Box datastructure from a MRIS surface
  *
  * Goal is to do a fast Point Inclusion Test
  */
 /*
  * Original Author: Krish Subramaniam
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:09 $
- *    $Revision: 1.2 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -27,34 +22,25 @@
 #ifndef MRISOBBTree_h
 #define MRISOBBTree_h
 
-// The following is usable from C
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include "mri.h"
 #include "mrisurf.h"
 #include "diag.h"
 #include "error.h"
-
-#ifdef __cplusplus
-}
-#endif
-
-
-// C++ portion starts here
-#ifdef __cplusplus
 
 #include <list>
 #include <iostream>
 #include <vector>
 #include <stack>
 #include <limits>
+
+#define export 	// These headers use a deprecated / obsolete "export template" feature 
+		// and gcc 5 and higher emit error messages
+		// https://stackoverflow.com/questions/5416872/using-export-keyword-with-templates
 #include <vnl/vnl_matrix.h>
 #include <vnl/vnl_vector.h>
 #include <vnl/algo/vnl_symmetric_eigensystem.h>
 #include "utilsmath.h"
+#undef export
 
 typedef Math::Point<double> Pointf;
 
@@ -382,7 +368,7 @@ class MRISOBBTree
       vnl_matrix<double> a(3,3);
       VERTEX *v, *vertex;
       Pointf vp;
-      FACE *face;
+      FACE *face = NULL;
 
       tot_mass = 0.0;
       this->OBBcount++;
@@ -443,6 +429,12 @@ class MRISOBBTree
           }
         } //end insert points
       } // for each face
+
+      // check area of face
+      if (iszero(tot_mass)) {
+        printf("error: triangle face defined by vertices %d, %d, and %d has no area!\n", face->v[0], face->v[2], face->v[2]);
+        exit(1);
+      }
       
       //normalize data
       for (i=0; i<3; i++)
@@ -495,7 +487,7 @@ class MRISOBBTree
         pOBB->axes[1][i] = (tMax[1] - tMin[1]) * mid[i];
         pOBB->axes[2][i] = (tMax[2] - tMin[2]) * min[i];
       }
-     
+    
     } // end ComputeOBB method 
 
     //! Check whether the given point is inside or outside
@@ -878,5 +870,3 @@ class MRISOBBTree
 };
 
 #endif
-#endif
-

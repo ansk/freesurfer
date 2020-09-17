@@ -190,6 +190,8 @@ void PanelAllLayers::AddLayers(QList<Layer *> layers, const QString &cat_name, L
       {
         selectedItems << item;
       }
+      if (layers[i]->GetAboutToDelete())
+        item->setHidden(true);
     }
     topItem->setExpanded(true);
   }
@@ -454,4 +456,23 @@ void PanelAllLayers::SelectAllLayers()
 void PanelAllLayers::DeselectAllLayers()
 {
   ui->treeWidgetLayers->DeselectAll();
+}
+
+void PanelAllLayers::SetSelectedLayers(const QList<int> &layer_ids)
+{
+  ui->treeWidgetLayers->SetSelectedLayers(layer_ids);
+}
+
+PanelLayer* PanelAllLayers::GetPanel(const QString &layer_type)
+{
+  for (int i = 0; i < ui->stackedWidget->count(); i++)
+  {
+    PanelLayer* panel = qobject_cast<PanelLayer*>(ui->stackedWidget->widget(i));
+    if (panel && panel->GetLayerType() == layer_type)
+    {
+      ui->stackedWidget->setCurrentWidget(panel);
+      return panel;
+    }
+  }
+  return NULL;
 }

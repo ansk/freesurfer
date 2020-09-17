@@ -1,15 +1,10 @@
 /**
- * @file  mris_label_calc.cpp
  * @brief A programm to calculate stuff on surface labels
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2016/12/10 22:57:58 $
- *    $Revision: 1.6 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,11 +24,6 @@
 #include <vector>
 #include <cassert>
 
-// all other software are all in "C"
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "error.h"
 #include "macros.h"
 #include "mri.h"
@@ -45,14 +35,9 @@ extern "C"
 #include "transform.h"
 #include "label.h"
 
-#ifdef __cplusplus
-}
-#endif
-
 using namespace std;
+const char *Progname = NULL;
 
-//static char vcid[] = "$Id: mris_label_calc.cpp,v 1.6 2016/12/10 22:57:58 fischl Exp $";
-char *Progname = NULL;
 
 void printUsage()
 {
@@ -73,15 +58,7 @@ void printUsage()
 int main(int argc, char *argv[])
 {
 
-//   // Default initialization
-//   int nargs = handle_version_option (argc, argv, vcid, "$Name:  $");
-//   if (nargs && argc - nargs == 1) exit (0);
-//   argc -= nargs;
   Progname = argv[0] ;
-//   argc --;
-//   argv++;
-//  if (vcid)
-//  {};
 
   if (argc < 5)
   {

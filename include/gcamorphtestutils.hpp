@@ -1,5 +1,4 @@
 /**
- * @file  gcamorphtestutils.hpp
  * @brief Utilities to help with testing GCAmorph routines (C++ interface)
  *
  * Reference:
@@ -7,10 +6,6 @@
  */
 /*
  * Original Author: Richard Edgar
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2012/12/12 21:18:23 $
- *    $Revision: 1.15 $
  *
  * Copyright © 2011-2012 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -33,7 +28,7 @@
 #include <iostream>
 #include <cstdlib>
 
-#include <netcdf.h>
+#include "netcdf.h"
 
 
 #include "gcamorph.h"
@@ -82,7 +77,6 @@ private:
 
   //! Map of the scalar names and types
   std::map<std::string,nc_type> scalarTypeMap;
-
 
   //! Number of dimensions we will store
   static const unsigned int nDims = 3;

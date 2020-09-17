@@ -1,5 +1,4 @@
 /**
- * @file  LayerPropertySurface.h
  * @brief The common properties available to MRI layers
  *
  * An interface implemented by a collection. Layers will get
@@ -8,10 +7,6 @@
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/01/26 20:34:24 $
- *    $Revision: 1.8 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -107,6 +102,8 @@ public:
 
   void BuildCurvatureLUT( vtkRGBAColorTransferFunction* lut, int nMap );
 
+  void RebuildCurvatureLUT();
+
   int GetCurvatureMap()
   {
     return m_nCurvatureMap;
@@ -167,6 +164,21 @@ public:
       return m_bUseSurfaceColorOn2D;
   }
 
+  int GetZOrderOverlay()
+  {
+    return m_nZOrderOverlay;
+  }
+
+  int GetZOrderLabel()
+  {
+    return m_nZOrderLabel;
+  }
+
+  int GetZOrderAnnotation()
+  {
+    return m_nZOrderAnnotation;
+  }
+
 public slots:
   void SetOpacity( double opacity );
   void SetCurvatureMap( int nMap );
@@ -191,6 +203,9 @@ public slots:
   void SetShowOverlay(bool bShow);
   void SetShowAnnotation(bool bShow);
   void SetUseSurfaceColorOn2D(bool bKeep);
+  void SetZOrderOverlay(int nOrder);
+  void SetZOrderAnnotation(int nOrder);
+  void SetZOrderLabel(int nOrder);
 
 Q_SIGNALS:
   void OpacityChanged( double opacity );
@@ -237,6 +252,10 @@ private:
   bool    m_bShowAnnotation;
 
   bool    m_bUseSurfaceColorOn2D;
+
+  int     m_nZOrderOverlay;
+  int     m_nZOrderLabel;
+  int     m_nZOrderAnnotation;
 
   vtkSmartPointer<vtkRGBAColorTransferFunction> m_lutCurvature;
 

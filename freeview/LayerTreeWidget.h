@@ -1,14 +1,5 @@
-/**
- * @file  LayerTreeWidget.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/05/31 18:30:40 $
- *    $Revision: 1.15 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -26,8 +17,10 @@
 
 #include <QTreeWidget>
 #include <QItemDelegate>
+#include <QList>
 
 class Layer;
+class LayerMRI;
 class QDropEvent;
 
 class MyItemDelegate : public QItemDelegate
@@ -56,6 +49,11 @@ public:
   void mouseMoveEvent(QMouseEvent *event);
   void mouseReleaseEvent(QMouseEvent *event);
 
+  QList<LayerMRI*> GetLinkedVolumes()
+  {
+      return m_linkedVolumes;
+  }
+
 signals:
   void ToReorderLayers(const QList<Layer*>& newlist);
 
@@ -66,6 +64,8 @@ public slots:
   void OnHideAll();
   void OnLockAll();
   void OnUnlockAll();
+  void OnLockOthers();
+  void OnUnlockOthers();
   void OnShowAllInfo();
   void OnHideAllInfo();
   void OnSetColorMap();
@@ -77,6 +77,9 @@ public slots:
     SelectAll();
   }
   void DeselectAll();
+  void SetSelectedLayers(const QList<int>& layer_ids);
+  void OnLinkVolumes();
+  void OnUnlinkVolumes();
 
 protected:
   bool event(QEvent* e);
@@ -86,6 +89,7 @@ protected:
   MyItemDelegate* m_itemDelegate;
   QRect         rectCheckbox;
   bool          m_bCheckBoxClicked;
+  QList<LayerMRI*>  m_linkedVolumes;
 };
 
 

@@ -1,15 +1,10 @@
 /**
- * @file RegRobust.cpp
  * @brief A class to compute a registration using robust regression
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2015/12/15 22:30:45 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -82,7 +77,7 @@ void RegRobust::findSatMultiRes(const vnl_matrix<double> &mi, double scaleinit)
 
   // allow 2d case (depth == 1)
   if (gpS[0]->width < 16 || gpS[0]->height < 16
-      || (gpS[0]->depth < 16 && !gpS[0]->depth == 1))
+      || (gpS[0]->depth < 16 && gpS[0]->depth != 1))
   {
     ErrorExit(ERROR_BADFILE, "Input images must be larger than 16^3.\n");
   }

@@ -23,9 +23,9 @@
 ]>
 
 <help>
-	<name>mri_mask - applies a mask volume ( typically skull stripped )</name>
+	<name>mri_mask - applies a mask volume (typically skull stripped)</name>
 	<synopsis>mri_mask [options] &lt;in vol&gt; &lt;mask vol&gt; &lt;out vol&gt;</synopsis>
-	<description>This program applies a mask volume ( typically skull stripped ).</description>
+	<description>This program applies a mask volume (typically skull stripped).</description>
   <arguments>
     <positional>
       <argument>in vol</argument>
@@ -35,19 +35,27 @@
     </positional>
     <optional-flagged>
       <argument>-xform %s</argument>
-      <explanation>apply LTA transform to align mask to input volume</explanation>
-      <argument>-invert</argument>
-      <explanation>reversely apply -xform</explanation>
+      <explanation>apply M3Z/LTA to transform mask to space of input volume (can be identity.nofile, will be inverted if needed)</explanation>
       <argument>-lta_src %s</argument>
       <explanation>source volume for -xform (if not available from the xform file)</explanation>
       <argument>-lta_dst %s</argument>
       <explanation>target volume for -xform (if not available from the xform file)</explanation>
       <argument>-T threshold</argument>
       <explanation>threshold mask volume at threshold (i.e., all values &lt;= T considered as zero)</explanation>
+      <argument>-samseg</argument>
+      <explanation>assume mask is a samseg segmentation and mask all non-brain labels</explanation>
       <argument>-bb npad</argument>
       <explanation>Create and extract data from a bounding box around the mask. The bounding box is expanded by npad voxels in each direction. npad should be at least 1 to avoid clipping</explanation>
       <argument>-abs</argument>
       <explanation>take abs() before applying threshold</explanation>
+      <argument>-rh</argument>
+      <explanation>set mask in rh labels to 1 (assumes input mask is an aseg)</explanation>
+      <argument>-lh</argument>
+      <explanation>set mask in lh labels to 1 (assumes input mask is an aseg)</explanation>
+      <argument>-dilate N</argument>
+      <explanation>dilate mask N times before applying</explanation>
+      <argument>-no_cerebellum</argument>
+      <explanation>remove cerebellum from aseg mask (assumes input mask is an aseg)</explanation>
       <argument>-oval #</argument>
       <explanation>use oval as output instead of 0</explanation>
       <argument>-transfer #</argument>

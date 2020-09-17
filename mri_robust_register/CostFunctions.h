@@ -1,5 +1,4 @@
 /**
- * @file  CostFunctions.h
  * @brief A class that makes available many different cost functions for images
  *   and to combine multiple volumes by mean or median
  *   MRIiterator iterates through MRI (readonly)
@@ -7,10 +6,6 @@
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2014/11/15 04:50:07 $
- *    $Revision: 1.19 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -30,22 +25,19 @@
 #ifndef CostFunctions_H
 #define CostFunctions_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "mri.h"
 #include "mriBSpline.h"
 #include "matrix.h"
-#ifdef __cplusplus
-}
-#endif
 
 //#include <utility>
 //#include <string>
 #include <vector>
 #include <iostream>
+
+#define export // obsolete feature 'export template' used in these headers 
 #include <vnl/vnl_matrix_fixed.h>
+#undef export
+
 #include "JointHisto.h"
 
 /** \class CostFunctions

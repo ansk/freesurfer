@@ -1,5 +1,4 @@
 /**
- * @file  c_label.cpp
  * @brief The label related object API.
  *
  * Label type functions include saving / loading surface structures
@@ -7,10 +6,6 @@
  */
 /*
  * Original Author: Rudolph Pienaar / Christian Haselgrove
- * CVS Revision Info:
- *    $Author: rudolph $
- *    $Date: 2012/07/05 21:21:28 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -129,7 +124,6 @@ label_terminalsFind(
   //
 
   LABEL*  pLBL;
-  VERTEX*  pvertex;
   int   vno_i   = 0;
   int   vno_j  = 0;
   int   vno_k  = 0;
@@ -144,7 +138,7 @@ label_terminalsFind(
   aque_terminal.clear();
   for (i=0; i <pLBL->n_points; i++) {
     vno_i  = pLBL->lv[i].vno;
-    pvertex = &apmris->vertices[vno_i];
+    VERTEX_TOPOLOGY const * const pvertex = &apmris->vertices_topology[vno_i];
     inLabel = 0;
     for (j=0; j<pvertex->vnum; j++) {
       vno_j = pvertex->v[j];

@@ -1,14 +1,9 @@
 /**
- * @file  vtkSimpleLabelEdgeFilter.h
  * @brief A simple label edge filter ONLY for 2D label image (2D vtkImageData).
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2013/06/25 20:32:36 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -35,11 +30,30 @@
 
 #include "vtkSimpleImageToImageFilter.h"
 
-class VTK_IMAGING_EXPORT vtkSimpleLabelEdgeFilter : public vtkSimpleImageToImageFilter
+#if VTK_MAJOR_VERSION > 5
+#include "vtkImagingGeneralModule.h" // For export macro
+
+class VTKIMAGINGGENERAL_EXPORT vtkSimpleLabelEdgeFilter : public vtkSimpleImageToImageFilter
 {
 public:
   static vtkSimpleLabelEdgeFilter *New();
-  vtkTypeRevisionMacro(vtkSimpleLabelEdgeFilter,vtkSimpleImageToImageFilter);
+  vtkTypeMacro(vtkSimpleLabelEdgeFilter,vtkSimpleImageToImageFilter);
+
+protected:
+  vtkSimpleLabelEdgeFilter() {};
+  ~vtkSimpleLabelEdgeFilter() override {};
+
+  void SimpleExecute(vtkImageData* input, vtkImageData* output) override;
+private:
+  vtkSimpleLabelEdgeFilter(const vtkSimpleLabelEdgeFilter&) = delete;  // Not implemented.
+  void operator=(const vtkSimpleLabelEdgeFilter&) = delete;  // Not implemented.
+};
+#else
+class vtkSimpleLabelEdgeFilter : public vtkSimpleImageToImageFilter
+{
+public:
+  static vtkSimpleLabelEdgeFilter *New();
+  vtkTypeMacro(vtkSimpleLabelEdgeFilter,vtkSimpleImageToImageFilter);
 
 protected:
   vtkSimpleLabelEdgeFilter() {};
@@ -50,5 +64,6 @@ private:
   vtkSimpleLabelEdgeFilter(const vtkSimpleLabelEdgeFilter&);  // Not implemented.
   void operator=(const vtkSimpleLabelEdgeFilter&);  // Not implemented.
 };
+#endif
 
 #endif

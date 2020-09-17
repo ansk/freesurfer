@@ -1,15 +1,10 @@
 /**
- * @file  4dfptoanalyze.c
  * @brief Create ANALYZE 7.5 signed short version of a 4dfp stack.
  *
  */
 /*
  * Original Authors: Tom Yang, Avi Snyder, Mohana Ramaratnan
  * 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2007/05/05 00:00:06 $
- *    $Revision: 1.2 $
  *
  * Copyright 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
  * Washington University, Mallinckrodt Institute of Radiology.
@@ -60,7 +55,6 @@ extern void	flipy (float *imgf, int *pnx, int* pny, int *pnz);				/* cflip.c */
 extern void	flipz (float *imgf, int *pnx, int* pny, int *pnz);				/* cflip.c */
 extern int	Inithdr (struct dsr *phdr, int *imgdim, float *voxsiz, char *proto_header);
 
-static char rcsid[] = "$Id: 4dfptoanalyze.c,v 1.2 2007/05/05 00:00:06 nicks Exp $";
 int main (int argc, char *argv[]) {
 /*******/
 /* i/o */
@@ -97,7 +91,7 @@ int main (int argc, char *argv[]) {
 	int		spm99 = 0;
 	int		swab_flag = 0;
 
-	fprintf (stdout, "%s\n", rcsid);
+	fprintf (stdout, "%s\n", "freesurfer 4dfptoanalyze.c");
 	setprog (program, argv);
 /************************/
 /* process command line */
@@ -229,7 +223,7 @@ int main (int argc, char *argv[]) {
 /* create rec file */
 /*******************/
  	sprintf   (outfile, "%s%s.img", imgroot, trailer);
-	startrece (outfile, argc, argv, rcsid, control);
+	startrece (outfile, argc, argv, "freesurfer 4dfptoanalyze.c", control);
 	sprintf   (command, "Voxel values scaled by %f\n", cscale); printrec (command);
 	catrec (imgfile);
 	endrec ();

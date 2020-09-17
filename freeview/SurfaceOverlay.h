@@ -1,5 +1,4 @@
 /**
- * @file  SurfaceOverlay.h
  * @brief The common properties available to MRI layers
  *
  * An interface implemented by a collection. Layers will get
@@ -8,10 +7,6 @@
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2014/03/27 20:13:34 $
- *    $Revision: 1.20 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -32,10 +27,10 @@
 #include <QObject>
 #include <QString>
 
-extern "C"
-{
+
+
 #include "mri.h"
-}
+
 
 class vtkLookupTable;
 class vtkRGBAColorTransferFunction;
@@ -89,6 +84,8 @@ public:
 
   void GetRange( double* range );
 
+  void GetNonZeroRange( double* range);
+
   void GetRawRange( double* range );
 
   bool LoadCorrelationData( const QString& filename );
@@ -115,6 +112,16 @@ public:
   QString GetFileName()
   {
     return m_strFileName;
+  }
+
+  void SetRegFileName(const QString& fn)
+  {
+    m_strRegFileName = fn;
+  }
+
+  QString GetRegFileName()
+  {
+    return m_strRegFileName;
   }
 
   void SmoothData(int nSteps = -1, float* data_out = NULL);
@@ -149,6 +156,29 @@ public:
 
   double PercentileToPosition(double dPercentile);
 
+  double PercentileToPosition(double dPercentile, bool ignore_zeros);
+
+  double PositionToPercentile(double dPos);
+
+  double PositionToPercentile(double dPos, bool ignore_zeros);
+
+  void GetDisplayRange(double* range)
+  {
+    range[0] = m_dDisplayRange[0];
+    range[1] = m_dDisplayRange[1];
+  }
+
+  void SetDisplayRange(double* range)
+  {
+    m_dDisplayRange[0] = range[0];
+    m_dDisplayRange[1] = range[1];
+  }
+
+  qint64 GetID()
+  {
+    return m_nID;
+  }
+
 signals:
   void DataUpdated();
 
@@ -165,14 +195,17 @@ private:
   float*        m_fData;
   float*        m_fDataRaw;
   float*        m_fDataUnsmoothed;
-  int           m_nDataSize;
+  qlonglong     m_nDataSize;
   double        m_dMaxValue;
   double        m_dMinValue;
+  double        m_dNonZeroMinValue;
   double        m_dRawMaxValue;
   double        m_dRawMinValue;
+  double        m_dDisplayRange[2];
 
   QString       m_strName;
   QString       m_strFileName;
+  QString       m_strRegFileName;
   LayerSurface* m_surface;
 
   bool        m_bCorrelationData;
@@ -189,6 +222,8 @@ private:
   LayerMRI*  m_volumeCorrelationSource;
   float*    m_fCorrelationSourceData;
   float*    m_fCorrelationDataBuffer;
+
+  qint64    m_nID;
 };
 
 #endif

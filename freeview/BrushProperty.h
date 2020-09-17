@@ -1,5 +1,4 @@
 /**
- * @file  BrushProperty.h
  * @brief Class to hold brush properties for voxel editing
  *
  * Simpleclass for use with the Listener class so text
@@ -7,10 +6,6 @@
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/01/11 21:05:23 $
- *    $Revision: 1.16 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -30,6 +25,7 @@
 #define BrushProperty_h
 
 #include <QObject>
+#include <QVariantMap>
 
 class LayerVolumeBase;
 class Layer;
@@ -93,6 +89,16 @@ public:
     return m_bIsCloning;
   }
 
+  QVariantMap GetGeosSettings()
+  {
+    return m_mapGeos;
+  }
+
+  void SetGeosSettings(const QString& name, const QVariant& val)
+  {
+    m_mapGeos[name] = val;
+  }
+
 signals:
   void FillValueChanged(double);
   void EraseValueChanged(double);
@@ -137,6 +143,8 @@ protected:
 
   double m_dFillValue;
   double m_dEraseValue;
+
+  QVariantMap m_mapGeos;
 
   LayerVolumeBase* m_layerRef;
 };

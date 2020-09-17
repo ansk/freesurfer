@@ -1,14 +1,5 @@
-/**
- * @file  TrackData.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2011/12/05 20:03:33 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -28,6 +19,7 @@
 #include <QStringList>
 #include "Track.h"
 #include <QPair>
+#include <QColor>
 
 class TrackData : public QObject
 {
@@ -38,17 +30,23 @@ public:
   TrackData(QObject *parent = 0);
   ~TrackData();
 
-  bool LoadFromFile(const QString& filename);
+  bool LoadFromFiles(const QStringList& filenames);
 
   int GetNumberOfTracks()
   {
     return m_nNumberOfTracks;
   }
 
+  bool HasEmbeddedColor()
+  {
+    return m_bHasEmbeddedColor;
+  }
+
 signals:
   void Progress(int n);
 
 public slots:
+  void Clear();
 
 protected:
   int     m_nDim[3];
@@ -64,7 +62,7 @@ protected:
   int     m_nNumberOfSegs;
 
   bool    m_bValidVoxToRas;
-  QString m_sFileName;
+  bool    m_bHasEmbeddedColor;
 
   QList<Track>    m_tracks;
   QList< QPair<double, double> > m_rangeScalar;

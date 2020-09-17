@@ -1,14 +1,5 @@
-/**
- * @file  ThreadIOWorker.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/02/25 17:58:24 $
- *    $Revision: 1.14 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -52,6 +43,14 @@ void ThreadIOWorker::SaveVolume( Layer* layer, const QVariantMap& args )
 {
   m_layer = layer;
   m_nJobType = JT_SaveVolume;
+  m_args = args;
+  start();
+}
+
+void ThreadIOWorker::TransformVolume( Layer* layer, const QVariantMap& args )
+{
+  m_layer = layer;
+  m_nJobType = JT_TransformVolume;
   m_args = args;
   start();
 }
@@ -191,6 +190,27 @@ void ThreadIOWorker::run()
       emit Finished( m_layer, m_nJobType );
     }
   }
+  else if (m_nJobType == JT_TransformVolume)
+  {
+    LayerMRI* mri = qobject_cast<LayerMRI*>( m_layer );
+    if ( !mri )
+    {
+      return;
+    }
+    if (m_args.value("unload").toBool())
+    {
+      mri->UnloadVolumeTransform();
+      emit Finished( m_layer, m_nJobType );
+    }
+    else if ( !mri->LoadVolumeTransform() )
+    {
+      emit Error( m_layer, m_nJobType );
+    }
+    else
+    {
+      emit Finished( m_layer, m_nJobType );
+    }
+  }
   else if ( m_nJobType == JT_LoadSurface )
   {
     LayerSurface* surf = qobject_cast<LayerSurface*>( m_layer );
@@ -198,7 +218,7 @@ void ThreadIOWorker::run()
     {
       return;
     }
-    if ( !surf->LoadSurfaceFromFile() )
+    if ( !surf->LoadSurfaceFromFile(m_args["ignore_vg"].toBool()) )
     {
       emit Error( m_layer, m_nJobType );
     }
@@ -254,7 +274,7 @@ void ThreadIOWorker::run()
       return;
     }
     connect(layer, SIGNAL(Progress(int)), this, SIGNAL(Progress(int)), Qt::UniqueConnection);
-    if ( !layer->LoadTrackFromFile() )
+    if ( !layer->LoadTrackFromFiles() )
     {
       emit Error( m_layer, m_nJobType );
     }

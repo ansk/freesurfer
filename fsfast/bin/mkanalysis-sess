@@ -5,10 +5,6 @@
 # functional analysis
 #
 # Original Author: Doug Greve
-# CVS Revision Info:
-#    $Author: zkaufman $
-#    $Date: 2015/12/10 22:51:30 $
-#    $Revision: 1.78 $
 #
 # Copyright (C) 2002-2007,
 # The General Hospital Corporation (Boston, MA). 
@@ -23,7 +19,7 @@
 # Bug reports: analysis-bugs@nmr.mgh.harvard.edu
 #
 
-set VERSION = '$Id: mkanalysis-sess,v 1.78 2015/12/10 22:51:30 zkaufman Exp $';
+set VERSION = 'mkanalysis-sess @FS_VERSION@';
 
 set analysis = ();
 set TR = ();
@@ -565,11 +561,19 @@ while( $#argv != 0 )
       breaksw
 
     case "-b0dc":
+      if($#ExpKey) then
+        echo "ERROR: ExpKey already set to $ExpKey"
+        exit 1
+      endif
       set UseB0DC = 1;
       set ExpKey = b0dc
       breaksw
 
     case "-expkey":
+      if($#ExpKey) then
+        echo "ERROR: ExpKey already set to $ExpKey"
+        exit 1
+      endif
       if($#argv < 1) goto arg1err;
       set ExpKey = $argv[1]; shift; # prepend a dot later
       breaksw
@@ -885,6 +889,8 @@ usage_exit:
   echo "   -fsv3-whiten   : perform whitening like FreeSurfer Version 3 (and -no-)"
   echo ""
   echo "Other Optional Arguments"
+  echo "  -b0dc : apply B0 distortion correction (sets expkey to b0dc)"
+  echo "  -expkey expkey : a code string used during preproc-sess to create a unique file name"
   echo "  -runlistfile filename : file with list of runs to include in analysis"
   echo "  -funcstem stem  : override default"
   echo "  -mask  maskid : use masks/maskid to compute autocor and whitening"

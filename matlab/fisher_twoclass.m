@@ -18,16 +18,11 @@ function w = fisher_twoclass(D1,D2)
 %   w = fisher_twoclass(D1,D2)
 %   w should be close to [0.707 0.707] (or neg of that)
 %
-% $Id: fisher_twoclass.m,v 1.2 2011/03/02 00:04:12 nicks Exp $
 
 %
 % fisher_twoclass(D1,D2)
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:12 $
-%    $Revision: 1.2 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

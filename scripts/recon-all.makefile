@@ -38,6 +38,7 @@ TAL_M3Z=$(subj)/mri/transforms/talairach.m3z
 #NU_NONECK=$(subj)/mri/nu_noneck.mgz
 #TAL_SKULL_LTA=$(subj)/mri/transforms/talairach_with_skull_2.lta
 ASEG_PRESURF=$(subj)/mri/aseg.presurf.mgz
+ASEG_AUTO_NOCC=$(subj)/mri/aseg.auto_noCCseg.mgz
 # ASEG_TOUCH can be used as a dependency target in some targets instead of
 # aseg.mgz because aseg.mgz can change in autorecon3 as a result of edits
 # via the surfaces.
@@ -67,8 +68,13 @@ $(NORM): $(TAL_LTA) $(CP) $(NU)
 $(TAL_M3Z): $(NORM) $(BRAINMASK) $(TAL_LTA)
 	recon-all -s $(subj) -careg 
 
-$(ASEG_PRESURF): $(NORM) $(TAL_M3Z)
+$(ASEG_AUTO_NOCC): $(NORM) $(TAL_M3Z)
 	recon-all -s $(subj) -calabel
+
+# ccseg is actually run with calabel, but this allows
+# for aseg.auto_noCCseg to be edited
+$(ASEG_PRESURF): $(ASEG_AUTO_NOCC)
+	recon-all -s $(subj) -ccseg
 
 $(BRAIN): $(BRAINMASK) $(NORM) $(ASEG_PRESURF) $(CP)
 	recon-all -s $(subj) -normalization2
@@ -241,10 +247,10 @@ APARC_A2009S_ANNOT_LH=$(subj)/label/lh.aparc.a2009s.annot
 APARC_A2009S_ANNOT_RH=$(subj)/label/rh.aparc.a2009s.annot
 APARC_A2009S_STATS_LH=$(subj)/stats/lh.aparc.a2009s.stats
 APARC_A2009S_STATS_RH=$(subj)/stats/rh.aparc.a2009s.stats
-APARC_DKT40_ANNOT_LH=$(subj)/label/lh.aparc.DKTatlas40.annot
-APARC_DKT40_ANNOT_RH=$(subj)/label/rh.aparc.DKTatlas40.annot
-APARC_DKT40_STATS_LH=$(subj)/stats/lh.aparc.DKTatlas40.stats
-APARC_DKT40_STATS_RH=$(subj)/stats/rh.aparc.DKTatlas40.stats
+APARC_DKT_ANNOT_LH=$(subj)/label/lh.aparc.DKTatlas.annot
+APARC_DKT_ANNOT_RH=$(subj)/label/rh.aparc.DKTatlas.annot
+APARC_DKT_STATS_LH=$(subj)/stats/lh.aparc.DKTatlas.stats
+APARC_DKT_STATS_RH=$(subj)/stats/rh.aparc.DKTatlas.stats
 PCTSURFCON_LH=$(subj)/surf/lh.w-g.pct.mgh
 PCTSURFCON_RH=$(subj)/surf/rh.w-g.pct.mgh
 RIBBON=$(subj)/mri/ribbon.mgz
@@ -265,8 +271,8 @@ AUTORECON3=$(SPHERE_LH) $(SPHERE_RH) \
 	$(APARC_STATS_LH) $(APARC_STATS_RH) \
 	$(APARC_A2009S_ANNOT_LH) $(APARC_A2009S_ANNOT_RH) \
 	$(APARC_A2009S_STATS_LH) $(APARC_A2009S_STATS_RH) \
-	$(APARC_DKT40_ANNOT_LH) $(APARC_DKT40_ANNOT_RH) \
-	$(APARC_DKT40_STATS_LH) $(APARC_DKT40_STATS_RH) \
+	$(APARC_DKT_ANNOT_LH) $(APARC_DKT_ANNOT_RH) \
+	$(APARC_DKT_STATS_LH) $(APARC_DKT_STATS_RH) \
 	$(PCTSURFCON_LH) $(PCTSURFCON_RH) \
 	$(RIBBON) \
 	$(ASEG_HYPOS) $(ASEG_STATS) \
@@ -352,16 +358,16 @@ $(APARC_A2009S_STATS_LH): $(APARC_A2009S_ANNOT_LH) $(PIAL_LH) $(RIBBON)
 $(APARC_A2009S_STATS_RH): $(APARC_A2009S_ANNOT_RH) $(PIAL_RH) $(RIBBON)
 	recon-all -s $(subj) -hemi rh -parcstats2
 
-$(APARC_DKT40_ANNOT_LH): $(SPHERE_REG_LH) $(PIAL_LH) $(ASEG_PRESURF)
+$(APARC_DKT_ANNOT_LH): $(SPHERE_REG_LH) $(PIAL_LH) $(ASEG_PRESURF)
 	recon-all -s $(subj) -hemi lh -cortparc3
 
-$(APARC_DKT40_ANNOT_RH): $(SPHERE_REG_RH) $(PIAL_RH) $(ASEG_PRESURF)
+$(APARC_DKT_ANNOT_RH): $(SPHERE_REG_RH) $(PIAL_RH) $(ASEG_PRESURF)
 	recon-all -s $(subj) -hemi rh -cortparc3
 
-$(APARC_DKT40_STATS_LH): $(APARC_DKT40_ANNOT_LH) $(PIAL_LH) $(RIBBON)
+$(APARC_DKT_STATS_LH): $(APARC_DKT_ANNOT_LH) $(PIAL_LH) $(RIBBON)
 	recon-all -s $(subj) -hemi lh -parcstats3
 
-$(APARC_DKT40_STATS_RH): $(APARC_DKT40_ANNOT_RH) $(PIAL_RH) $(RIBBON)
+$(APARC_DKT_STATS_RH): $(APARC_DKT_ANNOT_RH) $(PIAL_RH) $(RIBBON)
 	recon-all -s $(subj) -hemi rh -parcstats3
 
 $(PCTSURFCON_LH): $(ORIG) $(PIAL_LH)

@@ -30,16 +30,22 @@
   <arguments>
     <required-flagged>
       <intro>None</intro>
-      <argument>--src srcvalfile</argument>
+      <argument>--src srcvalfile (or use --i)</argument>
       <explanation> Input file that supplies the source values to convert</explanation>
-      <argument>--trg trgvalfile</argument>
+      <argument>--trg trgvalfile (or use --o)</argument>
       <explanation> Output file</explanation>
       <argument>--streg srcreg1 trgreg1</argument>
       <explanation> source-target registration pair</explanation>
+      <argument>--lta source-surf ltafile outputsurf</argument>
+      <explanation> apply an LTA registration to a surface</explanation>
+      <argument>--m3z source-surf m3zfile outputsurf</argument>
+      <explanation> apply an M3Z registration to a surface</explanation>
     </required-flagged>
     <optional-flagged>
       <argument>--streg srcreg2 trgreg2</argument>
       <explanation> source-target registration pair</explanation>
+      <argument>--curv</argument>
+      <explanation> Save output in curv format</explanation>
     </optional-flagged>
   </arguments>
   <example>
@@ -65,6 +71,11 @@ Note that lh.fsaverage_sym.sphere.reg is used.  This is intentional; the left he
      --trg rh.lh.source.label
   </example>
 
+  <example>
+    Map a surface from the anatomical space to fMRI space.
+    First, you have to get an LTA registration file (eg, with bbregister)
+    mris_apply_reg --lta lh.white fmri.reg.lta ./lh.white.fmri
+  </example>
 
   <bugs>None</bugs>
   <reporting>Report bugs to &lt;freesurfer@nmr.mgh.harvard.edu&gt;</reporting>

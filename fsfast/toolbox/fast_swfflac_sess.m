@@ -25,10 +25,6 @@ tic;
 % fast_swfflac_sess.m
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:05 $
-%    $Revision: 1.7 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %
@@ -41,7 +37,7 @@ tic;
 % Reporting: freesurfer@nmr.mgh.harvard.edu
 %
 
-fast_swfflac_sess_ver = '$Id';
+fast_swfflac_sess_ver = 'fast_swfflac_sess.m @FS_VERSION@';
 
 SynthSeed = round(sum(100*clock)); 
 randn('state',SynthSeed); 

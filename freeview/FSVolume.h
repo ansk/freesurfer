@@ -1,14 +1,9 @@
 /**
- * @file  FSVolume.h
  * @brief Base volume class that takes care of I/O and data conversion.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/09/27 15:45:33 $
- *    $Revision: 1.49 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -33,13 +28,13 @@
 #include "CommonDataStruct.h"
 #include <vector>
 
-extern "C"
-{
+
+
 #include "mri.h"
 #include "histo.h"
 #include "colortab.h"
 #include "transform.h"
-}
+
 
 class vtkTransform;
 
@@ -85,9 +80,15 @@ public:
   {
     return m_fMinValue;
   }
+
   double GetMaxValue ()
   {
     return m_fMaxValue;
+  }
+
+  double GetFullMaxValue()
+  {
+    return m_fMaxValueFull;
   }
 
   void GetFrameValueRange(int nFrame, double* range);
@@ -133,9 +134,9 @@ public:
 
   void NativeRASToTkReg( const double* pos_in, double* pos_out );
 
-  bool RASToTalairachVoxel(const double* pos_in, double* pos_out);
+  bool RASToTalairach(const double* pos_in, double* pos_out);
 
-  void TalairachVoxelToRAS(const double* pos_in, double* pos_out);
+  void TalairachToRAS(const double* pos_in, double* pos_out);
 
   void SetMRITarget( MRI* mri );
 
@@ -215,6 +216,15 @@ public:
 
   bool Segment(int min_label_index, int max_label_index, int min_num_of_voxels);
 
+  bool LoadRegistrationMatrix( const QString& filename );
+
+  void ClearRegistrationMatrix();
+
+  void SetIgnoreHeader(bool b)
+  {
+    m_bIgnoreHeader = b;
+  }
+
 Q_SIGNALS:
   void ProgressChanged( int n );
 
@@ -226,8 +236,7 @@ public slots:
 
 protected:
   bool LoadMRI( const QString& filename, const QString& reg_filename );
-  bool LoadRegistrationMatrix( const QString& filename );
-  void UpdateHistoCDF(int frame = 0, float threshold = -1);
+  void UpdateHistoCDF(int frame = 0, float threshold = -1, bool bHighThreshold = false);
   void CopyMRIDataToImage( MRI* mri, vtkImageData* image );
   void CopyMatricesFromMRI();
   bool CreateImage( MRI* mri );
@@ -262,8 +271,10 @@ protected:
 
   float     m_fMinValue;
   float     m_fMaxValue;
+  float     m_fMaxValueFull;
 
   bool      m_bResampleToRAS;
+  bool      m_bIgnoreHeader;
   double    m_MRIToImageMatrix[16];
 
   // RAS bounds.

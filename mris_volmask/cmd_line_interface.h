@@ -1,14 +1,9 @@
 /**
- * @file  cmd_line_interface.h
  * @brief simplifies the command-line parsing interface in a new application
  *
  */
 /*
  * Original Author: Gheorghe Postelnicu
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:34 $
- *    $Revision: 1.5 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -30,15 +25,8 @@
 #include <vector>
 #include <string>
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include <stdio.h> // printf
 #include <stdlib.h>
-#ifdef __cplusplus
-}
-#endif
 
 #define GMP_ISOPTION(c) ((c) == '-')
 

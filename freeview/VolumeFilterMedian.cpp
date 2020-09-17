@@ -1,14 +1,9 @@
 /**
- * @file  VolumeFilterMedian.cpp
  * @brief Base VolumeFilterMedian class.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2011/10/18 18:13:24 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -38,7 +33,11 @@ bool VolumeFilterMedian::Execute()
   TriggerFakeProgress(100);
   vtkSmartPointer<vtkImageMedian3D> filter = vtkSmartPointer<vtkImageMedian3D>::New();
   filter->SetKernelSize( m_nKernelSize, m_nKernelSize, m_nKernelSize );
+#if VTK_MAJOR_VERSION > 5
+  filter->SetInputData( m_volumeInput->GetImageData() );
+#else
   filter->SetInput( m_volumeInput->GetImageData() );
+#endif
   filter->Update();
   m_volumeOutput->GetImageData()->DeepCopy( filter->GetOutput() );
   return true;

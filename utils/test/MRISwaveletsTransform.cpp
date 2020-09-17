@@ -1,14 +1,9 @@
 /**
- * @file  MRISwaveletsTransform.cpp
  * @brief wavelet utils
  *
  */
 /*
  * Original Author: Peng Yu
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:55 $
- *    $Revision: 1.4 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -49,8 +44,6 @@ extern "C"
 #include "matrix.h"
 }
 
-static char vcid[] = 
-  "$Id: MRISwaveletsTransform.cpp,v 1.4 2011/03/02 00:04:55 nicks Exp $";
 #define VERTEX_EDGE(vec, v0, v1)   VECTOR_LOAD(vec,v1->x-v0->x,v1->y-v0->y, v1->z-v0->z)
 typedef struct _double_3d
 {
@@ -110,7 +103,7 @@ int
 main(int argc, char *argv[])
 {
   int           nargs, msec, order, i, number;
-  struct timeb  then ;
+  Timer then ;
   MRIS          *mris_in, *mris_out;
   double        volume; // T[5][5] the transformation matrx (using index 1-4)
 
@@ -129,7 +122,7 @@ main(int argc, char *argv[])
     ErrorExit(ERROR_BADPARM,
               "usage: %s <input sphere> <input surface> <int which> <output wavelets> ", Progname);
 
-  TimerStart(&then) ;
+  then.reset() ;
 
   //order = atoi (argv[3]);
   order = 7;
@@ -521,7 +514,7 @@ main(int argc, char *argv[])
     fprintf(stdout, "Reading wavelet coefficients from %s\n", argv[1]);
     for (i = 0; i<mris_out->nvertices; i++)
       mris_out->vertices[i].nsize=1;
-    MRISsetNeighborhoodSize(mris_out, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_out, 3) ;
 
     fprintf(stdout, "Recover the surface using %s order coefficients\n",argv[2]);
     if (atoi(argv[2])==-1) number = 0;
@@ -641,7 +634,7 @@ main(int argc, char *argv[])
     fprintf(stdout, "Reading wavelet coefficients from %s\n", argv[1]);
     for (i = 0; i<mris_out->nvertices; i++)
       mris_out->vertices[i].nsize=1;
-    MRISsetNeighborhoodSize(mris_out, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_out, 3) ;
 
 
     fprintf(stdout, "Recover the surface using %s order coefficients\n",argv[2]);
@@ -685,7 +678,7 @@ main(int argc, char *argv[])
     fprintf(stdout, "Reading wavelet coefficients from %s\n", argv[1]);
     for (i = 0; i<mris_out->nvertices; i++)
       mris_out->vertices[i].nsize=1;
-    MRISsetNeighborhoodSize(mris_out, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_out, 3) ;
 
     fprintf(stdout, "Recover the surface using %s order coefficients\n",argv[2]);
     number = IcoNVtxsFromOrder(atoi(argv[2]));
@@ -769,7 +762,7 @@ main(int argc, char *argv[])
     volume = brain_volume(mris_out);
     fprintf(stdout, "Writing recovered surface to %s volume %f\n", argv[4],volume);
     MRISwrite(mris_out,argv[4]) ;
-    MRISsetNeighborhoodSize(mris_out, 2) ;
+    MRISsetNeighborhoodSizeAndDist(mris_out, 2) ;
     MRIScomputeSecondFundamentalForm(mris_out) ;
     MRISuseMeanCurvature(mris_out) ;
     sprintf(afname,"%s.curv", argv[4]);
@@ -780,7 +773,7 @@ main(int argc, char *argv[])
   }
 
   MRISfree(&mris_out);
-  msec = TimerStop(&then) ;
+  msec = then.milliseconds() ;
   fprintf(stdout, "spherical wavelet took %2.1f minutes\n", (float)msec/(1000.0f*60.0f));
   exit(0) ;
   return(0) ;
@@ -807,7 +800,7 @@ wavelet_analysis_curv(MRI_SURFACE *mris_out, int order)
     mris_high = ReadIcoByOrder(i, 100); //higher order surface
     for (m = 0; m<mris_high->nvertices; m++)
       mris_high->vertices[m].nsize=1;
-    MRISsetNeighborhoodSize(mris_high, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
     number = IcoNVtxsFromOrder(i-1); //the start of m vertices
     for (m = number; m<mris_high->nvertices; m++)
     {
@@ -855,7 +848,7 @@ wavelet_analysis_curv(MRI_SURFACE *mris_out, int order)
     mris_high = ReadIcoByOrder(i, 100); //higher order surface
     for (m = 0; m<mris_high->nvertices; m++)
       mris_high->vertices[m].nsize=1;
-    MRISsetNeighborhoodSize(mris_high, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
 
     number = IcoNVtxsFromOrder(i-1); //the start of m vertices
     /* compute Yj,m for each m vertices */
@@ -945,7 +938,7 @@ wavelet_analysis_vec(MRI_SURFACE *mris_out, int order)
     mris_high = ReadIcoByOrder(i, 100); //higher order surface
     for (m = 0; m<mris_high->nvertices; m++)
       mris_high->vertices[m].nsize=1;
-    MRISsetNeighborhoodSize(mris_high, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
     number = IcoNVtxsFromOrder(i-1); //the start of m vertices
     for (m = number; m<mris_high->nvertices; m++)
     {
@@ -994,7 +987,7 @@ wavelet_analysis_vec(MRI_SURFACE *mris_out, int order)
     mris_high = ReadIcoByOrder(i, 100); //higher order surface
     for (m = 0; m<mris_high->nvertices; m++)
       mris_high->vertices[m].nsize=1;
-    MRISsetNeighborhoodSize(mris_high, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
 
     number = IcoNVtxsFromOrder(i-1); //the start of m vertices
     /* compute Yj,m for each m vertices */
@@ -1089,7 +1082,7 @@ wavelet_synthesis_curv(MRI_SURFACE *mris_out, int order)
     mris_high = ReadIcoByOrder(i, 100); //higher order surface
     for (m = 0; m<mris_high->nvertices; m++)
       mris_high->vertices[m].nsize=1;
-    MRISsetNeighborhoodSize(mris_high, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
     number = IcoNVtxsFromOrder(i-1); //the start of m vertices
     for (m = number; m<mris_high->nvertices; m++)
     {
@@ -1137,7 +1130,7 @@ wavelet_synthesis_curv(MRI_SURFACE *mris_out, int order)
     mris_high = ReadIcoByOrder(i, 100); //higher order surface
     for (m = 0; m<mris_high->nvertices; m++)
       mris_high->vertices[m].nsize=1;
-    MRISsetNeighborhoodSize(mris_high, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
     number = IcoNVtxsFromOrder(i-1); //the start of m vertices
 
     /* Synthesis Stage I */
@@ -1222,7 +1215,7 @@ wavelet_synthesis_vec(MRI_SURFACE *mris_out, int order)
     mris_high = ReadIcoByOrder(i, 100); //higher order surface
     for (m = 0; m<mris_high->nvertices; m++)
       mris_high->vertices[m].nsize=1;
-    MRISsetNeighborhoodSize(mris_high, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
     number = IcoNVtxsFromOrder(i-1); //the start of m vertices
     for (m = number; m<mris_high->nvertices; m++)
     {
@@ -1270,7 +1263,7 @@ wavelet_synthesis_vec(MRI_SURFACE *mris_out, int order)
     mris_high = ReadIcoByOrder(i, 100); //higher order surface
     for (m = 0; m<mris_high->nvertices; m++)
       mris_high->vertices[m].nsize=1;
-    MRISsetNeighborhoodSize(mris_high, 3) ;
+    MRISsetNeighborhoodSizeAndDist(mris_high, 3) ;
     number = IcoNVtxsFromOrder(i-1); //the start of m vertices
 
     /* Synthesis Stage I */

@@ -1,14 +1,5 @@
-/**
- * @file  PanelTrack.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/05/10 19:17:30 $
- *    $Revision: 1.7 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,6 +20,7 @@
 #include "MyUtils.h"
 #include "LayerCollection.h"
 #include "LayerPropertyTrack.h"
+#include <QFileInfo>
 
 PanelTrack::PanelTrack(QWidget *parent) :
   PanelLayer("Tract", parent),
@@ -48,6 +40,7 @@ PanelTrack::PanelTrack(QWidget *parent) :
                                << ui->comboBoxDirectionMapping;
   m_widgetlistSolidColor << ui->labelSolidColor
                          << ui->colorPickerSolidColor;
+  connect(ui->pushButtonShowClusterMap, SIGNAL(clicked()), mainwnd, SLOT(ShowTractClusterMap()));
 }
 
 PanelTrack::~PanelTrack()
@@ -71,6 +64,8 @@ void PanelTrack::ConnectLayer(Layer *layer_in)
   connect(ui->comboBoxDirectionMapping, SIGNAL(currentIndexChanged(int)), p, SLOT(SetDirectionMapping(int)));
   connect(ui->colorPickerSolidColor, SIGNAL(colorChanged(QColor)), p, SLOT(SetSolidColor(QColor)));
   connect(ui->comboBoxRenderRep, SIGNAL(currentIndexChanged(int)), p, SLOT(SetRenderRep(int)));
+  connect(ui->sliderOpacity, SIGNAL(valueChanged(int)), SLOT(OnSliderOpacity(int)));
+  connect(ui->lineEditOpacity, SIGNAL(textChanged(QString)), SLOT(OnLineEditOpacity(QString)));
 }
 
 void PanelTrack::DoUpdateWidgets()
@@ -100,18 +95,25 @@ void PanelTrack::DoUpdateWidgets()
   ui->lineEditFileName->clear();
   if ( layer )
   {
-    ui->lineEditFileName->setText( MyUtils::Win32PathProof(layer->GetFileName()) );
+    QString fn = layer->GetFileName();
+    if (layer->IsCluster())
+      fn = QFileInfo(fn).absolutePath() + "/*.trk";
+    ui->lineEditFileName->setText(fn);
     ui->lineEditFileName->setCursorPosition( ui->lineEditFileName->text().size() );
     ui->comboBoxColorCode->setCurrentIndex(layer->GetProperty()->GetColorCode());
+    ui->comboBoxColorCode->setItemData(LayerPropertyTrack::EmbeddedColor, layer->HasEmbeddedColor()?33:0, Qt::UserRole-1);
     ui->comboBoxDirectionMapping->setCurrentIndex(layer->GetProperty()->GetDirectionMapping());
     ui->comboBoxDirectionScheme->setCurrentIndex(layer->GetProperty()->GetDirectionScheme());
     ui->colorPickerSolidColor->setCurrentColor(layer->GetProperty()->GetSolidColor());
     ui->comboBoxRenderRep->setCurrentIndex(layer->GetProperty()->GetRenderRep());
+    ChangeLineEditNumber(ui->lineEditOpacity, layer->GetProperty()->GetOpacity());
+    ui->sliderOpacity->setValue(layer->GetProperty()->GetOpacity()*100);
   }
   ShowWidgets(m_widgetlistDirectionalColor, layer && layer->GetProperty()->GetColorCode() == LayerPropertyTrack::Directional);
   ShowWidgets(m_widgetlistSolidColor, layer && layer->GetProperty()->GetColorCode() == LayerPropertyTrack::SolidColor);
   ui->labelFileName->setEnabled( layer );
   ui->lineEditFileName->setEnabled( layer );
+  ui->pushButtonShowClusterMap->setVisible(layer && layer->IsCluster());
 
   BlockAllSignals( false );
 }
@@ -119,4 +121,28 @@ void PanelTrack::DoUpdateWidgets()
 void PanelTrack::DoIdle()
 {
 
+}
+
+void PanelTrack::OnSliderOpacity(int val)
+{
+  LayerTrack* layer = GetCurrentLayer<LayerTrack*>();
+  if (layer)
+  {
+    layer->GetProperty()->SetOpacity(val/100.0);
+  }
+  ChangeLineEditNumber(ui->lineEditOpacity, val/100.0);
+}
+
+void PanelTrack::OnLineEditOpacity(const QString & text)
+{
+  LayerTrack* layer = GetCurrentLayer<LayerTrack*>();
+  bool bOK;
+  double val = text.toDouble(&bOK);
+  if (layer && bOK)
+  {
+    layer->GetProperty()->SetOpacity(val);
+    ui->sliderOpacity->blockSignals(true);
+    ui->sliderOpacity->setValue(val*100);
+    ui->sliderOpacity->blockSignals(false);
+  }
 }

@@ -115,9 +115,7 @@ AffineTransform3d::invert()
 
 //-=-----------------------------------------------
 
-DenseDisplacementField::DenseDisplacementField()
-    : m_fieldInterpolator(NULL), m_maskInterpolator(NULL)
-{}
+DenseDisplacementField::DenseDisplacementField() : m_fieldInterpolator(NULL), m_maskInterpolator(NULL) {}
 
 // the field is not kept per se
 //
@@ -416,7 +414,7 @@ DeltaTransform3d::tCoords
 DeltaTransform3d::doOwnImg(const tCoords& pt) const
 {
 
-  Real val;
+  double val;
   tCoords retVal;
 
   // sample the mask first - do this on a nearest neighbor method
@@ -563,7 +561,7 @@ FemTransform3d::doOwnImg(const tCoords& pt) const
 void
 FemTransform3d::doInput(std::istream& is)
 {
-  m_sharedMesh = boost::shared_ptr<CMesh3d>(new CMesh3d);
+  m_sharedMesh = std::shared_ptr<CMesh3d>(new CMesh3d);
 
   m_sharedMesh->load(is);
 }
@@ -592,7 +590,7 @@ FemTransform3d::invert()
   //std::cout << "FemTransform3d: invert" << std::endl;
 
   // ugly, but how else?
-  boost::shared_ptr<CMesh3d>
+  std::shared_ptr<CMesh3d>
   pmesh( new CMesh3d(*dynamic_cast<CMesh3d*>(&*m_sharedMesh) ));
   pmesh->invert();
   pmesh->build_index_src();
@@ -1082,18 +1080,18 @@ VolumeMorph::convert_transforms() const
 MRIS*
 VolumeMorph::apply_transforms(MRIS* input) const
 {
-  MRI_SURFACE* mris = MRISclone( input );
+  MRI_SURFACE* const mris = MRISclone( input );
 
-  unsigned int nvertices = (unsigned int)input->nvertices;
-  VERTEX* pvtxIn = &( input->vertices[0] );
-  VERTEX* pvtxOut = &( mris->vertices[0] );
+  MRISfreeDistsButNotOrig(mris);
+    // MRISsetXYZ will invalidate all of these,
+    // so make sure they are recomputed before being used again!
 
-  tDblCoords pt;
-
-  for (unsigned int ui=0;
-       ui < nvertices;
-       ++ui, ++pvtxIn, ++pvtxOut )
+  int const nvertices = input->nvertices;
+  for (int ui = 0; ui < nvertices; ++ui) 
   {
+    VERTEX* pvtxIn = &input->vertices[ui];
+
+    tDblCoords pt;
     pt.validate();
     pt(0) = pvtxIn->x;
     pt(1) = pvtxIn->y;
@@ -1102,10 +1100,8 @@ VolumeMorph::apply_transforms(MRIS* input) const
     pt = image( pt );
     if ( !pt.isValid() ) continue; // better leave it as it was if it's not working
 
-    pvtxOut->x = pt(0);
-    pvtxOut->y = pt(1);
-    pvtxOut->z = pt(2);
-  } // next ui, pvtxIn, pvtxOut
+    MRISsetXYZ(mris, ui, pt(0), pt(1), pt(2));
+  }
 
   return mris;
 }
@@ -1223,13 +1219,13 @@ VolumeMorph::save(const char* fname)
   os.write( strTag.c_str(), strTag.size() );
 
   // write transforms
+  ZlibStringCompressor compressor; // may have a mem leak, so move outside of loop
   for ( TransformContainerType::iterator it = m_transforms.begin();
         it != m_transforms.end(); ++it )
   {
     std::ostringstream osit(std::ios::binary);
     saveTransform(osit, *it);
 
-    ZlibStringCompressor compressor;
     std::string strBuf = compressor.compress( osit.str(),
                          Z_BEST_COMPRESSION );
     std::cout << " writing transform size = " << strBuf.size() << std::endl;
@@ -1373,6 +1369,7 @@ VolumeMorph::load_new(const char* fname,
                       unsigned int bufferMultiplier,
                       bool clearExisting)
 {
+  ZlibStringCompressor compressor; // memory leak in compressor?
   std::ifstream ifs(fname, std::ios::binary);
   if ( !ifs ) throw "VolumeMorph load - failed to open input stream";
 
@@ -1402,7 +1399,7 @@ VolumeMorph::load_new(const char* fname,
       break;
     case tagTransform:
     {
-      ZlibStringCompressor compressor;
+      //ZlibStringCompressor compressor;// might be a memleak, so made function scope
       compressor.m_bufferAllocationMultiplier = bufferMultiplier;
       std::cout << " data size = " << tagReader.m_len << std::endl;
 
@@ -1666,7 +1663,7 @@ VolumeMorph::serialize()
 
   while ( it != m_transforms.end() )
   {
-    if ( pt = (*it)->initial() )
+    if ( (pt = (*it)->initial()) )
     {
       (*it)->setInitial( TransformPointer() );
       it = m_transforms.insert(it, pt);
@@ -1679,7 +1676,7 @@ VolumeMorph::serialize()
 }
 
 
-boost::shared_ptr<Transform<3> >
+std::shared_ptr<Transform<3> >
 loadTransform(std::istream& is, unsigned int zlibBufferMultiplier)
 {
   // read the string preceding the data
@@ -1700,16 +1697,16 @@ loadTransform(std::istream& is, unsigned int zlibBufferMultiplier)
     strDescription = strDescription.substr(0, sepPos);
   }
 
-  boost::shared_ptr<Transform<3> > bp;
+  std::shared_ptr<Transform<3> > bp;
 
   if ( strDescription == "affine" )
-    bp = boost::shared_ptr<Transform<3> >(new AffineTransform3d);
+    bp = std::shared_ptr<Transform<3> >(new AffineTransform3d);
   else if ( strDescription == "fem" )
-    bp = boost::shared_ptr<Transform<3> >(new FemTransform3d);
+    bp = std::shared_ptr<Transform<3> >(new FemTransform3d);
   else if ( strDescription == "id" )
-    bp = boost::shared_ptr<Transform<3> >(new IdentityTransform3d);
+    bp = std::shared_ptr<Transform<3> >(new IdentityTransform3d);
   else if ( strDescription == "field" )
-    bp = boost::shared_ptr<Transform<3> >(new DeltaTransform3d);
+    bp = std::shared_ptr<Transform<3> >(new DeltaTransform3d);
   else
     throw "loadTransform - unknown transform type";
 
@@ -1722,7 +1719,7 @@ loadTransform(std::istream& is, unsigned int zlibBufferMultiplier)
 
 void
 saveTransform(std::ostream& os,
-              boost::shared_ptr<Transform<3> > ptransform)
+              std::shared_ptr<Transform<3> > ptransform)
 {
   std::cout << " saveTransform code\n";
 

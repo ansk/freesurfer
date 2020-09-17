@@ -1,15 +1,4 @@
-/**
- * @file  fsglm.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2015/03/31 22:12:23 $
- *    $Revision: 1.17 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -25,14 +14,12 @@
 
 
 // fsglm.h - include file for fsglm.c
-// $Id: fsglm.h,v 1.17 2015/03/31 22:12:23 greve Exp $
 
 #ifndef FSGLM_H
 #define FSGLM_H
 
 #include "matrix.h"
 
-const char * GLMSrcVersion(void);
 #undef X
 
 #define GLMMAT_NCONTRASTS_MAX 100
@@ -55,7 +42,7 @@ typedef struct {
 
   int ncontrasts;    // Number of contrasts
   MATRIX *C[GLMMAT_NCONTRASTS_MAX];    // Contrast matrices
-  char *Cname[GLMMAT_NCONTRASTS_MAX];    // Contrast names
+  const char *Cname[GLMMAT_NCONTRASTS_MAX];    // Contrast names
   double Ccond[GLMMAT_NCONTRASTS_MAX];    // C condition number
   int UseGamma0[GLMMAT_NCONTRASTS_MAX];  // Flag
   MATRIX *gamma0[GLMMAT_NCONTRASTS_MAX];  // Expected value of gamma
@@ -118,7 +105,7 @@ int GLManalyze(GLMMAT *glm);
 int GLMprofile(int nrows, int ncols, int ncon, int niters);
 
 GLMMAT *GLMsynth(void);
-int GLMdump(char *dumpdir, GLMMAT *glm);
+int GLMdump(const char *dumpdir, GLMMAT *glm);
 int GLMresynthTest(int niters, double *prvar);
 MATRIX *GLMpmfMatrix(MATRIX *C, double *cond, MATRIX *P);
 int GLMdof(GLMMAT *glm);

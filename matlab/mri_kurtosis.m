@@ -4,16 +4,11 @@ function g2 = mri_kurtosis(x,unbiasedflag,dim)
 % Biased by default. For unbiased set unbiasedflag=1.
 % To make estimator zero mean, subtract 3.
 %
-% $Id: mri_kurtosis.m,v 1.4 2011/03/02 00:04:12 nicks Exp $
 
 %
 % mri_kurtosis.m
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/03/02 00:04:12 $
-%    $Revision: 1.4 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %

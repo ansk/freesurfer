@@ -1,5 +1,4 @@
 /**
- * @file  LayerPropertyMRI.h
  * @brief The common properties available to MRI layers
  *
  * An interface implemented by a collection. Layers will get
@@ -9,10 +8,6 @@
 /*
  * Original Author: Kevin Teich
  * Reimplemented by: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/09/28 16:28:20 $
- *    $Revision: 1.22 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -35,10 +30,10 @@
 #include <QVariantMap>
 #include <QColor>
 
-extern "C"
-{
+
+
 #include "colortab.h"
-}
+
 
 class vtkFreesurferLookupTable;
 class vtkRGBAColorTransferFunction;
@@ -58,7 +53,7 @@ public:
   // The color map types in which a volume can be drawn.
   enum ColorMapType
   {
-    NoColorMap=-1, Grayscale, LUT, Heat, Jet, GEColor, NIH, PET, DirectionCoded
+    NoColorMap=-1, Grayscale, LUT, Heat, Jet, GEColor, NIH, PET, DirectionCoded, Binary
   };
 
   enum VectorInversion
@@ -107,6 +102,7 @@ public:
 
   COLOR_TABLE*  GetLUTCTAB () const;
   void          SetLUTCTAB ( COLOR_TABLE* ct );
+  bool          IsValueInColorTable (double nVal);
 
   virtual vtkScalarsToColors* GetActiveLookupTable();
 
@@ -157,11 +153,11 @@ public:
   // These determine the heatscale color map. The threshold is mirrored:
   // -> cyan -> blue -> trans_blue -> clear -> trans_orange -> orange -> red ->
   // -> -max -> -mid ->    -min    ->   0   ->     min      ->   mid  -> max ->
-  void    SetHeatScaleMinThreshold ( double iValue );
+  void    SetHeatScaleMinThreshold ( double iValue, bool bMidToMin = false );
   double  GetHeatScaleMinThreshold ();
   void    SetHeatScaleMidThreshold ( double iValue );
   double  GetHeatScaleMidThreshold ();
-  void    SetHeatScaleMaxThreshold ( double iValue );
+  void    SetHeatScaleMaxThreshold ( double iValue, bool bMidToMin = false );
   double  GetHeatScaleMaxThreshold ();
   void    SetHeatScaleOffset ( double iValue );
   double  GetHeatScaleOffset ();
@@ -191,7 +187,12 @@ public:
   void SetShowNegativeHeatScaleValues ( bool ib );
   bool GetShowNegativeHeatScaleValues ();
 
-  bool GetClearZero();
+  bool GetClearBackground();
+
+  double GetClearBackgroundValue()
+  {
+    return mClearBackgroundValue;
+  }
 
   // void EditorChangedHeatScale ();
 
@@ -314,16 +315,14 @@ public:
     return this->m_bShowAsLabelContour;
   }
 
+  bool GetShowVoxelizedContour()
+  {
+    return m_bShowVoxelizedContour;
+  }
+
   bool GetContourUpsample()
   {
     return this->m_bContourUpsample;
-  }
-
-  void SetActiveFrame(int nFrame);
-
-  QString GetLabelContourRange()
-  {
-    return m_sLabelContourRange;
   }
 
   double GetVectorScale()
@@ -383,6 +382,30 @@ public:
     return m_listVisibleLabels;
   }
 
+  void UpdateActiveFrame(int nFrame);
+
+  double GetVectorLineWidth()
+  {
+    return m_dVectorLineWidth;
+  }
+
+  int GetVectorSkip()
+  {
+    return m_nVectorSkip;
+  }
+
+  double GetVectorNormThreshold()
+  {
+    return m_dVectorNormThreshold;
+  }
+
+  QColor GetBinaryColor()
+  {
+    return m_colorBinary;
+  }
+
+  void SetBinaryColor(const QColor& color);
+
 public slots:
   void SetOpacity( double opacity );
   void SetUpSampleMethod( int nUpSampleMethod );
@@ -391,7 +414,9 @@ public slots:
   void SetTextureSmoothing ( int iSmooth );
   void SetShowAsContour( bool bContour );
   void SetShowAsLabelContour(bool bLabelContour);
-  void SetClearZero( bool bClear );
+  void SetShowVoxelizedContour(bool bVoxelize);
+  void SetClearBackground( bool bClear );
+  void SetClearBackgroundValue( double val );
   void SetResliceInterpolation ( int iMode );
   void SetWindow( double iWindow );
   void SetLevel ( double iLevel );
@@ -418,7 +443,6 @@ public slots:
 
   void SetRememberFrameSettings(bool bFlag);
 
-  void SetLabelContourRange(const QString& range_strg );
   void SetVectorScale(double dval);
 
   void SetUsePercentile(bool b)
@@ -427,12 +451,22 @@ public slots:
   }
 
   void SetAutoAdjustFrameLevel(bool b);
-  void SetHeatScaleAutoMid(bool bAutoMid);
+  void SetHeatScaleAutoMid(bool bAutoMid, bool bAutoMidToMin = false);
 
   void SetProjectionMapRange(int n, int start, int end);
   void SetSelectLabel(int nVal, bool bSelected);
   void SetSelectAllLabels();
   void SetUnselectAllLabels();
+  void ResetWindowLevel();
+
+  void SetVectorLineWidth(double val);
+  void SetVectorSkip(int nSkip);
+
+  void UpdateLUTTable();
+
+  void SetCustomColors(const QMap<int, QColor>& colors);
+
+  void SetVectorNormThreshold(double dVal);
 
 signals:
   void ColorMapChanged();
@@ -445,15 +479,17 @@ signals:
   void ContourChanged();
   void ContourColorChanged();
   void ContourSmoothIterationChanged( int );
+  void ContourVoxelized(bool bVoxelize);
   void LabelOutlineChanged( bool bOutline );
   void UpSampleMethodChanged( int nMethod );
   void ProjectionMapChanged();
   void ProjectMapTypeChanged(int nType);
   void LabelContourChanged(int n = -1);
+  void VectorLineWidthChanged(double val);
+  void VectorSkipChanged(int nSkip);
 
 private:
   void UpdateMinMaxValues();
-  void UpdateLUTTable();
   void BuildGenericLUT( const int colors[256][3] );
 
   //BTX
@@ -474,9 +510,10 @@ private:
   int     mResliceInterpolation;
   int     mTextureSmoothing;
 
-  bool    mbClearZero;
+  bool    mbClearBackground;
   double  mMinVoxelValue, mMaxVoxelValue;
   double  mMinVisibleValue, mMaxVisibleValue;
+  double  mClearBackgroundValue;
 
   // For grayscale drawing.
   double  mMinGrayscaleWindow, mMaxGrayscaleWindow;
@@ -516,6 +553,7 @@ private:
   bool    m_bNormalizeVector;
   double  m_dVectorDisplayScale;
   double  m_dVectorScale;
+  double  m_dVectorNormThreshold;
 
   bool    m_bDisplayRGB;
 
@@ -530,13 +568,15 @@ private:
   bool    m_bContourUpsample;
 
   bool    m_bShowAsLabelContour;
-  QString m_sLabelContourRange;
   bool    m_bShowLabelOutline;
   int     m_nUpSampleMethod;
+  bool    m_bShowVoxelizedContour;
 
   bool    m_bUsePercentile;
   bool    m_bAutoAdjustFrameLevel;
   QMap<int, QPair<double, double> > m_mapMinMaxValues;
+
+  int     m_dVectorLineWidth;
 
   // ---------------------------------------------------------------------
 
@@ -548,7 +588,10 @@ private:
   int     m_nProjectionMapType;
   int     m_nProjectionMapRange[6];
 
+  int     m_nVectorSkip;
+
   QList<int>  m_listVisibleLabels;
+  QColor  m_colorBinary;
 };
 
 #endif

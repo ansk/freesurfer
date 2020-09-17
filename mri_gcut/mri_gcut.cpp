@@ -1,5 +1,4 @@
 /**
- * @file  mri_gcut.cpp
  * @input T1.mgz; output brainmask.auto.mgz
  *
  * the main idea of the program:
@@ -45,10 +44,6 @@
  */
 /*
  * Original Authors: Vitali Zagorodnov, ZHU Jiaqi
- * CVS Revision Info: 1.4
- *    $Author: Vitali Zagorodnov, ZHU Jiaqi
- *    $Date: Feb. 2010
- *    $Revision: 1.4
  *
  * Copyright © 2009-2010 Nanyang Technological University, Singapore
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
@@ -70,21 +65,19 @@
 #include <errno.h>
 #include <math.h>
 
-extern "C"
-{
+
+
 #include "mri.h"
 #include "error.h"
 #include "diag.h"
 #include "version.h"
 #include "utils.h"
-}
+
 
 #include "pre_pro.cpp"
 #include "graphcut.cpp"
 
 const char *Progname;
-static char vcid[] =
-  "$Id: mri_gcut.cpp,v 1.14 2011/03/02 00:04:16 nicks Exp $";
 static char in_filename[STRLEN];
 static char out_filename[STRLEN];
 static char mask_filename[STRLEN];
@@ -137,7 +130,7 @@ static void print_help(void)
 /* --------------------------------------------- */
 static void print_version(void)
 {
-  printf("%s\n", vcid) ;
+  std::cout << getVersion() << std::endl;
   exit(1) ;
 }
 
@@ -240,10 +233,7 @@ static int parse_commandline(int argc, char **argv)
 int main(int argc, char *argv[])
 {
   /* check for and handle version tag */
-  int nargs = handle_version_option
-              (argc, argv,
-               "$Id: mri_gcut.cpp,v 1.14 2011/03/02 00:04:16 nicks Exp $",
-               "$Name:  $");
+  int nargs = handleVersionOption(argc, argv, "mri_gcut");
   if (nargs && argc - nargs == 1)
   {
     exit (0);

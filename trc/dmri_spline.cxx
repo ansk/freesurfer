@@ -1,15 +1,10 @@
 /**
- * @file  dmri_spline.cxx
  * @brief Interpolate a spline from its control points
  *
  * Interpolate a spline from its control points
  */
 /*
  * Original Author: Anastasia Yendiki
- * CVS Revision Info:
- *    $Author: ayendiki $
- *    $Date: 2013/02/12 01:50:37 $
- *    $Revision: 1.8 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -67,24 +62,21 @@ int debug = 0, checkoptsonly = 0;
 
 int main(int argc, char *argv[]);
 
-static char vcid[] = "";
 const char *Progname = "dmri_spline";
 
 bool showControls = false;
-char *inFile = NULL, *maskFile = NULL,
-     *outVolFile = NULL, *outTextFile = NULL, *outVecBase = NULL;
+std::string inFile, outVolFile, outVecBase, maskFile, outTextFile;
 
 struct utsname uts;
 char *cmdline, cwd[2000];
 
-struct timeb cputimer;
+Timer cputimer;
 
 /*--------------------------------------------------*/
 int main(int argc, char **argv) {
   int nargs, cputime;
 
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option (argc, argv, vcid, "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "dmri_spline");
   if (nargs && argc - nargs == 1) exit (0);
   argc -= nargs;
   cmdline = argv2cmdline(argc,argv);
@@ -105,60 +97,62 @@ int main(int argc, char **argv) {
 
   dump_options();
 
-  Spline myspline(inFile, maskFile);
+  Spline myspline(inFile.c_str(), maskFile.c_str());
 
   printf("Computing spline...\n");
-  TimerStart(&cputimer);
+  cputimer.reset();
 
   myspline.InterpolateSpline();
 
-  cputime = TimerStop(&cputimer);
+  cputime = cputimer.milliseconds();
   printf("Done in %g sec.\n", cputime/1000.0);
 
-  if (outVolFile)
-    myspline.WriteVolume(outVolFile, showControls);
+  if (!outVolFile.empty() ) {
+    myspline.WriteVolume(outVolFile.c_str(), showControls);
+  }
 
-  if (outTextFile)
-    myspline.WriteAllPoints(outTextFile);
+  if (!outTextFile.empty()) {
+    myspline.WriteAllPoints(outTextFile.c_str());
+  }
 
-  if (outVecBase) {
-    char fname[PATH_MAX];
+  if (!outVecBase.empty()) {
+    std::string fname;
 
     printf("Computing analytical tangent, normal, and curvature...\n");
-    TimerStart(&cputimer);
+    cputimer.reset();
 
     myspline.ComputeTangent(true);
     myspline.ComputeNormal(true);
     myspline.ComputeCurvature(true);
 
-    cputime = TimerStop(&cputimer);
+    cputime = cputimer.milliseconds();
     printf("Done in %g sec.\n", cputime/1000.0);
 
     // Write tangent, normal, and curvature (analytical) to text files
-    sprintf(fname, "%s_tang.txt", outVecBase);
-    myspline.WriteTangent(fname);
-    sprintf(fname, "%s_norm.txt", outVecBase);
-    myspline.WriteNormal(fname);
-    sprintf(fname, "%s_curv.txt", outVecBase);
-    myspline.WriteCurvature(fname);
+    fname = outVecBase + "_tang.txt";
+    myspline.WriteTangent(fname.c_str());
+    fname = outVecBase + "_norm.txt";
+    myspline.WriteNormal(fname.c_str());
+    fname = outVecBase + "_curv.txt";
+    myspline.WriteCurvature(fname.c_str());
 
     printf("Computing discrete tangent, normal, and curvature...\n");
-    TimerStart(&cputimer);
+    cputimer.reset();
 
     myspline.ComputeTangent(false);
     myspline.ComputeNormal(false);
     myspline.ComputeCurvature(false);
 
-    cputime = TimerStop(&cputimer);
+    cputime = cputimer.milliseconds();
     printf("Done in %g sec.\n", cputime/1000.0);
 
     // Write tangent, normal, and curvature (discrete) to text files
-    sprintf(fname, "%s_tang_diff.txt", outVecBase);
-    myspline.WriteTangent(fname);
-    sprintf(fname, "%s_norm_diff.txt", outVecBase);
-    myspline.WriteNormal(fname);
-    sprintf(fname, "%s_curv_diff.txt", outVecBase);
-    myspline.WriteCurvature(fname);
+    fname = outVecBase + "_tang_diff.txt";
+    myspline.WriteTangent(fname.c_str());
+    fname = outVecBase + "_norm_diff.txt";
+    myspline.WriteNormal(fname.c_str());
+    fname = outVecBase + "_curv_diff.txt";
+    myspline.WriteCurvature(fname.c_str());
   }
 
   printf("dmri_spline done\n");
@@ -276,21 +270,21 @@ static void usage_exit(void) {
 
 /* --------------------------------------------- */
 static void print_version(void) {
-  cout << vcid << endl;
+  cout << getVersion() << endl;
   exit(1);
 }
 
 /* --------------------------------------------- */
 static void check_options(void) {
-  if(!inFile) {
+  if(inFile.size() == 0) {
     cout << "ERROR: Must specify input text file" << endl;
     exit(1);
   }
-  if(!maskFile) {
+  if(maskFile.size() == 0) {
     cout << "ERROR: Must specify mask volume" << endl;
     exit(1);
   }
-  if(!outVolFile && !outTextFile && !outVecBase) {
+  if((outVolFile.size() + outTextFile.size() + outVecBase.size()) == 0) {
     cout << "ERROR: Must specify at least one type of output file" << endl;
     exit(1);
   }
@@ -300,7 +294,7 @@ static void check_options(void) {
 /* --------------------------------------------- */
 static void dump_options() {
   cout << endl
-       << vcid << endl
+       << getVersion() << endl
        << "cwd " << cwd << endl
        << "cmdline " << cmdline << endl
        << "sysname  " << uts.sysname << endl
@@ -310,14 +304,16 @@ static void dump_options() {
 
   cout << "Control points: " << inFile << endl;
   cout << "Mask volume: " << maskFile << endl;
-  if (outVolFile) {
+  if (outVolFile.size() != 0) {
     cout << "Output volume: " << outVolFile << endl
          << "Show controls: " << showControls << endl;
   }
-  if (outTextFile)
+  if (outTextFile.size() != 0) {
     cout << "Output text file: " << outTextFile << endl;
-  if (outVecBase)
+  }
+  if (outVecBase.size() != 0 ) {
     cout << "Output tangent vector file base name: " << outVecBase << endl;
+  }
 
   return;
 }

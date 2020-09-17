@@ -1,14 +1,9 @@
 /**
- * @file  Layer.h
  * @brief Base Layer class. A layer is an independent data object with 2D and 3D graphical representations.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2014/03/28 19:29:38 $
- *    $Revision: 1.30 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -190,7 +185,7 @@ public:
     return m_sFilename;
   }
 
-  void SetFileName( const QString& fn )
+  virtual void SetFileName( const QString& fn )
   {
     m_sFilename = fn;
   }
@@ -220,6 +215,23 @@ public:
   int GetID()
   {
     return m_nID;
+  }
+
+  void SetID(int n)
+  {
+    m_nID = n;
+    if (m_nLastID <= m_nID)
+      m_nLastID = m_nID+1;
+  }
+
+  bool GetAboutToDelete()
+  {
+    return m_bAboutToDelete;
+  }
+
+  void MarkAboutToDelete()
+  {
+    m_bAboutToDelete = true;
   }
 
   void CopyTransformation(Layer* layer);
@@ -265,6 +277,7 @@ protected:
   bool      m_bUseRotationCenter;
 
   bool      m_bLocked;
+  bool      m_bAboutToDelete;
 
   LayerProperty*  mProperty;
 

@@ -1,14 +1,9 @@
 /**
- * @file  VolumeFilterGradient.cpp
  * @brief Base VolumeFilterGradient class.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2011/10/18 18:13:24 $
- *    $Revision: 1.9 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -53,14 +48,22 @@ bool VolumeFilterGradient::Execute()
   if ( m_bSmoothing )
   {
     vtkSmartPointer<vtkImageGaussianSmooth> smooth = vtkSmartPointer<vtkImageGaussianSmooth>::New();
+#if VTK_MAJOR_VERSION > 5
+    smooth->SetInputData( m_volumeInput->GetImageData() );
+#else
     smooth->SetInput( m_volumeInput->GetImageData() );
+#endif
     smooth->SetStandardDeviations( m_dSD, m_dSD, m_dSD );
     smooth->SetRadiusFactors( 1, 1, 1 );
     grad->SetInputConnection( smooth->GetOutputPort() );
   }
   else
   {
+#if VTK_MAJOR_VERSION > 5
+    grad->SetInputData( m_volumeInput->GetImageData() );
+#else
     grad->SetInput( m_volumeInput->GetImageData() );
+#endif
   }
 
   grad->Update();
@@ -73,7 +76,11 @@ bool VolumeFilterGradient::Execute()
     scale = -scale;
   }
   vtkSmartPointer<vtkImageShiftScale> scaler = vtkSmartPointer<vtkImageShiftScale>::New();
+#if VTK_MAJOR_VERSION > 5
+  scaler->SetInputData(img);
+#else
   scaler->SetInput(img);
+#endif
   scaler->SetShift(0);
   scaler->SetScale(scale);
   scaler->SetOutputScalarType(m_volumeInput->GetImageData()->GetScalarType());

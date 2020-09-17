@@ -1,12 +1,10 @@
 /**
- * @file  vial.h
  * @brief Holds utilities for probabilistic tractography
  *
  * Holds utilities for probabilistic tractography
  */
 /*
  * Original Author: Anastasia Yendiki
- * CVS Revision Info:
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -28,8 +26,6 @@
 #ifndef NO_CVS_UP_IN_HERE
 // Needed for CVS - these must be included first or else they don't compile
 #include <cmath>
-#include <boost/program_options.hpp>
-#include <boost/progress.hpp>
 #undef SEEK_SET
 #undef SEEK_END
 #undef SEEK_CUR
@@ -38,10 +34,6 @@
 #include "../fem_elastic/surf_utils.h"
 #include "../fem_elastic/morph_utils.h"
 #include "gcamorph.h"
-	/*
-#include "../fem_elastic/morph.h"
-#include "../fem_elastic/morph_utils.h"
-	*/
 #endif
 
 #include <vector>
@@ -63,10 +55,10 @@ class AffineReg {
     void PrintScale();
     void PrintShear();
     void PrintRotate();
-    std::vector<float> GetTranslate();
-    std::vector<float> GetRotate();
-    std::vector<float> GetShear();
-    std::vector<float> GetScale();
+    std::vector<float>::const_iterator GetTranslate();
+    std::vector<float>::const_iterator GetRotate();
+    std::vector<float>::const_iterator GetShear();
+    std::vector<float>::const_iterator GetScale();
 
   private:
     std::vector<float> mInToOut,				// [4 x 4]
@@ -87,7 +79,6 @@ class NonlinReg {
                      std::vector<float>::const_iterator InPoint);
 
   private:
-//    boost::shared_ptr<gmp::VolumeMorph> mMorph;
     GCAM *mMorph;
 };
 #endif

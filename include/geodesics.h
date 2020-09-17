@@ -5,10 +5,6 @@
 #ifndef geodesics
 #define geodesics
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "mrisurf.h"
 
 #define MAX_GEODESICS 8000
@@ -27,8 +23,26 @@ void geodesicsWrite(Geodesics* geo, int nvertices, char* fname);
 Geodesics* geodesicsRead(char* fname, int *nvertices);
 int geodesicsUniquify(Geodesics *geod);
 
-#ifdef __cplusplus
-}
-#endif
+typedef struct {
+  int vtxno; // surface vertex no
+  int volindex; // voxel index from volume
+  float dist;
+}  VTXVOLINDEX;
+
+MRI *GeoSmooth(MRI *src, double fwhm, MRIS *surf, Geodesics *geod, MRI *volindex, MRI *out);
+int GeoCount(Geodesics *geod, int nvertices);
+int GeoDumpVertex(char *fname, Geodesics *geod, int vtxno);
+int geodesicsWriteV2(Geodesics* geo, int nvertices, char* fname) ;
+Geodesics* geodesicsReadV2(char* fname, int *pnvertices) ;
+double geodesicsCheckSphereDist(MRIS *sphere, Geodesics *geod);
+double MRISsphereDist(MRIS *sphere, VERTEX *vtx1, VERTEX *vtx2);
+
+int VtxVolIndexCompare(const void *a, const void *b);
+int VtxVolIndexSort(VTXVOLINDEX *vvi, int nlist);
+int VtxVolIndexPrint(VTXVOLINDEX *vvi, int nlist);
+int VtxVolIndexSortTest(int nlist);
+VTXVOLINDEX *VtxVolIndexUnique(VTXVOLINDEX *vvi, int nlist, int *nunique);
+VTXVOLINDEX *VtxVolIndexPack(Geodesics *geod, int vtxno, MRI *volindex);
+Geodesics *VtxVolPruneGeod(Geodesics *geod, int vtxno, MRI *volindex);
 
 #endif

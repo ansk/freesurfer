@@ -1,14 +1,9 @@
 /**
- * @file  Region2DRectangle.cpp
  * @brief Region2DRectangle.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/01 15:28:54 $
- *    $Revision: 1.16 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -120,7 +115,11 @@ void Region2DRectangle::Update()
   polydata->SetPoints( pts );
   polydata->SetPolys( poly );
   vtkSmartPointer<vtkPolyDataMapper2D> mapper = vtkSmartPointer<vtkPolyDataMapper2D>::New();
+#if VTK_MAJOR_VERSION > 5
+  mapper->SetInputData( polydata );
+#else
   mapper->SetInput( polydata );
+#endif
 
   vtkSmartPointer<vtkCoordinate> coords = vtkSmartPointer<vtkCoordinate>::New();
   coords->SetCoordinateSystemToViewport();

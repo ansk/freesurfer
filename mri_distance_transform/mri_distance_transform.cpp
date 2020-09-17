@@ -1,15 +1,5 @@
-/**
- * @file  mri_distance_transform.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
  * Original Author: Florent Segonne 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:15 $
- *    $Revision: 1.9 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -30,7 +20,7 @@
 #include <math.h>
 #include <ctype.h>
 
-extern "C" {
+ 
 #include "macros.h"
 #include "error.h"
 #include "diag.h"
@@ -42,10 +32,10 @@ extern "C" {
 #include "timer.h"
 #include "cma.h"
 
-}
+
 #include "fastmarching.h"
 
-char *Progname ;
+const char *Progname ;
 
 static float remove_csf_from_paths(MRI *mri_distance, MRI *mri_area, 
                                    MRI *mri_csf) ;
@@ -63,27 +53,26 @@ static float anterior_dist = -1 ;
 static float posterior_dist = -1 ;
 
 static float binarize = 0.0 ;
+static int percent = 0;
 
 static int ndilations = 0 ;
 MRI *MRIthresholdPosterior(MRI *mri_src, MRI *mri_dst, float posterior_dist) ;
 MRI *MRIthresholdAnterior(MRI *mri_src, MRI *mri_dst, float anterior_dist) ;
+MRI *MRIscaleDistanceTransformToPercentMax(MRI *mri_in, MRI *mri_out);
 
 int main(int argc, char *argv[]) {
   MRI         *mri,*mri_distance;
   int         label,mode;
   float       max_distance;
-  int         ac, nargs ;
-  char        **av ;
+  int         nargs ;
   MRI_SURFACE *mris = NULL ;
-  MRI         *mri_orig_white = NULL, *mri_csf = NULL ;
+  MRI         *mri_csf = NULL ;
 
   max_distance=10;
   mode=1;
 
   Progname=argv[0];
 
-  ac = argc ;
-  av = argv ;
   for ( ; argc > 1 && ISOPTION(*argv[1]) ; argc--, argv++) {
     nargs = get_option(argc, argv) ;
     argc -= nargs ;
@@ -132,7 +121,6 @@ int main(int argc, char *argv[]) {
         ErrorExit(ERROR_NOFILE, "%s: could not read surface from %s", Progname, surf_name) ;
       mri_white = MRIclone(mri, NULL) ;
       MRISfillInterior(mris, mri_white->xsize, mri_white) ;
-      mri_orig_white = MRIcopy(mri_white, NULL) ; // before turning csf off
 
       if (mri_aseg)  // turn off non-wm/cortex labels
       {
@@ -218,6 +206,8 @@ int main(int argc, char *argv[]) {
 
   if (normalize > 0)
     MRIscalarMul(mri_distance, mri_distance, 1.0/normalize) ;
+  if (percent)
+    MRIscaleDistanceTransformToPercentMax(mri_distance,mri_distance) ;
   if (mri_area)
     {
       float csf_vox ;
@@ -385,6 +375,11 @@ get_option(int argc, char *argv[]) {
       binarize = atof(argv[2]) ;
       nargs = 1;
       printf("binarizing input data with thresh = %2.1f\n", binarize) ;
+    }
+  else if (!stricmp(option, "p"))
+    {
+      percent=1;
+      printf("scaling distances to be percent of max\n");
     }
   return(nargs) ;
 }
@@ -583,9 +578,9 @@ MRIthresholdPosterior(MRI *mri_src, MRI *mri_dst, float posterior_dist)
 static float
 remove_csf_from_paths(MRI *mri_distance, MRI *mri_area, MRI *mri_csf)
 {
-  int   x, y, z, steps, xk, yk, zk, xi, yi, zi, csf_nbr,total_label_vox;
-  float xf, yf, zf, mean_csf_len, csf_len, total_csf_len ;
-  Real  dx, dy, dz, distance ;
+  int    x, y, z, steps, xk, yk, zk, xi, yi, zi, csf_nbr,total_label_vox;
+  float  xf, yf, zf, mean_csf_len, csf_len, total_csf_len ;
+  double dx, dy, dz, distance ;
   MRI   *mri_orig_csf ;
 
   mri_orig_csf = MRIcopy(mri_csf, NULL) ;
@@ -666,5 +661,30 @@ remove_csf_from_paths(MRI *mri_distance, MRI *mri_area, MRI *mri_csf)
   else
     mean_csf_len = 0.0 ;
   return(mean_csf_len) ;
+}
+
+MRI *
+MRIscaleDistanceTransformToPercentMax(MRI *mri_in, MRI *mri_out)
+{
+  float min_val, max_val, val ;
+  int   x, y, z ;
+
+  MRIvalRange(mri_in, &min_val, &max_val) ;
+  printf("scaling distance transforms by [%2.1f, %2.1f]\n", min_val, max_val);
+  mri_out = MRIcopy(mri_in, mri_out) ;
+
+  for (x = 0 ; x < mri_out->width ; x++)
+    for (y = 0 ; y < mri_out->height ; y++)
+      for (z = 0 ; z < mri_out->depth ; z++)
+      {
+	val = MRIgetVoxVal(mri_out, x, y, z, 0) ;
+	if (val > 0)
+	  val /= max_val ;
+	else if (min_val < 0)
+	  val /= -min_val ;
+	MRIsetVoxVal(mri_out, x, y,z, 0, val) ;
+      }
+
+  return(mri_out) ;
 }
 

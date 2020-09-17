@@ -1,10 +1,11 @@
 #!/bin/tcsh -f
-# tkmeditfv
+# tkregisterfv
 
-set VERSION = '$Id: tkregisterfv,v 1.9 2016/03/16 21:34:54 greve Exp $';
+set VERSION = 'tkregisterfv @FS_VERSION@';
 
 set subject = ();
 set movvol = ();
+set reg = ()
 set targ = ();
 set fstarg = orig.mgz
 set lta = ();
@@ -22,6 +23,12 @@ set segvol0 = ();
 set segvol = ();
 set Plane = cor
 set ShowConfig = 1;
+set altargs = ()
+set movvol2 = ();
+set reg2 = ()
+set movvol3 = ();
+set reg3 = ()
+set DoTal = 0;
 
 set tmpdir = ();
 set cleanup = 1;
@@ -53,6 +60,43 @@ set StartTime = `date`;
 set tSecStart = `date '+%s'`;
 
 #========================================================
+if($DoTal) then
+  set tmpdir = /tmp/tkregisterfv-$$
+  mkdir -p $tmpdir
+  set mni305 = $FREESURFER_HOME/average/mni305.cor.mgz
+  set mdir = $SUBJECTS_DIR/$subject/mri
+  set xfm = $mdir/transforms/talairach.xfm
+  set lta = $tmpdir/talairach.lta
+  # Convert xfm to lta
+  set cmd = (lta_convert --src $mdir/orig.mgz --trg $mni305 \
+     --inxfm $xfm --outlta $lta --subject fsaverage)
+  echo $cmd 
+  $cmd
+  if($status) exit 1;
+  # Save a copy
+  set ltacopy = $tmpdir/talairach.copy.lta
+  cp -p $lta $ltacopy
+  # Run freeview (vglrun not needed here)
+  set cmd = (tkregisterfv --mov $mdir/orig.mgz --reg $lta)
+  echo $cmd
+  $cmd
+  # Check whether the user changed the reg
+  set n = `diff $lta $ltacopy | wc -l`
+  if($n == 0) then
+    echo "No change to registration"
+    echo "tkregisterfv done"
+    rm -rf $tmpdir
+    exit 0
+  endif
+  # Convert it back to xfm
+  set cmd = (lta_convert --inlta $lta --outmni $xfm)
+  echo $cmd 
+  $cmd
+  if($status) exit 1;
+  rm -rf $tmpdir
+  echo "tkregisterfv done"
+  exit 0
+endif
 
 if(! $UseTkRegister) then
   ### FreeView ####----------------------------------------------
@@ -74,7 +118,9 @@ if(! $UseTkRegister) then
   if($ShowConfig)  set cmd = ($cmd -transform-volume)
   set cmd = ($cmd -viewport $Plane) # currently causes FV to crash
   set targname = `basename $targ`
-  set cmd = ($cmd -v $targ":"visible=0":"name=$targname"(targ)")
+  set visible = 0
+  if($#surflist == 0) set visible = 1
+  set cmd = ($cmd -v $targ":"visible=$visible":"name=$targname"(targ)")
   @ nthaux = 0;
   foreach aux ($auxlist)
     @ nthaux = $nthaux + 1;
@@ -85,19 +131,31 @@ if(! $UseTkRegister) then
   set movname = `basename $movvol`
   if($#reg == 1) set cmd = ($cmd $movvol":"name=$movname"(mov):"reg=$reg)
   if($#reg == 0) set cmd = ($cmd $movvol":"name=$movname"(mov)")
+  if($#movvol2) then
+    set movname2 = `basename $movvol2`
+    if($#reg2 == 1) set cmd = ($cmd $movvol2":"name=$movname2"(mov2):"reg=$reg2)
+    if($#reg2 == 0) set cmd = ($cmd $movvol2":"name=$movname2"(mov2)")
+  endif
+  if($#movvol3) then
+    set movname3 = `basename $movvol3`
+    if($#reg3 == 1) set cmd = ($cmd $movvol3":"name=$movname3"(mov3):"reg=$reg3)
+    if($#reg3 == 0) set cmd = ($cmd $movvol3":"name=$movname3"(mov3)")
+  endif
   @ nth = 0;
   foreach surf ($surflist)
     @ nth = $nth + 1;
     set cmd = ($cmd --surface $surf":"edgecolor=$surfcolor[$nth])
   end
+  set cmd = ($cmd $altargs)
 else
   ### tkregister ####----------------------------------------------
   set cmd = tkregister
   if($DoSurfs) set cmd = ($cmd -surfs)
+  endif
 endif
 echo "cd `pwd`"
 echo $cmd
-$cmd
+fsvglrun $cmd
 
 #========================================================
 
@@ -213,6 +271,40 @@ while( $#argv != 0 )
       set regheader = 1;
       breaksw
 
+    case "--mov2":
+      if($#argv < 1) goto arg1err;
+      set movvol2 = $argv[1]; shift;
+      if(! -e $movvol2) then
+        echo "ERROR: cannot find $movvol2"
+        exit 1;
+      endif
+      set movvol2 = `getfullpath $movvol2`
+      breaksw
+
+    case "--lta2":
+    case "--reg2":
+      if($#argv < 1) goto arg1err;
+      set reg2 = $argv[1]; shift;
+      set reg2 = `getfullpath $reg2`
+      breaksw
+
+    case "--mov3":
+      if($#argv < 1) goto arg1err;
+      set movvol3 = $argv[1]; shift;
+      if(! -e $movvol3) then
+        echo "ERROR: cannot find $movvol3"
+        exit 1;
+      endif
+      set movvol3 = `getfullpath $movvol3`
+      breaksw
+
+    case "--lta3":
+    case "--reg3":
+      if($#argv < 1) goto arg1err;
+      set reg3 = $argv[1]; shift;
+      set reg3 = `getfullpath $reg3`
+      breaksw
+
     case "--surfs":
     case "--wm-surfs":
       set DoSurfs = 1;
@@ -271,6 +363,21 @@ while( $#argv != 0 )
       if($Plane == ax)  set Plane = axial
       breaksw
 
+    case "--fstal"
+      set DoTal = 1;
+      breaksw
+
+    case "-vgl":
+    case "--vgl":
+      setenv FS_ALLOW_VGLRUN 1
+      breaksw
+    case "-novgl":
+    case "--novgl":
+    case "--no-vgl":
+    case "-no-vgl":
+      unsetenv FS_ALLOW_VGLRUN 
+      breaksw
+
     case "--no-config"
       set ShowConfig = 0;
       breaksw
@@ -307,9 +414,10 @@ while( $#argv != 0 )
       breaksw
 
     default:
-      echo ERROR: Flag $flag unrecognized. 
-      echo $cmdline
-      exit 1
+      set altargs = ($altargs $flag)
+      #echo ERROR: Flag $flag unrecognized. 
+      #echo $cmdline
+      #exit 1
       breaksw
   endsw
 
@@ -320,6 +428,18 @@ goto parse_args_return;
 
 ############--------------##################
 check_params:
+
+if($DoTal) then
+  if($#subject == 0) then
+    echo "ERROR: must have subject with --fstal"
+    exit 0
+  endif
+  if($#reg != 0) then
+    echo "ERROR: cannot have --reg with --fstal"
+    exit 0
+  endif
+  set movvol = $SUBJECTS_DIR/$subject/mri/orig.mgz
+endif
 
 if($#movvol == 0) then
   echo "ERROR: must spec a moveable volume"
@@ -423,6 +543,10 @@ usage_exit:
   echo "  --aux-surf auxsurfname : explicit path to surf to load"
   echo "  --plane plane : cor, sag, ax"
   echo "  --no-config : do not automatically raise transform config window"
+  echo "  --mov2 mov2 <--reg2 reg2> : provide a second mov (and possibly reg)"
+  echo "  --mov3 mov3 <--reg3 reg3> : provide a third mov (and possibly reg)"
+  echo ""
+  echo "  --fstal --s subject : only these two args to modify the talairach.xfm"
   echo ""
   if(! $PrintHelp) exit 1;
   echo $VERSION

@@ -1,7 +1,12 @@
 #!/bin/tcsh -f
 # fs_time
 
-set VERSION = '$Id: fs_time,v 1.11 2016/02/16 17:17:20 zkaufman Exp $';
+# Check whether FS_TIME_ALLOW exists, if not assume it is ok
+if($?FS_TIME_ALLOW == 0) then
+  setenv FS_TIME_ALLOW 1
+endif
+
+set VERSION = 'fs_time @FS_VERSION@';
 set outfile = ();
 set key = ("@#@FSTIME ");
 
@@ -31,6 +36,12 @@ parse_args_return:
 goto check_params;
 check_params_return:
 
+# If FS_TIME_ALLOW is not set, then just run the program and exit
+if($FS_TIME_ALLOW == 0) then
+  $argv  
+  exit $status
+endif
+
 @ nargs = $#argv - 1
 
 if($FSTIME_LOAD) then
@@ -46,11 +57,28 @@ endif
 set dt = `date '+%Y:%m:%d:%H:%M:%S'`
 set fmt = "$key $dt $argv[1] N $nargs e %e S %S U %U P %P M %M F %F R %R W %W c %c w %w I %I O %O $upt"
 
+# set time command
 set cmd = /usr/bin/time
-if($#outfile) set cmd = ($cmd -o $outfile)
-$cmd  -f "$fmt" $argv
+
+# make sure time command exists
+if(! -e $cmd) then
+  $argv
+  exit $status
+endif
+
+if($#outfile == 0)  set outfile = /dev/stdout; # time default is stderr, which is annoying
+set cmd = ($cmd -o $outfile)
+
+# test to make sure that time runs as expected (gnu)
+$cmd -f "$fmt" echo testing >& /dev/null
+if ( $status ) then
+  $argv
+  exit $status
+endif
+
+$cmd -f "$fmt" $argv
 set st = $status
-if($#outfile) cat $outfile
+if($outfile != /dev/stdout) cat $outfile
 
 if($FSTIME_LOAD) then
   set dt = `date '+%Y:%m:%d:%H:%M:%S'`
@@ -112,11 +140,6 @@ goto parse_args_return;
 ############--------------##################
 check_params:
 
-if(! -e /usr/bin/time) then
-  echo "ERROR: cannot find /usr/bin/time"
-  exit 1;
-endif
-
 if($#argv == 0) then
   goto usage_exit;
 endif
@@ -152,6 +175,11 @@ resources used by a process. The basic usage is like that of time, ie,
 fs_time [options] command args
 
 It creates a formatted output that allows for easy processing. See below.
+
+If the FS_TIME_ALLOW env var is set to 0, then fs_time will simply run
+the command and exit with the retun status. This feature allows
+fs_time to be turned off in cases where /usr/bin/time does not exist.
+If it is not set or set to non-zero, then fs_time runs as normal.
 
 If the env variable FSTIME_LOAD is set to 1 or not set at all, then
 uptime is run before and after each process to give the load on the
@@ -207,7 +235,7 @@ mri_convert : command that was run
 N 2 : mri_convert was run with 2 arguments
 e 2.20 : total elapsed time in seconds from start to end
 S 0.05 : seconds spent in system mode
-U 1.64 : seconds specnt in user mode
+U 1.64 : seconds spent in user mode
 P 77%  : percent of cpu that process used (S+U)/e
 M 23628 : maximum memory size in Kbytes
 F 0 : no major page faults

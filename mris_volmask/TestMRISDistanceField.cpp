@@ -2,10 +2,10 @@
 #include <string>
 #include <cppunit/extensions/HelperMacros.h>
 #include <cppunit/ui/text/TestRunner.h>
-extern "C" {
+ 
 #include "fsenv.h"
-}
-char *Progname;
+
+const char *Progname;
 // the setting of SUBJECTS_DIR where bert resides is essential to this test.
 class TestMRISDistanceField : public CppUnit::TestFixture
 {

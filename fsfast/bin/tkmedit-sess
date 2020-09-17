@@ -4,10 +4,6 @@
 # tkmedit-sess
 #
 # Original Author: Doug Greve
-# CVS Revision Info:
-#    $Author: zkaufman $
-#    $Date: 2015/12/10 22:51:31 $
-#    $Revision: 1.41 $
 #
 # Copyright (C) 2002-2007,
 # The General Hospital Corporation (Boston, MA). 
@@ -23,7 +19,7 @@
 #
 
 
-set VERSION = '$Id: tkmedit-sess,v 1.41 2015/12/10 22:51:31 zkaufman Exp $';
+set VERSION = 'tkmedit-sess @FS_VERSION@';
 set inputargs = ($argv);
 
 set sessid  = ();
@@ -290,11 +286,7 @@ foreach c ($contrastlist)
 end
 
 # Run the cmd
-$cmd
-if($status) then
-  echo "tkmedit failed"
-  exit 1;
-endif
+fsvglrun $cmd
 
 if($cleanup) rm -rf $tmpdir
 
@@ -446,6 +438,14 @@ while( $#argv != 0 )
       set UseFreeview = 1;
       breaksw
 
+    case "-vgl":
+      setenv FS_ALLOW_VGLRUN 1
+      breaksw
+    case "-novgl":
+    case "-no-vgl":
+      unsetenv FS_ALLOW_VGLRUN 
+      breaksw
+
     case "-no-fv":
     case "-no-freeview":
     case "-tkm":
@@ -572,6 +572,7 @@ usage_exit:
   echo "   -tcl script.tcl  : run tkmedit with tcl script"
   echo "   -freeview : display with freeview (cannot display HRFs)"
   echo "   -tkmedit  : display with tkmedit"
+  echo "   -vgl : run using vglrun"
   echo ""
   if(! $PrintHelp) exit 1;
   echo $VERSION

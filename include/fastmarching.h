@@ -1,14 +1,9 @@
 /**
- * @file  fastmarching.h
  * @brief fast marching algorithm
  *
  */
 /*
  * Original Author: Florent Segonne  
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2011/03/02 00:04:09 $
- *    $Revision: 1.12 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -25,12 +20,6 @@
 // include guard
 #ifndef fastmarching_h
 #define fastmarching_h
-
-// The following is usable from C
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 
 #include "mri.h"
 #include "mrisurf.h"
@@ -50,23 +39,16 @@ void MRISextractOutsideDistanceMap(MRIS *mris,
                                    float resolution,
                                    float max_distance);
 
-#ifdef __cplusplus
-}
-#endif
-
-// C++ portion starts here
-#ifdef __cplusplus
-
 #include <queue>
 #include <functional>
 #include <climits>
 #include <list>
 
-extern "C"
-{
+
+
 #include "mrisurf.h"
 #include "error.h"
-}
+
 
 #define mapMRI_XYZ(mri,x,y,z) for(int z =0 ; z < mri->depth ; z++) \
                  for(int y = 0 ; y < mri->height ; y++) \
@@ -586,7 +568,5 @@ public:
   }
 
 };
-#endif  // C++ portion ends here
-
 
 #endif // ifndef fastmarching_h

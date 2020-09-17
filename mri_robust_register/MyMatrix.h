@@ -1,5 +1,4 @@
 /**
- * @file MyMatrix.cpp
  * @brief A static class with Matrix operations
  *
  *    as used for registration (rigid, affine maps)
@@ -8,10 +7,6 @@
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2014/03/20 20:22:27 $
- *    $Revision: 1.20 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -31,26 +26,23 @@
 #ifndef MyMatrix_H
 #define MyMatrix_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "matrix.h"
 #include "mri.h"
 #include "transform.h"
-#ifdef __cplusplus
-}
-#endif
 
 #include <utility>
 #include <string>
 #include <vector>
 #include <iostream>
+
+#define export // obsolete feature 'export template' used in these headers 
 #include <vnl/vnl_vector.h>
 #include <vnl/vnl_matrix.h>
 #include <vnl/vnl_diag_matrix.h>
 #include <vnl/vnl_vector_fixed.h>
 #include <vnl/vnl_matrix_fixed.h>
+#undef export
+
 #include <vcl_complex.h>
 
 /** \class MyMatrix

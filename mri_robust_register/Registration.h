@@ -1,15 +1,10 @@
 /**
- * @file Registration.h
  * @brief Base class to compute a robust symmetric registration
  *
  */
 
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2015/09/22 19:55:12 $
- *    $Revision: 1.61 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,16 +24,9 @@
 #ifndef Registration_H
 #define Registration_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "matrix.h"
 #include "error.h"
 #include "mri.h"
-#ifdef __cplusplus
-}
-#endif
 
 #include <utility>
 #include <string>
@@ -46,11 +34,14 @@ extern "C"
 #include <typeinfo>
 #include <iostream>
 #include <sstream>
+
+#define export // obsolete feature 'export template' used in these headers 
 #include <vnl/vnl_vector.h>
 #include <vnl/vnl_matrix.h>
 #include <vnl/vnl_matrix_fixed.h>
 #include <vnl/vnl_inverse.h>
 #include <vnl/vnl_matlab_print.h>
+#undef export
 
 #include "MyMatrix.h"
 #include "MyMRI.h"

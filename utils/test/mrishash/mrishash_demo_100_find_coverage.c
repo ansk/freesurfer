@@ -101,7 +101,7 @@ void CoverageTest() {
   int rslt;
   int  xsi, ysi, zsi, xvi, yvi, zvi;
   int intens, halfscansize, closest_vertnum, vno;
-  Real xs,  ys,  zs,  xv,  yv,  zv;  // WTF is Real?
+  double xs,  ys,  zs,  xv,  yv,  zv;
   VERTEX vtx, *v;
   double ddist;
 
@@ -143,9 +143,9 @@ void CoverageTest() {
   // Create MHT using surface
   //-------------------------------
   printf("Creating MHT\n");
-  amht = MHTfillVertexTableRes(amris, NULL,CURRENT_VERTICES, hashres);
+  amht = MHTcreateVertexTable_Resolution(amris, CURRENT_VERTICES, hashres);
   if (!amht) {
-    printf("MHTfillVertexTableRes failed\n");
+    printf("MHTcreateVertexTable_Resolution failed\n");
     goto done;
   }
 

@@ -1,14 +1,9 @@
 /**
- * @file  DICOMRead.h
  * @brief DICOM 3.0 reading functions
  *
  */
 /*
  * Original Author: Sebastien Gicquel and Douglas Greve, 06/04/2001
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2015/11/06 22:24:19 $
- *    $Revision: 1.39 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -27,10 +22,10 @@
 #define _DICOMRead_H
 
 
-#include "dicom/dicom.h"
-#include "dicom/lst.h"
-#include "dicom/dicom_objects.h"
-#include "dicom/condition.h"
+#include "dicom.h"
+#include "lst.h"
+#include "dicom_objects.h"
+#include "condition.h"
 
 #define NUMBEROFTAGS 24
 #define SHORTSIZE 16
@@ -46,8 +41,19 @@
 typedef unsigned short int BOOL;
 // typedef unsigned short int bool;
 
+// BEVIN
+#ifndef true
+
+// These two lines are the original lines
 #define true 1
 #define false 0
+
+#elif true != 1 || false != 0
+
+#error "Incompatible definitions of true or false"
+
+#endif
+// END OF BEVIN'S CHANGES
 
 #ifdef _DICOMRead_SRC
 char *SDCMStatusFile = 0;
@@ -110,6 +116,7 @@ typedef enum
 }
 DCM_TagList;
 
+// This structure is for generic dicoms (see below for siemens specific)
 typedef struct
 {
   // DICOM file name
@@ -159,6 +166,9 @@ typedef struct
   void *PixelData;
   unsigned char min8,  max8;
   unsigned short int min16, max16;
+
+  // Rescaling parameters
+  double RescaleIntercept, RescaleSlope; //(0028,1052) (0028,1053)
 
 }
 DICOMInfo ;
@@ -221,6 +231,10 @@ typedef struct
   double bval, bvecx, bvecy, bvecz;
   float LargestValue; // 0x28, 0x107
   int   ErrorFlag;   /* Set for error, eg, aborted run */
+
+  // Rescaling parameters
+  double RescaleIntercept, RescaleSlope; //(0028,1052) (0028,1053)
+
 }
 SDCMFILEINFO;
 
@@ -329,6 +343,8 @@ int dcmImageDirCosObject(DCM_OBJECT *dcm, double *Vcx, double *Vcy, double *Vcz,
 MATRIX *ImageDirCos2Slice(double Vcx, double Vcy, double Vcz,
 			  double Vrx, double Vry, double Vrz,
 			  double *Vsx, double *Vsy, double *Vsz);
+
+int DCMcheckInterceptSlope(DCM_OBJECT *object);
 
 #ifdef SunOS
 /* kteich - this typedef is to keep the compiler from complaining

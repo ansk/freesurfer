@@ -1,14 +1,9 @@
 /**
- * @file  Cursor3D.cpp
  * @brief Cursor for 3D view.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/06/10 19:52:40 $
- *    $Revision: 1.15 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -87,7 +82,11 @@ void Cursor3D::RebuildActor(double scale)
   polydata->SetLines( lines );
 
   vtkSmartPointer<vtkTubeFilter> tube = vtkSmartPointer<vtkTubeFilter>::New();
+#if VTK_MAJOR_VERSION > 5
+  tube->SetInputData( polydata );
+#else
   tube->SetInput( polydata );
+#endif
   tube->SetNumberOfSides( 12 );
   tube->SetRadius( 0.15*(1+(m_nThickness-1)/3.0) );
   tube->CappingOn();

@@ -1,15 +1,10 @@
 /**
- * @file  mri_modify.cpp
  * @brief modify direction cosine info on the volume.
  *
  * also allows changing the 'xform' filename
  */
 /*
  * Original Author: Yasunari Tosa
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2013/08/05 17:57:07 $
- *    $Revision: 1.10 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -27,13 +22,15 @@
 #include <iostream>
 #include <iomanip>
 
-extern "C" {
+ 
 #include "macros.h"
 #include "mri.h"
 #include "transform.h"
 #include "version.h"
+
+#include "compilerdefs.h"
   const char *Progname = "mri_modify";
-}
+
 
 using namespace std;
 
@@ -47,6 +44,7 @@ static int tr_specified = 0 ;
 static int te_specified = 0 ;
 static int ti_specified = 0 ;
 static int fa_specified = 0 ;
+static int cras_specified = 0 ;
 
 void print_usage() {
   cout << "Usage: mri_modify <-xras xr xa xs> <-yras yr ya ys> <-zras zr za zs> <-cras cr ca cs> \\ " << endl;
@@ -82,6 +80,7 @@ int get_option(int argc, char *argv[], VOL_GEOM &vg) {
     vg.c_r = atof(argv[2]);
     vg.c_a = atof(argv[3]);
     vg.c_s = atof(argv[4]);
+    cras_specified = 1 ;
     nargs=3;
   } else if (!stricmp(option, (char*)"xsize")) {
     vg.xsize = atof(argv[2]);
@@ -118,16 +117,25 @@ int get_option(int argc, char *argv[], VOL_GEOM &vg) {
 
 int main(int argc, char *argv[]) {
   int nargs;
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option 
-    (argc, argv, 
-     "$Id: mri_modify.cpp,v 1.10 2013/08/05 17:57:07 fischl Exp $", 
-     "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "mri_modify");
   if (nargs && argc - nargs == 1)
     exit (0);
   argc -= nargs;
 
+#if defined(FS_COMP_GNUC)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#elif defined(FS_COMP_CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#endif
   VOL_GEOM vg = {}; // all values are initialized to be zero to detect change
+#if defined(FS_COMP_GNUC)
+#pragma GCC diagnostic pop
+#elif defined(FS_COMP_CLANG)
+#pragma clang diagnostic pop
+#endif
+
   new_transform_fname[0]=0; // null xform filename (assume no change)
 
   // argument handling
@@ -192,7 +200,7 @@ int main(int argc, char *argv[]) {
     vgOut.z_s = vg.z_s;
   }
   // c_ras
-  if (!FZERO(vg.c_r) || !FZERO(vg.c_a) || !FZERO(vg.c_s)) {
+  if (cras_specified){
     vgOut.c_r = vg.c_r;
     vgOut.c_a = vg.c_a;
     vgOut.c_s = vg.c_s;

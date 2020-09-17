@@ -1,14 +1,5 @@
-/**
- * @file  PanelROI.cpp
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2016/12/11 16:04:03 $
- *    $Revision: 1.26 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -196,7 +187,7 @@ void PanelROI::DoUpdateWidgets()
     }
   }
   ui->comboBoxMappedSurface->setCurrentIndex(nIndex);
-  ui->widgetDilateErode->setVisible(nIndex > 0);
+//  ui->widgetDilateErode->setVisible(nIndex > 0);
   ui->pushButtonResample->setVisible(nIndex > 0);
 
   BlockAllSignals( false );
@@ -212,7 +203,6 @@ void PanelROI::OnComboMappedSurface(int nIndex)
     UpdateWidgets();
   }
 }
-
 
 void PanelROI::OnButtonDilate()
 {

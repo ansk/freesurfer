@@ -1,5 +1,4 @@
 /**
- * @file  BrushProperty.cpp
  * @brief Class to hold brush properties for voxel editing
  *
  * Simple mix-in class for use with the Listener class so text
@@ -7,10 +6,6 @@
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/08 21:01:00 $
- *    $Revision: 1.20 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -67,6 +62,8 @@ BrushProperty::BrushProperty (QObject* parent) : QObject(parent),
   m_dEraseRange[1] = settings.value( "/BrushProperty/EraseRangeHigh", 1000000 ).toDouble();
   m_dEraseExcludeRange[0] = settings.value( "/BrushProperty/EraseExcludeRangeLow", 0 ).toDouble();
   m_dEraseExcludeRange[1] = settings.value( "/BrushProperty/EraseExcludeRangeHigh", 0 ).toDouble();
+
+  m_mapGeos = settings.value("/BrushProperty/Geos").toMap();
 }
 
 BrushProperty::~BrushProperty()
@@ -85,6 +82,7 @@ BrushProperty::~BrushProperty()
   settings.setValue( "/BrushProperty/EraseRangeHigh", m_dEraseRange[1] );
   settings.setValue( "/BrushProperty/EraseExcludeRangeLow", m_dEraseExcludeRange[0] );
   settings.setValue( "/BrushProperty/EraseExcludeRangeHigh", m_dEraseExcludeRange[1] );
+  settings.setValue( "/BrushProperty/Geos", m_mapGeos);
 }
 
 int BrushProperty::GetBrushSize()

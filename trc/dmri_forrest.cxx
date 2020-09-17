@@ -1,15 +1,10 @@
 /**
- * @file  dmri_forrest.cxx
  * @brief Random-forrest classifier for white-matter segmentation
  *
  * Random-forrest classifier for white-matter segmentation
  */
 /*
  * Original Author: Anastasia Yendiki
- * CVS Revision Info:
- *    $Author: ayendiki $
- *    $Date: 2014/05/27 14:49:34 $
- *    $Revision: 1.2 $
  *
  * Copyright © 2031 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -66,24 +61,21 @@ int debug = 0, checkoptsonly = 0;
 
 int main(int argc, char *argv[]);
 
-static char vcid[] = "";
 const char *Progname = "dmri_forrest";
 
-char *testDir = NULL, *trainListFile = NULL,
-     *maskFile = NULL, *asegFile = NULL, *orientFile = NULL;
+std::string testDir, trainListFile, maskFile, asegFile, orientFile;
 vector<char *> tractFileList;
 
 struct utsname uts;
 char *cmdline, cwd[2000];
 
-struct timeb cputimer;
+Timer cputimer;
 
 /*--------------------------------------------------*/
 int main(int argc, char **argv) {
   int nargs, cputime, nx, ny, nz, ntrain;
 
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option (argc, argv, vcid, "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "dmri_forrest");
   if (nargs && argc - nargs == 1) exit (0);
   argc -= nargs;
   cmdline = argv2cmdline(argc,argv);
@@ -106,10 +98,10 @@ int main(int argc, char **argv) {
 
   Forrest myforrest;
 
-  TimerStart(&cputimer);
+  cputimer.reset();
 
   cout << "Reading test subject data..." << endl;
-  myforrest.ReadTestSubject(testDir, maskFile, asegFile, orientFile);
+  myforrest.ReadTestSubject(testDir.c_str(), maskFile.c_str(), asegFile.c_str(), orientFile.c_str());
 
   // Get volume dimensions from test subject
   nx = myforrest.GetNx();
@@ -117,7 +109,7 @@ int main(int argc, char **argv) {
   nz = myforrest.GetNz();
 
   cout << "Reading training subject data..." << endl;
-  myforrest.ReadTrainingSubjects(trainListFile, maskFile, asegFile, orientFile,
+  myforrest.ReadTrainingSubjects(trainListFile.c_str(), maskFile.c_str(), asegFile.c_str(), orientFile.c_str(),
                                  tractFileList);
 
   // Get total number of training samples
@@ -188,7 +180,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  cputime = TimerStop(&cputimer);
+  cputime = cputimer.milliseconds();
   cout << "Done in " << cputime/1000.0 << " sec." << endl;
 
   cout << "dmri_forrest done" << endl;
@@ -311,21 +303,21 @@ static void usage_exit(void) {
 
 /* --------------------------------------------- */
 static void print_version(void) {
-  cout << vcid << endl;
+  cout << getVersion() << endl;
   exit(1);
 }
 
 /* --------------------------------------------- */
 static void check_options(void) {
-  if (!testDir) {
+  if (testDir.empty()) {
     cout << "ERROR: Must specify test subject directory" << endl;
     exit(1);
   }
-  if (!trainListFile) {
+  if (trainListFile.empty()) {
     cout << "ERROR: Must specify training subject list file" << endl;
     exit(1);
   }
-  if (!maskFile) {
+  if (maskFile.empty()) {
     cout << "ERROR: Must specify brain mask volume" << endl;
     exit(1);
   }
@@ -339,7 +331,7 @@ static void check_options(void) {
 /* --------------------------------------------- */
 static void dump_options() {
   cout << endl
-       << vcid << endl
+       << getVersion() << endl
        << "cwd " << cwd << endl
        << "cmdline " << cmdline << endl
        << "sysname  " << uts.sysname << endl
@@ -361,13 +353,15 @@ static void dump_options() {
     cout << " " << *istr;
   cout << endl;
 
-  if (asegFile)
+  if (!asegFile.empty()) {
     cout << "Location of aparc+aseg's relative to subject directory: "
          << asegFile << endl;
+  }
 
-  if (orientFile)
+  if (!orientFile.empty()) {
     cout << "Location of diffusion orientations relative to subject directory: "
          << orientFile << endl;
+  }
 
   return;
 }

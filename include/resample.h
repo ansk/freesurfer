@@ -1,15 +1,4 @@
-/**
- * @file  resample.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: greve $
- *    $Date: 2014/12/08 19:42:26 $
- *    $Revision: 1.25 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -50,8 +39,8 @@ char *ResampleVtxMapFile;
 extern char *ResampleVtxMapFile;
 #endif
 
-int interpolation_code(char *interpolation_string);
-int float2int_code(char *float2int_string);
+int interpolation_code(const char *interpolation_string);
+int float2int_code(const char *float2int_string);
 
 int ProjNormFracThick( float *x, float *y, float *z,
                        const MRI_SURFACE *surf, int vtx, float frac );
@@ -145,5 +134,6 @@ MRI *MRIsegPVF2Seg(MRI *segpvf, int *segidlist, int nsegs, COLOR_TABLE *ct,
 int VOXsegPVF2Seg(float *segpvfvox, int *segidlist, int nsegs, COLOR_TABLE *ct);
 MRI *MRIsegPVF2TissueTypePVF(MRI *segpvf, int *segidlist, int nsegs, 
 			     COLOR_TABLE *ct, MRI *mask, MRI *pvf);
+MRI *MRIapplySpmWarp(MRI *vol, LTA *srclta, MRI *warp, int LRRev, int interp, MRI *out);
 
 #endif /* #ifndef RESAMPLE_H_INC */

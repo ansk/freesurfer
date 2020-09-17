@@ -1,5 +1,4 @@
 /**
- * @file  SurfaceOverlayProperty.cxx
  * @brief Implementation for surface layer properties.
  *
  * In 2D, the MRI is viewed as a single slice, and controls are
@@ -9,10 +8,6 @@
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2015/07/17 16:20:35 $
- *    $Revision: 1.10 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -37,6 +32,8 @@
 #include "SurfaceOverlay.h"
 #include "SurfaceLabel.h"
 #include <QDebug>
+#include <QJsonDocument>
+#include <QFile>
 
 SurfaceOverlayProperty::SurfaceOverlayProperty ( SurfaceOverlay* overlay) :
   QObject( ),
@@ -52,13 +49,12 @@ SurfaceOverlayProperty::SurfaceOverlayProperty ( SurfaceOverlay* overlay) :
   m_dOffset(0),
   m_mask(NULL),
   m_maskData(NULL),
-  m_bInverseMask(false)
+  m_bInverseMask(false),
+  m_bIgnoreZeros(false),
+  m_nColorScale(CS_Heat),
+  m_nColorMethod(CM_LinearOpaque)
 {
   m_lut = vtkRGBAColorTransferFunction::New();
-
-  Reset();
-  SetColorScale( CS_Heat );
-  SetColorMethod( CM_LinearOpaque );
 }
 
 SurfaceOverlayProperty::~SurfaceOverlayProperty ()
@@ -79,12 +75,22 @@ void SurfaceOverlayProperty::Copy(SurfaceOverlayProperty *p)
   m_bSmooth = p->m_bSmooth;
   m_nSmoothSteps = p->m_nSmoothSteps;
   m_bUsePercentile = p->m_bUsePercentile;
+  m_bIgnoreZeros = p->m_bIgnoreZeros;
   m_dOffset = p->m_dOffset;
   m_nColorScale = p->m_nColorScale;
   m_nColorMethod = p->m_nColorMethod;
-  m_dMinPoint = p->m_dMinPoint;
-  m_dMidPoint = p->m_dMidPoint;
-  m_dMaxPoint = p->m_dMaxPoint;
+  if (m_bUsePercentile)
+  {
+    m_dMinPoint = m_overlay->PercentileToPosition(p->m_overlay->PositionToPercentile(p->m_dMinPoint));
+    m_dMidPoint = m_overlay->PercentileToPosition(p->m_overlay->PositionToPercentile(p->m_dMidPoint));
+    m_dMaxPoint = m_overlay->PercentileToPosition(p->m_overlay->PositionToPercentile(p->m_dMaxPoint));
+  }
+  else
+  {
+    m_dMinPoint = p->m_dMinPoint;
+    m_dMidPoint = p->m_dMidPoint;
+    m_dMaxPoint = p->m_dMaxPoint;
+  }
   m_customScale = p->m_customScale;
   m_dMinStop = p->m_dMinStop;
   m_dMaxStop = p->m_dMaxStop;
@@ -109,14 +115,18 @@ void SurfaceOverlayProperty::Reset()
 {
   if ( m_overlay )
   {
-    m_dMinPoint = fabs( m_overlay->m_dMinValue + m_overlay->m_dMaxValue ) / 2;
-    m_dMaxPoint = m_overlay->m_dMaxValue;
+    m_dMinPoint = m_overlay->PercentileToPosition(50);
+    m_dMaxPoint = m_overlay->PercentileToPosition(99);
+    if (m_dMinPoint < 0 && m_dMaxPoint > fabs(m_dMinPoint))
+      m_dMinPoint = fabs(m_dMinPoint);
     m_dMidPoint = ( m_dMinPoint + m_dMaxPoint ) / 2;
     m_dOffset = 0;
     m_customScale.clear();
-    m_customScale << QGradientStop(m_dMinPoint, Qt::red) << QGradientStop(m_dMaxPoint, Qt::yellow);
+    m_customScale << QGradientStop(m_dMinPoint, Qt::red);
     m_dMinStop = m_dMinPoint;
     m_dMaxStop = m_dMaxPoint;
+    SetColorScale( m_nColorScale );
+    SetColorMethod( m_nColorMethod );
   }
 }
 
@@ -301,6 +311,7 @@ void SurfaceOverlayProperty::SetMinPoint( double dValue )
   if ( dValue != m_dMinPoint )
   {
     m_dMinPoint = dValue;
+    SetColorScale(m_nColorScale);
   }
 }
 
@@ -315,6 +326,7 @@ void SurfaceOverlayProperty::SetMidPoint( double dValue )
   if ( dValue != m_dMidPoint )
   {
     m_dMidPoint = dValue;
+    SetColorScale(m_nColorScale);
   }
 }
 
@@ -328,6 +340,7 @@ void SurfaceOverlayProperty::SetMaxPoint( double dValue )
   if ( dValue != m_dMaxPoint )
   {
     m_dMaxPoint = dValue;
+    SetColorScale(m_nColorScale);
   }
 }
 
@@ -342,6 +355,7 @@ void SurfaceOverlayProperty::SetOffset(double dOffset)
   if (dOffset != m_dOffset)
   {
     m_dOffset = dOffset;
+    SetColorScale(m_nColorScale);
   }
 }
 
@@ -371,13 +385,6 @@ void SurfaceOverlayProperty::SetColorTruncate( bool bTruncate )
   m_bColorTruncate = bTruncate;
   SetColorScale( m_nColorScale );
 }
-
-/*
-void SurfaceOverlayProperty::MapOverlayColor( unsigned char* colordata, int nPoints )
-{
-  MapOverlayColor( m_overlay->GetData(), colordata, nPoints );
-}
-*/
 
 void SurfaceOverlayProperty::MapOverlayColor( float* data, unsigned char* colordata, int nPoints )
 {
@@ -748,4 +755,53 @@ void SurfaceOverlayProperty::OnLabelMaskDestroyed(QObject* label)
   }
 }
 
+bool SurfaceOverlayProperty::LoadCustomColorScale(const QString &filename)
+{
+  QFile file(filename);
+  file.open(QIODevice::ReadOnly);
+  QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+  QVariantList list = doc.toVariant().toList();
+  file.close();
+  if (list.isEmpty())
+  {
+    qDebug() << "Unable to load color scale from " << filename;
+    return false;
+  }
+  else
+  {
+    QGradientStops stops;
+    foreach (QVariant v, list)
+    {
+      QVariantMap map = v.toMap();
+      stops << QGradientStop(map["val"].toDouble(), QColor(map["r"].toInt(), map["g"].toInt(), map["b"].toInt()));
+    }
+    SetColorScale(CS_Custom);
+    SetCustomColorScale(stops);
+    return true;
+  }
+}
 
+bool SurfaceOverlayProperty::SaveCustomColorScale(const QString &filename)
+{
+  QFile file(filename);
+  if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+  {
+    QVariantList list;
+    foreach (QGradientStop stop, m_customScale)
+    {
+      QVariantMap map;
+      map["val"] = stop.first;
+      map["r"] = stop.second.red();
+      map["g"] = stop.second.green();
+      map["b"] = stop.second.blue();
+      list << map;
+    }
+    file.write(QJsonDocument::fromVariant(list).toJson());
+    return true;
+  }
+  else
+  {
+    qDebug() << "Unable to save color scale to " << filename;
+    return false;
+  }
+}

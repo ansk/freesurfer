@@ -1,15 +1,4 @@
-/**
- * @file  mri_transform_to_COR.c
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: nicks $
- *    $Date: 2016/02/27 20:38:29 $
- *    $Revision: 1.9 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -52,8 +41,6 @@
 #define SAMPLE_BSPLINE 5
 //#define DBL_EPSILON 1e-10
 
-static char vcid[] =
-  "$Id: mri_transform_to_COR.c,v 1.9 2016/02/27 20:38:29 nicks Exp $";
 
 LTA *ltaReadFileEx(const char *fname);
 int MYvg_isEqual(const VOL_GEOM *vg1, const VOL_GEOM *vg2);
@@ -66,7 +53,7 @@ static void print_version(void) ;
 static int debug_flag = 0;
 static int sinchalfwindow = 6;
 static int SplineDegree = 3;
-char *Progname ;
+const char *Progname ;
 static char *out_like_fname = NULL ;
 static int invert_flag = 0 ;
 //static int InterpMethod = SAMPLE_BSPLINE;
@@ -122,8 +109,7 @@ main(int argc, char *argv[])
   double maxV, minV, value;
   //  MATRIX *i_to_r, *r_to_i;
 
-  /* rkt: check for and handle version tag */
-  nargs = handle_version_option (argc, argv, "$Id: mri_transform_to_COR.c,v 1.9 2016/02/27 20:38:29 nicks Exp $", "$Name:  $");
+  nargs = handleVersionOption(argc, argv, "mri_transform_to_COR");
   if (nargs && argc - nargs == 1)
     usage_exit (0);
   argc -= nargs;
@@ -864,7 +850,7 @@ usage_exit(int exit_val)
 static void
 print_version(void)
 {
-  fprintf(stderr, "%s\n", vcid) ;
+  fprintf(stderr, "%s\n", getVersion().c_str()) ;
   exit(1) ;
 }
 

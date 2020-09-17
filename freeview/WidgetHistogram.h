@@ -1,14 +1,5 @@
-/**
- * @file  WidgetHistogram.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2013/08/08 19:55:12 $
- *    $Revision: 1.6 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -29,7 +20,7 @@
 #include <QColor>
 #include <QPolygon>
 
-class LineMarker;
+struct LineMarker;
 typedef QVector<LineMarker> LineMarkers;
 
 struct LineMarker
@@ -51,7 +42,7 @@ public:
   explicit WidgetHistogram(QWidget *parent = 0);
   ~WidgetHistogram();
 
-  template <class T> void SetInputData( T* data, long size, double* range = NULL );
+  template <class T> void SetInputData( T* data, long size, double* range = NULL);
 
   void GetOutputRange( double* dRange );
 
@@ -81,10 +72,7 @@ public:
     m_bSymmetricMarkers = bFlag;
   }
 
-  void SetMarkerEditable(bool bFlag)
-  {
-    m_bMarkerEditable = bFlag;
-  }
+  void SetMarkerEditable(bool bFlag);
 
   void SetColorTableData( unsigned char* colortable, bool bRefresh = true );
 
@@ -101,20 +89,19 @@ public:
     range[1] = m_dInputRange[1];
   }
 
-
-  double PositionToPercentile(double pos);
-
-  double PercentileToPosition(double percentile);
-
 signals:
   void MouseButtonPressed(int button, double value);
   void MarkerChanged();
 
 public slots:
   void SetAutoRange( bool bRange );
-  void SetUsePercentile(bool bUsePercentile);
   void SetForegroundColor( const QColor& color );
   void FlipMarkers();
+  void SetUsePercentile(bool b)
+  {
+    m_bUsePercentile = b;
+    update();
+  }
 
 protected:
   void Initialize();
@@ -137,11 +124,11 @@ protected:
   double      m_dInputRange[2];
 
   int*        m_nOutputData;
-  int         m_nOutputSize;
   double      m_dOutputRange[2];
-  double      m_dOutputTotalArea;
   bool        m_bAutoRange;
   int         m_nNumberOfBins;
+  double      m_dOutputTotalArea;
+  double*     m_dOutputArea;
   unsigned char* m_nColorTable;       // color table for histogram drawing as RGBA
 
   double      m_dBinWidth;
@@ -157,11 +144,10 @@ protected:
   bool        m_bMarkerEditable;
   int         m_nActiveMarker;
   bool        m_bActiveMarkerMirrored;
-
   bool        m_bUsePercentile;
 };
 
-template <class T> void WidgetHistogram::SetInputData( T* data, long size, double* range )
+template <class T> void WidgetHistogram::SetInputData( T* data, long size, double* range)
 {
   if ( m_dInputData )
   {
@@ -184,6 +170,7 @@ template <class T> void WidgetHistogram::SetInputData( T* data, long size, doubl
         m_dInputRange[1] = m_dInputData[i];
       }
     }
+
     m_nInputSize = size;
     m_dOutputRange[0] = m_dInputRange[0];
     m_dOutputRange[1] = m_dInputRange[1];

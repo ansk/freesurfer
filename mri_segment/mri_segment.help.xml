@@ -60,6 +60,8 @@
       <explanation>set the gray matter high limit (default=100.000)</explanation>
       <argument>-wlo,-wm_low &lt;l&gt;</argument>
       <explanation>set the white matter low limit (default=90.000)</explanation>
+      <argument>-wm_low_factor &lt;f&gt;</argument>
+      <explanation>wm_low = f*gray_mean + (1-f)*white_mean;</explanation>
       <argument>-whi,-wm_hi &lt;h&gt;</argument>
       <explanation>set the white matter high limit (default=125.000)</explanation>
       <argument>-nseg &lt;n&gt;</argument>
@@ -83,7 +85,23 @@
       <argument>-x &lt;filename&gt;</argument>
       <explanation>extract options from filename</explanation>
       <argument>-w &lt;w&gt;</argument>
-      <explanation>set wsize (default=11)</explanation>
+      <explanation>set wsize (default=11 voxels)</explanation>
+      <argument>-wsizemm &lt;wsizemm&gt;</argument>
+      <explanation>set wsize based on mm instead of voxels</explanation>
+      <argument>-polvwsize &lt;w&gt;</argument>
+      <explanation>set wsize for plane of least variance (default=5)</explanation>
+      <argument>-polvlen &lt;w&gt;</argument>
+      <explanation>set len for plane of least variance (default=3)</explanation>
+      <argument>-dat datfile</argument>
+      <explanation>set datfile (default is segment.dat)</explanation>
+      <argument>-seg segmenationvolume SegErodeMM WMBiasFactor</argument>
+      <explanation>Uses segmentation (eg, aseg.presurf.mgz) to set thresholds</explanation>
+      <argument>-diagno diagno</argument>
+      <explanation>Set diagnostic number</explanation>
+      <argument>-diag-write</argument>
+      <explanation>Set diagnostic write</explanation>
+      <argument>-diag-verbose</argument>
+      <explanation>Set diagnostic verbose</explanation>
       <argument>-u</argument>
       <explanation>usage</explanation>
     </optional-flagged>

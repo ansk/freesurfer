@@ -1,15 +1,4 @@
-/**
- * @file  mrinorm.h
- * @brief REPLACE_WITH_ONE_LINE_SHORT_DESCRIPTION
- *
- * REPLACE_WITH_LONG_DESCRIPTION_OR_REFERENCE
- */
 /*
- * Original Author: REPLACE_WITH_FULL_NAME_OF_CREATING_AUTHOR 
- * CVS Revision Info:
- *    $Author: fischl $
- *    $Date: 2016/11/30 15:47:09 $
- *    $Revision: 1.35 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -135,7 +124,7 @@ int MRI3dUseLabelControlPoints(MRI *mri, LABEL *area) ;
 int MRI3dWriteControlPoints(char *control_volume_fname) ;
 int MRI3dWriteBias(char *bias_volume_fname) ;
 MRI *MRIaverageFixedPoints(MRI *mri_src, MRI *mri_ctrl, MRI *mri_dst,int niter) ;
-int MRInormAddFileControlPoints(MRI *mri_ctrl, int value) ;
+int MRInormAddFileControlPoints(MRI *mri_ctrl, int value, MRI *mri) ;
 MRI *MRInormFindControlPointsInWindow(MRI *mri_src, float wm_target,
                                       float intensity_above,
                                       float intensity_below, MRI *mri_ctrl,

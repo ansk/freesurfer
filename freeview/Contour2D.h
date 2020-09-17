@@ -1,14 +1,9 @@
 /**
- * @file  Contour2D.h
  * @brief Contour2D data object.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2013/02/05 20:51:41 $
- *    $Revision: 1.11 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -35,7 +30,7 @@ class vtkRenderer;
 class vtkImageData;
 class vtkActor;
 class vtkImageActor;
-class vtkImageResample;
+class vtkImageReslice;
 class vtkImageThreshold;
 class vtkSimpleLabelEdgeFilter;
 class vtkImageMapToColors;
@@ -50,10 +45,7 @@ public:
   Contour2D( RenderView2D* view );
   virtual ~Contour2D();
 
-  vtkImageData* GetInputImage()
-  {
-    return m_imageInput;
-  }
+  vtkImageData* GetInputImage();
 
   void SetInput( vtkImageData* imagedata, double dContourValue, double dSliceLocation, int active_frame = 0 );
 
@@ -72,7 +64,7 @@ public:
     m_nPlane = nPlane;
   }
 
-  void UpdateSliceLocation( double slice_location );
+  void UpdateSliceLocation( double slice_location, bool bForced = false );
 
   void Reset();
 
@@ -123,12 +115,12 @@ protected:
   double          m_dSliceLocation;
   double          m_dContourValue;
   bool            m_bSmooth;
-  vtkImageData*   m_imageInput;
+  vtkSmartPointer<vtkImageData>   m_imageInput;
   double          m_dContourColor[3];
 
   vtkSmartPointer<vtkImageActor>      m_actorContour;
   vtkSmartPointer<vtkImageThreshold>  m_filterThreshold;
-  vtkSmartPointer<vtkImageResample>   m_filterResample;
+  vtkSmartPointer<vtkImageReslice>   m_filterResample;
   vtkSmartPointer<vtkSimpleLabelEdgeFilter> m_filterEdge;
   vtkSmartPointer<vtkImageMapToColors>      m_colormap;
   vtkSmartPointer<vtkImageGaussianSmooth>   m_filterSmooth;

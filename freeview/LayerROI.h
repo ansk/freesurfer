@@ -1,14 +1,9 @@
 /**
- * @file  LayerROI.h
  * @brief Layer data object for MRI volume.
  *
  */
 /*
  * Original Author: Ruopeng Wang
- * CVS Revision Info:
- *    $Author: rpwang $
- *    $Date: 2017/02/08 21:01:00 $
- *    $Revision: 1.30 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -28,6 +23,7 @@
 
 #include "LayerVolumeBase.h"
 #include "vtkSmartPointer.h"
+#include <QVector>
 
 class FSLabel;
 class vtkImageReslice;
@@ -42,6 +38,10 @@ class vtkProp;
 class LayerMRI;
 class LayerPropertyROI;
 class LayerSurface;
+
+ 
+#include "label.h"
+
 
 class LayerROI : public LayerVolumeBase
 {
@@ -66,7 +66,7 @@ public:
   virtual void Undo();
   virtual void Redo();
 
-  virtual void SaveForUndo(int nPlane = 0);
+  virtual void SaveForUndo(int nPlane = -1, bool bAllFrames = false );
 
   inline LayerPropertyROI* GetProperty()
   {
@@ -76,8 +76,6 @@ public:
   bool SaveROI();
 
   void UpdateLabelData();
-
-  virtual void SetModified();
 
   bool GetCentroidPosition(double* pos);
 
@@ -91,22 +89,33 @@ public:
 
   void MapLabelColorData( unsigned char* colordata, int nVertexCount);
 
+  LABEL*  GetRawLabel();
+
+  LayerMRI* GetRefMRI()
+  {
+    return m_layerSource;
+  }
+
 public slots:
+
+  virtual void SetModified();
   void UpdateOpacity();
   void UpdateColorMap();
   void UpdateThreshold();
   void SetMappedSurface(LayerSurface* s);
   void OnUpdateLabelRequested();
   void EditVertex(int nvo, bool bAdd);
-  void EditVertex(const QList<int> list_nvo, bool bAdd);
+  void EditVertex(const QVector<int> list_nvo, bool bAdd);
   void Dilate(int nTimes = 1);
   void Erode(int nTimes = 1);
   void Open(int nTimes = 1);
   void Close(int nTimes = 1);
   void Resample();
+  void Clear();
+  void OnSurfaceDestroyed(QObject* obj);
 
 protected slots:
-  void OnBaseVoxelEdited(const QList<int> voxel_list, bool bAdd);
+  void OnBaseVoxelEdited(const QVector<int>& voxel_list, bool bAdd);
 
 protected:
   bool DoRotate( std::vector<RotationElement>& rotations );
@@ -114,6 +123,8 @@ protected:
   void InitializeActors();
   void UpdateProperties();
   void OnLabelDataUpdated();
+  void UpdateFilteredImage(vtkImageData* mask_before, vtkImageData* mask_after);
+  vtkSmartPointer<vtkImageData> GetThresholdedMaskImage();
 
   virtual void OnSlicePositionChanged( int nPlane );
 

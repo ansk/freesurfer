@@ -1,5 +1,4 @@
 /**
- * @file  mrispline.h
  * @brief Compute B-Spline Coefficients and Interpolate MRI
  *
  * This Code is based on:
@@ -13,10 +12,6 @@
  */
 /*
  * Original Author: Martin Reuter
- * CVS Revision Info:
- *    $Author: mreuter $
- *    $Date: 2012/11/01 19:03:46 $
- *    $Revision: 1.6 $
  *
  * Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
  *
@@ -32,10 +27,6 @@
 
 #ifndef MRIBSPLINE_H
 #define MRIBSPLINE_H
-
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
 #include "mri.h"
 #include "transform.h"
@@ -77,9 +68,9 @@ MRI *MRIlinearTransformBSpline(const MRI_BSPLINE *bspline, MRI *mri_dst, MATRIX 
 /** Based on pre-computed B-spline coefficients interpolate image using RAS map MATRIX*/
 MRI *MRIapplyRASlinearTransformBSpline(const MRI_BSPLINE *bspline, MRI *mri_dst, MATRIX *mA) ;
 
+
 /** Based on pre-computed B-spline coefficients interpolate image using LTA*/
 MRI *LTAtransformBSpline(const MRI_BSPLINE *bspline, MRI *mri_dst, LTA *lta) ;
-
 
 
 /** Direct methods for downsample (based on simplified algorithm) */
@@ -87,10 +78,5 @@ MRI *MRIdownsample2BSpline(const MRI* mri_src, MRI *mri_dst) ;
 
 /** Direct methods for upsample (based on simplified algorithm) */
 MRI *MRIupsample2BSpline(const MRI* mri_src, MRI *mri_dst) ;
-
-
-#if defined(__cplusplus)
-};
-#endif
 
 #endif

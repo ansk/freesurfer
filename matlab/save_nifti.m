@@ -10,16 +10,11 @@ function err = save_nifti(hdr,niftifile)
 % reshaped to 27307x1x6xnframes. This is for handling the 7th
 % order icosahedron used by FS group analysis.
 %
-% $Id: save_nifti.m,v 1.14 2011/10/17 19:58:37 nicks Exp $
 
 %
 % save_nifti.m
 %
 % Original Author: Doug Greve
-% CVS Revision Info:
-%    $Author: nicks $
-%    $Date: 2011/10/17 19:58:37 $
-%    $Revision: 1.14 $
 %
 % Copyright © 2011 The General Hospital Corporation (Boston, MA) "MGH"
 %
@@ -68,7 +63,11 @@ hdr.db_name = [hdr.db_name(:)' repmat(' ',[1 18])];
 hdr.db_name = hdr.db_name(1:18);
 
 hdr.dim = ones(1,8);
-hdr.dim(1) = 4;
+if size(hdr.vol,4)>1
+  hdr.dim(1) = 4;
+else 
+  hdr.dim(1) = 3;
+end
 hdr.dim(2) = size(hdr.vol,1);
 hdr.dim(3) = size(hdr.vol,2);
 hdr.dim(4) = size(hdr.vol,3);
